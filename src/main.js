@@ -1,0 +1,620 @@
+/**
+ * src/main.js
+ * 算数探検ラボ - Main Application Controller & SPA Router
+ *
+ * Dual capability:
+ * 1. Headless pure Router contract (routes, parseRoute) matching RouterReference
+ * 2. Full browser SPA controller (MathLabApp) managing hash router (#map, #stage, #lesson, #treasure, #parent),
+ *    offline/online sync, speech/audio lifecycles, and 5-stage interactive arena.
+ */
+
+import * as CurriculumEngine from './services/curriculum-engine.js';
+import * as StorageService from './services/storage-service.js';
+import * as SoundEffects from './services/sound-effects.js';
+import * as SpeechService from './services/speech-service.js';
+import * as GamificationEngine from './services/gamification-engine.js';
+
+import CanvasPad, { clear as clearPad } from './components/canvas-pad.js';
+import Keypad, { getValue as getKeypadValue } from './components/keypad.js';
+import StepGuideModal from './components/step-guide.js';
+import { showToast, createToast } from './components/toast-feedback.js';
+import MiniLessonModal from './components/mini-lesson.js';
+import StageMap from './components/stage-map.js';
+import TreasureBox, { addItem as addTreasureItem } from './components/treasure-box.js';
+import ParentBoard from './components/parent-board.js';
+
+// --- HEADLESS COMPATIBLE ROUTER REFERENCE CONTRACT ---
+
+export const routes = ['#map', '#stage', '#treasure', '#parent', '#lesson'];
+
+/**
+ * ハッシュルートを解析してビューとパラメータを抽出
+ * @param {string} hash 例: '#stage/stage-1', '#map', ''
+ * @returns {{ view: string, param: string|null }}
+ */
+export function parseRoute(hash) {
+  if (!hash || typeof hash !== 'string') {
+    return { view: '#map', param: null };
+  }
+
+  const clean = hash.startsWith('#') ? hash : '#' + hash;
+  const [pathPart, idPart] = clean.split('/');
+  const view = pathPart || '#map';
+  const param = idPart || null;
+
+  const safeView = routes.includes(view) ? view : '#map';
+  return { view: safeView, param };
+}
+
+// --- GLOBAL APPLICATION CONTROLLER ---
+
+export class MathLabApp {
+  constructor() {
+    this.progress = null;
+    this.currentRoute = { view: '#map', param: null };
+    this.activeViewComponent = null;
+    this.currentSession = null;
+    this.isMuted = false;
+    this.arenaCanvasPad = null;
+    this.arenaKeypad = null;
+    this.arenaStepGuide = null;
+    this.stageCompleteModal = null;
+  }
+
+  async init() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return this;
+    }
+
+    // 1. Load User Progress (localStorage <-> server /api/progress)
+    try {
+      this.progress = await StorageService.loadProgress();
+    } catch {
+      this.progress = StorageService.createDefaultProgress();
+    }
+
+    if (!this.progress) {
+      this.progress = StorageService.createDefaultProgress();
+    }
+
+    // 2. Setup Global UI Elements & Event Listeners
+    this.setupGlobalEvents();
+    this.updateHeaderStats();
+    this.checkCheerBanner();
+
+    // 3. Initialize Router on current initial hash
+    this.handleRoute();
+
+    return this;
+  }
+
+  setupGlobalEvents() {
+    // Hash router listener
+    window.addEventListener('hashchange', () => this.handleRoute());
+
+    // Online / Offline sync listeners
+    window.addEventListener('online', () => {
+      const banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.remove('visible');
+      StorageService.flushPendingSync().catch(() => {});
+    });
+    window.addEventListener('offline', () => {
+      const banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.add('visible');
+    });
+
+    // Sound toggle button
+    const soundBtn = document.getElementById('btn-sound-toggle');
+    if (soundBtn) {
+      soundBtn.addEventListener('click', () => {
+        this.isMuted = SoundEffects.toggleMute();
+        soundBtn.textContent = this.isMuted ? '🔇' : '🔊';
+        soundBtn.setAttribute('aria-label', this.isMuted ? '音声をオンにする' : '音声をミュートする');
+      });
+    }
+
+    // Header Navigation buttons
+    const logoHome = document.getElementById('header-logo');
+    if (logoHome) {
+      logoHome.addEventListener('click', () => {
+        window.location.hash = '#map';
+      });
+    }
+
+    const btnTreasure = document.getElementById('btn-nav-treasure');
+    if (btnTreasure) {
+      btnTreasure.addEventListener('click', () => {
+        window.location.hash = '#treasure';
+      });
+    }
+
+    const btnParent = document.getElementById('btn-nav-parent');
+    if (btnParent) {
+      btnParent.addEventListener('click', () => {
+        window.location.hash = '#parent';
+      });
+    }
+  }
+
+  updateHeaderStats() {
+    if (!this.progress) return;
+    const rankTitleEl = document.getElementById('header-rank-title');
+    const selfCorrectEl = document.getElementById('header-self-correct-count');
+
+    const profile = GamificationEngine.getUserProfile(this.progress.gamification);
+    if (rankTitleEl && profile?.rank?.title) {
+      rankTitleEl.textContent = profile.rank.title;
+    }
+    if (selfCorrectEl) {
+      selfCorrectEl.textContent = String(profile?.selfCorrectionCount ?? 0);
+    }
+  }
+
+  checkCheerBanner() {
+    const banner = document.getElementById('cheer-banner');
+    if (!banner || !this.progress?.parentCheer) return;
+
+    const unread = this.progress.parentCheer.cheerMessages?.find(m => !m.readByChild);
+    if (unread) {
+      banner.style.display = 'flex';
+      const textEl = document.getElementById('cheer-banner-text');
+      if (textEl) {
+        textEl.textContent = unread.customText || 'おうちの人から応援スタンプが届いています！';
+      }
+      const btn = document.getElementById('btn-read-cheer');
+      if (btn) {
+        btn.onclick = () => {
+          unread.readByChild = true;
+          banner.style.display = 'none';
+          SoundEffects.playSound('stamp');
+          StorageService.saveProgress(this.progress).catch(() => {});
+        };
+      }
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  handleRoute() {
+    SpeechService.stopSpeech();
+    const route = parseRoute(window.location.hash);
+    this.currentRoute = route;
+
+    const container = document.getElementById('view-container');
+    if (!container) return;
+
+    // Cleanup active view component
+    if (this.activeViewComponent && typeof this.activeViewComponent.destroy === 'function') {
+      this.activeViewComponent.destroy();
+    }
+    this.activeViewComponent = null;
+
+    // Cleanup arena subcomponents
+    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
+      this.arenaCanvasPad.destroy();
+    }
+    this.arenaCanvasPad = null;
+
+    if (this.arenaKeypad && typeof this.arenaKeypad.destroy === 'function') {
+      this.arenaKeypad.destroy();
+    }
+    this.arenaKeypad = null;
+
+    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
+      this.arenaStepGuide.destroy();
+    }
+    this.arenaStepGuide = null;
+
+    // Cleanup stage complete modal
+    if (this.stageCompleteModal) {
+      if (this.stageCompleteModal.parentNode) {
+        this.stageCompleteModal.parentNode.removeChild(this.stageCompleteModal);
+      }
+      this.stageCompleteModal = null;
+    }
+
+    // Safeguard: Ensure modal-root has no leaked modal overlays
+    const modalRoot = document.getElementById('modal-root');
+    if (modalRoot) {
+      modalRoot.innerHTML = '';
+    }
+
+    switch (route.view) {
+      case '#map':
+        this.renderStageMap(container);
+        break;
+      case '#stage':
+        this.renderStageArena(container, route.param);
+        break;
+      case '#lesson':
+        this.renderMiniLesson(container, route.param);
+        break;
+      case '#treasure':
+        this.renderTreasureBox(container);
+        break;
+      case '#parent':
+        this.renderParentBoard(container);
+        break;
+      default:
+        this.renderStageMap(container);
+        break;
+    }
+
+    this.updateHeaderStats();
+    this.checkCheerBanner();
+  }
+
+  // --- VIEW RENDERERS ---
+
+  renderStageMap(container) {
+    this.activeViewComponent = new StageMap({
+      container,
+      progress: this.progress,
+      onSelectStage: (stageId) => {
+        window.location.hash = `#stage/${stageId}`;
+      },
+      onOpenLesson: (stageId) => {
+        window.location.hash = `#lesson/${stageId}`;
+      }
+    }).mount(container);
+  }
+
+  renderMiniLesson(container, stageId = 'stage-1') {
+    const sId = stageId || 'stage-1';
+    const modalRoot = document.getElementById('modal-root') || container;
+
+    this.activeViewComponent = new MiniLessonModal({
+      stageId: sId,
+      progress: this.progress,
+      onComplete: (completedStageId) => {
+        if (this.progress?.stageProgress?.[completedStageId]) {
+          this.progress.stageProgress[completedStageId].miniLessonSeen = true;
+          StorageService.saveProgress(this.progress).catch(() => {});
+        }
+        window.location.hash = `#stage/${completedStageId}`;
+      },
+      onClose: () => {
+        window.location.hash = '#map';
+      }
+    }).mount(modalRoot);
+  }
+
+  renderStageArena(container, stageParam = 'stage-1') {
+    const stageStr = stageParam || 'stage-1';
+    let stageNum = 1;
+    const match = stageStr.match(/\d+/);
+    if (match) {
+      stageNum = Math.max(1, Math.min(15, Number(match[0])));
+    }
+    const worldId = Math.ceil(stageNum / 3);
+    const stageId = `stage-${stageNum}`;
+
+    // Generate 5 adaptive problems
+    const problems = CurriculumEngine.generateStageProblems(worldId, stageNum);
+
+    this.currentSession = {
+      stageNum,
+      worldId,
+      stageId,
+      problems,
+      currentIndex: 0,
+      attempts: 0,
+      wasSelfCorrected: false,
+      correctCount: 0,
+      firstTryCount: 0,
+      history: []
+    };
+
+    container.innerHTML = `
+      <div class="problem-arena">
+        <!-- Left: Header, Problem, Canvas Pad -->
+        <div class="arena-left">
+          <div class="problem-header-bar">
+            <button type="button" class="btn btn-sm btn-secondary btn-arena-back">◀ マップ</button>
+            <div class="problem-progress">
+              <span style="color:var(--color-accent-cyan);">STAGE ${stageNum}</span>
+              <div class="question-pills">
+                <div class="q-dot active" data-q="0"></div>
+                <div class="q-dot" data-q="1"></div>
+                <div class="q-dot" data-q="2"></div>
+                <div class="q-dot" data-q="3"></div>
+                <div class="q-dot" data-q="4"></div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline btn-arena-lesson">📖 ミニ授業</button>
+          </div>
+
+          <div class="problem-display-card">
+            <div class="problem-prompt" id="arena-problem-prompt"></div>
+          </div>
+
+          <div id="arena-canvas-container" style="flex:1; min-height:280px;"></div>
+        </div>
+
+        <!-- Right: Keypad -->
+        <div class="arena-right">
+          <div id="arena-keypad-container" style="height:100%;"></div>
+        </div>
+      </div>
+    `;
+
+    // Back to map button
+    const backBtn = container.querySelector('.btn-arena-back');
+    if (backBtn) {
+      backBtn.onclick = () => {
+        window.location.hash = '#map';
+      };
+    }
+
+    // Mini lesson button
+    const lessonBtn = container.querySelector('.btn-arena-lesson');
+    if (lessonBtn) {
+      lessonBtn.onclick = () => {
+        window.location.hash = `#lesson/${stageId}`;
+      };
+    }
+
+    // Initialize CanvasPad
+    const canvasContainer = container.querySelector('#arena-canvas-container');
+    if (canvasContainer) {
+      this.arenaCanvasPad = new CanvasPad({
+        dpr: (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 2,
+        gridMode: 'none'
+      }).mount(canvasContainer);
+    }
+
+    // Initialize Keypad
+    const keypadContainer = container.querySelector('#arena-keypad-container');
+    const currentProblem = problems[0];
+    const hasRemainder = Boolean(currentProblem?.hasRemainder);
+
+    if (keypadContainer) {
+      this.arenaKeypad = new Keypad({
+        hasRemainder,
+        onSound: (snd) => SoundEffects.playSound(snd),
+        onSubmit: (value) => this.handleArenaSubmit(value)
+      }).mount(keypadContainer);
+    }
+
+    this.updateArenaProblemDisplay();
+  }
+
+  updateArenaProblemDisplay() {
+    const session = this.currentSession;
+    if (!session) return;
+
+    const prob = session.problems[session.currentIndex];
+    if (!prob) return;
+
+    const promptEl = document.getElementById('arena-problem-prompt');
+    if (promptEl) {
+      const promptText = prob.prompt || `${prob.operands?.[0]} ${prob.operator} ${prob.operands?.[1]} = ?`;
+      promptEl.innerHTML = `<span>${promptText}</span>`;
+    }
+
+    // Update dots
+    for (let i = 0; i < 5; i++) {
+      const dot = document.querySelector(`.q-dot[data-q="${i}"]`);
+      if (dot) {
+        dot.className = 'q-dot';
+        if (i < session.currentIndex) {
+          dot.classList.add('completed');
+        } else if (i === session.currentIndex) {
+          dot.classList.add('active');
+        }
+      }
+    }
+
+    // Reset keypad to match problem remainder mode
+    if (this.arenaKeypad) {
+      this.arenaKeypad.reset(Boolean(prob.hasRemainder));
+    }
+
+    // Clear canvas between problems
+    if (this.arenaCanvasPad && this.arenaCanvasPad.state) {
+      clearPad(this.arenaCanvasPad.state);
+      this.arenaCanvasPad.clearCanvas?.();
+    }
+
+    session.attempts = 0;
+    session.wasSelfCorrected = false;
+  }
+
+  handleArenaSubmit(answerValue) {
+    const session = this.currentSession;
+    if (!session) return;
+
+    const prob = session.problems[session.currentIndex];
+    if (!prob) return;
+
+    const result = CurriculumEngine.evaluateAnswer(prob, answerValue);
+
+    if (result.isCorrect) {
+      // Correct!
+      session.correctCount++;
+      const isFirstTry = session.attempts === 0;
+      if (isFirstTry) {
+        session.firstTryCount++;
+      }
+
+      // Gamification scoring
+      GamificationEngine.recordResult({
+        isCorrect: true,
+        wasSelfCorrected: session.wasSelfCorrected
+      });
+
+      if (session.wasSelfCorrected) {
+        SoundEffects.playSound('self_correct');
+        showToast(null, 'self-correct', '自分で気づいて直せたね！すばらしい！');
+      } else {
+        SoundEffects.playSound('correct');
+        showToast(null, 'encourage', '大正解！その調子！');
+      }
+
+      this.updateHeaderStats();
+
+      // Advance to next problem or clear stage
+      session.currentIndex++;
+      if (session.currentIndex >= 5) {
+        this.handleArenaStageComplete();
+      } else {
+        setTimeout(() => {
+          this.updateArenaProblemDisplay();
+        }, 600);
+      }
+    } else {
+      // Incorrect - NEVER show X!
+      session.attempts++;
+      SoundEffects.playSound('near_miss');
+
+      // Diagnose error
+      CurriculumEngine.diagnoseError(prob, answerValue);
+
+      // Quarantine problem in Power-Up Treasure Box
+      if (this.progress?.treasureBox) {
+        addTreasureItem(this.progress.treasureBox, prob);
+        StorageService.saveProgress(this.progress).catch(() => {});
+      }
+
+      // Show warm amber encouragement toast
+      showToast(null, 'encourage', 'おしい！もう一歩！');
+
+      // Open StepGuideModal for scaffolding self-correction
+      this.launchStepGuide(prob);
+    }
+  }
+
+  launchStepGuide(problem) {
+    const modalRoot = document.getElementById('modal-root') || document.body;
+
+    this.arenaStepGuide = new StepGuideModal({
+      problem,
+      onComplete: () => {
+        if (this.currentSession) {
+          this.currentSession.wasSelfCorrected = true;
+        }
+        showToast(null, 'hint', 'ステップ完了！もう一度問題に挑戦しよう！');
+        this.arenaStepGuide?.destroy();
+        this.arenaStepGuide = null;
+      },
+      onClose: () => {
+        this.arenaStepGuide?.destroy();
+        this.arenaStepGuide = null;
+      }
+    });
+
+    this.arenaStepGuide.open(modalRoot);
+  }
+
+  handleArenaStageComplete() {
+    const session = this.currentSession;
+    if (!session) return;
+
+    SoundEffects.playSound('stage_clear');
+
+    // Calculate stars
+    const stars = GamificationEngine.calculateStageStars({
+      totalQuestions: 5,
+      firstTryCorrectCount: session.firstTryCount,
+      selfCorrectedCount: session.wasSelfCorrected ? 1 : 0
+    });
+
+    // Update progress
+    if (!this.progress.stageProgress) {
+      this.progress.stageProgress = {};
+    }
+    const prev = this.progress.stageProgress[session.stageId] || {};
+    this.progress.stageProgress[session.stageId] = {
+      ...prev,
+      cleared: true,
+      stars: Math.max(prev.stars || 0, stars),
+      bestScore: Math.max(prev.bestScore || 0, session.correctCount * 10),
+      lastPlayed: new Date().toISOString()
+    };
+
+    // Save progress
+    StorageService.saveProgress(this.progress).catch(() => {});
+    this.updateHeaderStats();
+
+    // Show completion modal
+    const modalRoot = document.getElementById('modal-root') || document.body;
+
+    if (this.stageCompleteModal && this.stageCompleteModal.parentNode) {
+      this.stageCompleteModal.parentNode.removeChild(this.stageCompleteModal);
+      this.stageCompleteModal = null;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '460px';
+    card.style.textAlign = 'center';
+    card.style.padding = '32px';
+
+    const starString = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+
+    card.innerHTML = `
+      <div style="font-size:3rem; margin-bottom:8px;">🏆</div>
+      <h2 style="font-size:1.6rem; color:var(--color-accent-cyan);">ステージクリア！</h2>
+      <p style="color:var(--color-text-muted); margin:8px 0;">STAGE ${session.stageNum} を見事に攻略しました！</p>
+      <div style="font-size:2.2rem; letter-spacing:4px; color:var(--color-amber-warm); margin:16px 0;">
+        ${starString}
+      </div>
+      <div style="background:rgba(0,0,0,0.3); padding:16px; border-radius:var(--radius-lg); margin-bottom:20px;">
+        <div style="font-size:1.1rem; font-weight:700;">正解数: ${session.correctCount} / 5 問</div>
+      </div>
+      <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.1rem;">
+        マップへ戻る 🗺️
+      </button>
+    `;
+
+    const finishBtn = card.querySelector('.btn-stage-finish');
+    if (finishBtn) {
+      finishBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        window.location.hash = '#map';
+      };
+    }
+
+    overlay.appendChild(card);
+    modalRoot.appendChild(overlay);
+    this.stageCompleteModal = overlay;
+  }
+
+  renderTreasureBox(container) {
+    this.activeViewComponent = new TreasureBox({
+      container,
+      progress: this.progress,
+      onSave: (p) => StorageService.saveProgress(p),
+      onUpdateHeader: () => this.updateHeaderStats()
+    }).mount(container);
+  }
+
+  renderParentBoard(container) {
+    this.activeViewComponent = new ParentBoard({
+      container,
+      progress: this.progress,
+      onSave: (p) => StorageService.saveProgress(p),
+      onTransferRestored: (newProgress) => {
+        this.progress = newProgress;
+        this.updateHeaderStats();
+        showToast(null, 'success', '学習データを引き継ぎました！');
+      }
+    }).mount(container);
+  }
+}
+
+// Auto-boot in browser environment
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  const app = new MathLabApp();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => app.init());
+  } else {
+    app.init();
+  }
+}
+
+export default MathLabApp;

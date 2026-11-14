@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="description" content="小学4年生向け 四則演算ステップアップ学習Webアプリ「算数探検ラボ」">
+  <meta name="apple-mobile-web-app-title" content="算数探検ラボ">
+  <title>算数探検ラボ - 小4四則演算ステップアップ</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+  <link rel="apple-touch-icon" href="./assets/icon.svg">
+
+  <!-- Google Fonts Preconnect & Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800;900&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <!-- CSS Design System -->
+  <link rel="stylesheet" href="./src/styles/variables.css">
+  <link rel="stylesheet" href="./src/styles/base.css">
+  <link rel="stylesheet" href="./src/styles/components.css">
+  <link rel="stylesheet" href="./src/styles/tablet.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header" role="banner">
+      <div class="logo-area" id="header-logo" role="button" tabindex="0" aria-label="算数探検ラボ ホームへ">
+        <span class="logo-icon" aria-hidden="true">🧭</span>
+        <span class="logo-title">算数探検ラボ</span>
+        <span class="logo-badge">小4算数</span>
+      </div>
+
+      <div class="header-status">
+        <div class="rank-badge" id="header-rank" aria-label="現在の探検ランク">
+          <span aria-hidden="true">🏅</span>
+          <span id="header-rank-title">見習い探検員</span>
+        </div>
+        <div class="self-correct-counter" id="header-self-correct" aria-label="自分で気づいて直せた回数">
+          <span aria-hidden="true">💡</span>
+          <span>じぶん修正: <strong id="header-self-correct-count">0</strong>回</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" class="icon-btn" id="btn-sound-toggle" aria-label="音声のオン/オフ切替">🔊</button>
+        <button type="button" class="icon-btn" id="btn-nav-treasure" aria-label="パワーアップ宝箱を開く">💎</button>
+        <button type="button" class="icon-btn" id="btn-nav-parent" aria-label="保護者応援ボードを開く">🛡️</button>
+      </div>
+    </header>
+
+    <!-- Offline Banner -->
+    <div id="offline-banner" class="offline-banner" role="status" aria-live="polite">
+      ⚡ オフラインモードで動作中（学習データは端末に保存され、再接続時に自動同期されます）
+    </div>
+
+    <!-- Parent Cheer Banner -->
+    <div id="cheer-banner" class="cheer-banner" style="display:none;" role="alert">
+      <div class="cheer-banner-content">
+        <span class="cheer-stamp-icon" id="cheer-banner-stamp" aria-hidden="true">💌</span>
+        <span class="cheer-text" id="cheer-banner-text">おうちの人から応援メッセージが届いています！</span>
+      </div>
+      <button type="button" class="btn btn-secondary" id="btn-read-cheer" style="padding:4px 12px; font-size:0.85rem;">確認する</button>
+    </div>
+
+    <!-- Main View Container -->
+    <main id="view-container" class="view-container" role="main"></main>
+
+    <!-- Modal Root -->
+    <div id="modal-root"></div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <!-- Main ES Module Entry Point -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

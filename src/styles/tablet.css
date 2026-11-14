@@ -1,0 +1,82 @@
+/**
+ * tablet.css - Tablet Optimization (Portrait & Landscape)
+ */
+
+/* Responsive breakpoints matching DesignSystemReference */
+@media (max-width: 1023px) {
+  /* Tablet Portrait & Mobile */
+  .problem-arena {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: auto;
+  }
+
+  .arena-left {
+    height: 480px;
+  }
+
+  .arena-right {
+    height: auto;
+  }
+
+  .keypad-container {
+    height: 380px;
+  }
+
+  .app-header {
+    padding: 10px 16px;
+  }
+
+  .logo-title {
+    font-size: 1.1rem;
+  }
+
+  .rank-badge, .self-correct-counter {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Tablet Landscape & Desktop */
+  .problem-arena {
+    grid-template-columns: 1fr 360px;
+    height: calc(100vh - 120px);
+  }
+
+  .arena-left {
+    height: 100%;
+  }
+
+  .arena-right {
+    height: 100%;
+  }
+
+  .canvas-pad-container {
+    height: 100%;
+  }
+}
+
+/* Touch targets strictly >= 48px */
+button, 
+.btn, 
+.icon-btn, 
+.key-btn, 
+.stamp-btn, 
+.quiz-btn {
+  min-width: 48px;
+  min-height: 48px;
+  touch-action: manipulation;
+}
+
+/* Prevent double-tap zoom on iOS/Android WebViews */
+input, select, textarea {
+  font-size: 16px; /* Prevents auto-zoom on iOS Safari */
+}
+
+/* High contrast and focus rings for accessibility */
+button:focus-visible, 
+input:focus-visible {
+  outline: 3px solid var(--color-accent-cyan);
+  outline-offset: 2px;
+}

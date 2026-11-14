@@ -1,0 +1,71 @@
+/**
+ * variables.css - 算数探検ラボ Design System Tokens
+ */
+:root {
+  /* Core Palette */
+  --color-bg-dark: #0f172a;
+  --color-card-dark: #1e293b;
+  --color-card-border: #334155;
+  --color-primary-lab: #0ea5e9;
+  --color-primary-hover: #0284c7;
+  --color-accent-cyan: #38bdf8;
+  --color-amber-warm: #eab308;
+  --color-amber-hover: #ca8a04;
+  --color-emerald-success: #10b981;
+  --color-emerald-hover: #059669;
+  --color-coral-energy: #f97316;
+  --color-purple-magic: #8b5cf6;
+  
+  /* Text & Surfaces */
+  --color-text-main: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-text-dim: #64748b;
+  --color-surface-hover: rgba(255, 255, 255, 0.06);
+  --color-surface-active: rgba(255, 255, 255, 0.12);
+
+  /* World Theme Colors */
+  --color-world-1: #38bdf8; /* たし算・ひき算: スカイブルー */
+  --color-world-2: #f97316; /* かけ算: オレンジパワー */
+  --color-world-3: #10b981; /* わり算: エメラルドグリーン */
+  --color-world-4: #a855f7; /* 2桁わり算: パープルクエスト */
+  --color-world-5: #eab308; /* 四則混合: ゴールドマスター */
+
+  /* Typography */
+  --font-family-base: 'M PLUS Rounded 1c', 'Zen Maru Gothic', system-ui, -apple-system, sans-serif;
+  --font-family-digits: 'M PLUS Rounded 1c', monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+  --font-size-5xl: 3rem;
+
+  /* Sizing & Spacing */
+  --touch-target-min: 48px;
+  --touch-target-large: 56px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-glow-cyan: 0 0 20px rgba(14, 165, 233, 0.35);
+  --shadow-glow-amber: 0 0 20px rgba(234, 179, 8, 0.35);
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
