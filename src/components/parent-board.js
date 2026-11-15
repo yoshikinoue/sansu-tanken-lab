@@ -99,10 +99,11 @@ export class ParentBoard {
   update(progress) {
     this.progress = progress;
     if (this.rootEl && this.rootEl.parentNode) {
-      const parent = this.rootEl.parentNode;
+      const oldEl = this.rootEl;
+      const parent = oldEl.parentNode;
       const newEl = this.render();
-      if (newEl) {
-        parent.replaceChild(newEl, this.rootEl);
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
         this.rootEl = newEl;
       }
     }

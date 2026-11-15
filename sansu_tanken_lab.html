@@ -1034,13 +1034,85 @@ canvas.memo-canvas {
 }
 
 .lesson-image-placeholder {
-  background: rgba(14, 165, 233, 0.1);
-  border: 2px dashed rgba(14, 165, 233, 0.3);
+  background: rgba(14, 165, 233, 0.08);
+  border: 2px dashed rgba(14, 165, 233, 0.35);
   border-radius: var(--radius-lg);
-  padding: 30px;
-  text-align: center;
-  font-size: 1.2rem;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.lesson-concept-badge {
+  display: inline-block;
+  align-self: flex-start;
+  background: rgba(14, 165, 233, 0.2);
+  color: var(--color-accent-cyan);
+  border: 1px solid rgba(14, 165, 233, 0.4);
+  border-radius: var(--radius-md);
+  padding: 4px 12px;
+  font-size: 0.9rem;
   font-weight: 700;
+}
+
+.lesson-concept-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.lesson-visual-diagram {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lesson-visual-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-amber-warm);
+}
+
+.lesson-visual-rows {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: #e2e8f0;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+
+.lesson-visual-row {
+  white-space: pre;
+}
+
+.lesson-visual-tip {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-emerald-success);
+}
+
+.lesson-text {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.65;
+  color: #f8fafc;
+}
+
+.lesson-detail-body {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--color-text-muted);
 }
 
 .quiz-options {
@@ -10882,6 +10954,173 @@ const __default_export = {
 
 const SpeechService = __mods['services/speech-service.js'];
 const SoundEffects = __mods['services/sound-effects.js'];
+const { WORLDS_METADATA } = __mods['services/curriculum-engine.js'];
+
+const LESSON_VISUALS = {
+  'stage-1': {
+    badge: 'ひっ算の例：257 + 128',
+    diagramLines: [
+      '    2  5¹ 7   ← 7 + 8 = 15',
+      '  + 1  2  8      十の位へ「1」お引っ越し！',
+      '  ─────────',
+      '    3  8  5'
+    ],
+    tip: '10をこえたら、すぐ左の位の上に小さく「1」をメモしよう！'
+  },
+  'stage-2': {
+    badge: 'ひっ算の例：402 - 157',
+    diagramLines: [
+      '    3  9  12  ← 百の位から10をリレー！',
+      '    4̶  0̶  2',
+      '  - 1  5  7      十の位 0 は「9」に変身',
+      '  ─────────',
+      '    2  4  5'
+    ],
+    tip: '引けない時はとなりから「10」借りる！0をまたぐ時は「9」になるよ。'
+  },
+  'stage-3': {
+    badge: '逆算の例：□ を見つける！',
+    diagramLines: [
+      '  248 + □ = 615  ⇒  □ = 615 - 248 = 367',
+      '  □ - 184 = 356  ⇒  □ = 356 + 184 = 540'
+    ],
+    tip: 'たし算の逆はひき算、ひき算の逆はたし算で□が見つかる！'
+  },
+  'stage-4': {
+    badge: 'かけ算の例：60 × 40',
+    diagramLines: [
+      '  ① 0をかくす → 6 × 4 = 24',
+      '  ② かくした0を合体 → 24 に 0 を2こ → 2400'
+    ],
+    tip: 'まず0をかくして九九を計算し、最後に0の個数を右につけよう！'
+  },
+  'stage-5': {
+    badge: 'ひっ算の例：408 × 6',
+    diagramLines: [
+      '    4  0⁴ 8   ← 一の位: 8 × 6 = 48（4くり上がり）',
+      '  ×       6      十の位: 0 × 6 + 4 = 4',
+      '  ─────────',
+      '  2 4  4  8'
+    ],
+    tip: '九九をかけたあとに、くり上がりのメモを足し忘れないように！'
+  },
+  'stage-6': {
+    badge: 'ひっ算の例：23 × 14',
+    diagramLines: [
+      '       2 3',
+      '    ×  1 4',
+      '    ──────',
+      '       9 2   ← 1段目：23 × 4',
+      '  +  2 3 ⬚   ← 2段目：十の位の下から書く！',
+      '    ──────',
+      '     3 2 2'
+    ],
+    tip: '十の位をかけた2段目は、左に1マスずらして十の位の下から書こう！'
+  },
+  'stage-7': {
+    badge: '検算の例：53 ÷ 7',
+    diagramLines: [
+      '  53 ÷ 7 = 7 あまり 4',
+      '  ✔ ルール: あまり(4) ＜ わる数(7)',
+      '  ✔ 検算:   7 × 7 + 4 = 53'
+    ],
+    tip: 'あまりは必ずわる数より小さい！「わる数×商＋あまり」で確かめよう！'
+  },
+  'stage-8': {
+    badge: 'わり算筆算の4ステップ：76 ÷ 3',
+    diagramLines: [
+      '  ① たてる → ② かける → ③ ひく → ④ おろす',
+      '  例：76 ÷ 3 → 25 あまり 1  (3 × 25 + 1 = 76)'
+    ],
+    tip: '上の位から「たてる・かける・ひく・おろす」の4拍子を繰り返そう！'
+  },
+  'stage-9': {
+    badge: 'ひっ算の例：624 ÷ 3',
+    diagramLines: [
+      '     2 0 8   ← 十の位: 2 ÷ 3 は割れないので「0」!',
+      '  3 ) 6 2 4',
+      '      6',
+      '      ───',
+      '        2 4  ← 4をおろして 24 ÷ 3 = 8'
+    ],
+    tip: 'おろしても割れないときは、商に「0」をたてて位を守ろう！'
+  },
+  'stage-10': {
+    badge: '工夫の例：170 ÷ 30',
+    diagramLines: [
+      '  ① 両方から0を1個かくす → 17 ÷ 3 = 5 あまり 2',
+      '  ② あまりには0を戻す   → 答え：5 あまり 20'
+    ],
+    tip: '商は0を消したまま計算、あまりには消した0を戻すのがルール！'
+  },
+  'stage-11': {
+    badge: '見積もりの例：84 ÷ 21',
+    diagramLines: [
+      '  わる数 21 → 「およそ 20」と考える',
+      '  80 ÷ 20 = 4 → 仮の商を「4」に見当づけ！（21 × 4 = 84）'
+    ],
+    tip: 'わる数を「およそ何十」と丸めると、最初の商の見当が一発でつくよ！'
+  },
+  'stage-12': {
+    badge: '修正の例：87 ÷ 29',
+    diagramLines: [
+      '  × 商を4にすると → 29 × 4 = 116（87から引けない！）',
+      '  ○ 商を1減らす  → 29 × 3 = 87 （ぴったり！）'
+    ],
+    tip: 'かけて引けないときは商を「-1」、あまりが大きすぎたら「+1」しよう！'
+  },
+  'stage-13': {
+    badge: '順序の例：100 - (35 + 28)',
+    diagramLines: [
+      '  ① カッコの中を最優先：35 + 28 = 63',
+      '  ② 外を計算する：     100 - 63 = 37'
+    ],
+    tip: '式の中に ( ) があったら、どんな場所でも真っ先に計算しよう！'
+  },
+  'stage-14': {
+    badge: '優先の例：20 + 15 × 3',
+    diagramLines: [
+      '  ① かけ算・わり算が先：15 × 3 = 45',
+      '  ② たし算・ひき算は後：20 + 45 = 65'
+    ],
+    tip: '＋－より ×÷ の方が強い！左から順番とは限らないので注意しよう！'
+  },
+  'stage-15': {
+    badge: '工夫の例：100のまとまり！',
+    diagramLines: [
+      '  25 × 36 = (25 × 4) × 9 = 100 × 9 = 900',
+      '  37 × 4 + 63 × 4 = (37 + 63) × 4 = 100 × 4 = 400'
+    ],
+    tip: '「25×4=100」や同じ数をまとめる工夫で暗算レベルにスピードアップ！'
+  }
+};
+
+function getCurriculumLessonMeta(stageId) {
+  if (!Array.isArray(WORLDS_METADATA)) return null;
+  const normalizedId = String(stageId || 'stage-1').toLowerCase();
+  for (const world of WORLDS_METADATA) {
+    for (const stage of (world.stages || [])) {
+      if (stage.globalId === normalizedId || `stage-${stage.globalStageNumber}` === normalizedId) {
+        return stage.miniLesson || null;
+      }
+    }
+  }
+  return null;
+}
+
+function renderLessonVisual(stageId) {
+  const key = String(stageId || 'stage-1').toLowerCase();
+  const data = LESSON_VISUALS[key] || LESSON_VISUALS['stage-1'];
+  return `
+    <div class="lesson-visual-diagram">
+      <div class="lesson-visual-header">✏️ ${data.badge}</div>
+      <div class="lesson-visual-rows">
+        ${data.diagramLines.map(line => `<div class="lesson-visual-row">${line}</div>`).join('')}
+      </div>
+      <div class="lesson-visual-tip">🌟 ポイント: ${data.tip}</div>
+    </div>
+  `;
+}
 
 // --- PURE STATE MANAGEMENT FUNCTIONS (HEADLESS COMPATIBLE) ---
 
@@ -10989,6 +11228,7 @@ class MiniLessonModal {
 
     this.state = createLessonState(this.stageId);
     this.lessonData = SpeechService.getMiniLessonData(this.stageId);
+    this.curriculumLessonData = getCurriculumLessonMeta(this.lessonData?.stageId || this.stageId);
     this.modalEl = null;
     this.isOpen = false;
     this.selectedOption = null;
@@ -11005,6 +11245,7 @@ class MiniLessonModal {
     this.stageId = stageId;
     this.state = createLessonState(stageId);
     this.lessonData = SpeechService.getMiniLessonData(stageId);
+    this.curriculumLessonData = getCurriculumLessonMeta(this.lessonData?.stageId || stageId);
     this.selectedOption = null;
     this.lastFeedback = '';
     if (this.isOpen) {
@@ -11074,7 +11315,17 @@ class MiniLessonModal {
     const correctOpt = this.lessonData?.card2?.correctOption || 'A';
     const result = answerQuiz(this.state, optId, correctOpt);
 
-    this.lastFeedback = result.feedback;
+    const card2 = this.lessonData?.card2 || {};
+    const currCard2 = this.curriculumLessonData?.cards?.[1] || null;
+    const chosenChoice = currCard2?.choices?.find(c => c.id === optId);
+    if (chosenChoice?.feedback) {
+      this.lastFeedback = chosenChoice.feedback;
+    } else if (result.correct) {
+      this.lastFeedback = card2.correctFeedback || result.feedback;
+    } else {
+      this.lastFeedback = card2.incorrectFeedback || result.feedback;
+    }
+
     if (result.correct) {
       SoundEffects.playSound('correct');
     } else {
@@ -11123,10 +11374,11 @@ class MiniLessonModal {
 
   refresh() {
     if (!this.modalEl || !this.modalEl.parentNode) return;
-    const parent = this.modalEl.parentNode;
+    const oldEl = this.modalEl;
+    const parent = oldEl.parentNode;
     const newEl = this.render();
-    if (newEl) {
-      parent.replaceChild(newEl, this.modalEl);
+    if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+      parent.replaceChild(newEl, oldEl);
       this.modalEl = newEl;
     }
   }
@@ -11187,9 +11439,18 @@ class MiniLessonModal {
     if (currentIdx === 0) {
       // Card 0: Insight
       const card1 = this.lessonData?.card1 || { title: '着眼点', text: '' };
+      const currCard1 = this.curriculumLessonData?.cards?.[0] || null;
+      const conceptTitle = currCard1?.title || card1.title || 'ひらめきポイント';
+      const conceptBody = currCard1?.body && currCard1.body !== card1.text ? currCard1.body : '';
+      const visualHtml = renderLessonVisual(this.lessonData?.stageId || this.stageId);
       lessonCard.innerHTML = `
-        <div class="lesson-image-placeholder">💡 ${card1.title || 'ひらめきポイント'}</div>
-        <p class="lesson-text" style="font-size:1.15rem; line-height:1.7; padding:12px 0;">${card1.text || ''}</p>
+        <div class="lesson-image-placeholder">
+          <div class="lesson-concept-badge">💡 ${card1.title || '【着眼点・ひらめきカード】'}</div>
+          <h4 class="lesson-concept-title">${conceptTitle}</h4>
+          ${visualHtml}
+          <p class="lesson-text">${card1.text || ''}</p>
+          ${conceptBody ? `<p class="lesson-detail-body">${conceptBody}</p>` : ''}
+        </div>
       `;
     } else if (currentIdx === 1) {
       // Card 1: 2-Choice Quiz
@@ -11248,9 +11509,10 @@ class MiniLessonModal {
           feedbackEl.style.color = 'var(--color-emerald-success)';
           feedbackEl.innerHTML = `✨ ${this.lastFeedback}`;
         } else {
+          const hintText = this.curriculumLessonData?.cards?.[1]?.hint || '';
           feedbackEl.style.background = 'rgba(234, 179, 8, 0.15)';
           feedbackEl.style.color = 'var(--color-amber-warm)';
-          feedbackEl.innerHTML = `💡 ${this.lastFeedback}`;
+          feedbackEl.innerHTML = `💡 ${this.lastFeedback}${hintText ? `<div style="margin-top:6px; font-size:0.9rem; font-weight:600;">🔍 ヒント: ${hintText}</div>` : ''}`;
         }
         quizContainer.appendChild(feedbackEl);
       }
@@ -12465,10 +12727,11 @@ class StageMap {
   update(progress) {
     this.progress = progress;
     if (this.rootEl && this.rootEl.parentNode) {
-      const parent = this.rootEl.parentNode;
+      const oldEl = this.rootEl;
+      const parent = oldEl.parentNode;
       const newEl = this.render();
-      if (newEl) {
-        parent.replaceChild(newEl, this.rootEl);
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
         this.rootEl = newEl;
       }
     }
@@ -12807,10 +13070,11 @@ class TreasureBox {
   update(progress) {
     this.progress = progress;
     if (this.rootEl && this.rootEl.parentNode) {
-      const parent = this.rootEl.parentNode;
+      const oldEl = this.rootEl;
+      const parent = oldEl.parentNode;
       const newEl = this.render();
-      if (newEl) {
-        parent.replaceChild(newEl, this.rootEl);
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
         this.rootEl = newEl;
       }
     }
@@ -13274,10 +13538,11 @@ class ParentBoard {
   update(progress) {
     this.progress = progress;
     if (this.rootEl && this.rootEl.parentNode) {
-      const parent = this.rootEl.parentNode;
+      const oldEl = this.rootEl;
+      const parent = oldEl.parentNode;
       const newEl = this.render();
-      if (newEl) {
-        parent.replaceChild(newEl, this.rootEl);
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
         this.rootEl = newEl;
       }
     }
