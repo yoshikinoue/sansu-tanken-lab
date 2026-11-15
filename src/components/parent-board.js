@@ -213,6 +213,12 @@ export class ParentBoard {
 
     const profile = GamificationEngine.getUserProfile(this.progress?.gamification);
     const radarScores = calculateRadarScores(this.progress);
+    const displaySelfCorrectionCount = Math.max(
+      Number(this.progress?.gamification?.selfCorrectionCount) || 0,
+      Number(profile?.selfCorrectionCount) || 0
+    );
+    const displayRankTitle = profile?.labRank?.title || profile?.rankTitle || profile?.rank?.title || '見習い探検員';
+    const displayStars = profile?.stars ?? profile?.totalStars ?? Object.values(this.progress?.stageProgress || {}).reduce((sum, sp) => sum + (Number(sp?.stars) || 0), 0);
 
     // Top Header & Lock
     const header = document.createElement('div');
@@ -264,7 +270,7 @@ export class ParentBoard {
           </div>
           <div style="display:flex; align-items:baseline; gap:8px; margin:4px 0;">
             <span style="font-size:2.4rem; font-weight:900; color:var(--color-text-main);">
-              ${profile.selfCorrectionCount || 0}
+              ${displaySelfCorrectionCount}
             </span>
             <span style="font-size:1.1rem; color:var(--color-text-muted); font-weight:700;">回 自力修正</span>
           </div>
@@ -275,11 +281,11 @@ export class ParentBoard {
         <div style="display:flex; gap:12px; font-size:0.85rem;">
           <div style="background:rgba(0,0,0,0.3); padding:10px 16px; border-radius:var(--radius-md); text-align:center;">
             <div style="color:var(--color-text-muted);">探検ランク</div>
-            <div style="font-weight:700; color:var(--color-accent-cyan); font-size:1rem;">${profile.rank?.title || '見習い探検員'}</div>
+            <div style="font-weight:700; color:var(--color-accent-cyan); font-size:1rem;">${displayRankTitle}</div>
           </div>
           <div style="background:rgba(0,0,0,0.3); padding:10px 16px; border-radius:var(--radius-md); text-align:center;">
             <div style="color:var(--color-text-muted);">獲得した星</div>
-            <div style="font-weight:700; color:var(--color-amber-warm); font-size:1rem;">⭐ ${profile.totalStars || 0} 個</div>
+            <div style="font-weight:700; color:var(--color-amber-warm); font-size:1rem;">⭐ ${displayStars} 個</div>
           </div>
         </div>
       </div>

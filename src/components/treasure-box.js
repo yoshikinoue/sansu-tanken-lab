@@ -318,6 +318,9 @@ export class TreasureBox {
     const cancelBtn = card.querySelector('.review-cancel-btn');
     const submitBtn = card.querySelector('.review-submit-btn');
     const feedbackBox = card.querySelector('.review-feedback');
+    const singleInput = card.querySelector('.review-answer-input');
+    const quotientInput = card.querySelector('.review-quotient-input');
+    const remainderInput = card.querySelector('.review-remainder-input');
 
     const closeModal = () => {
       if (this.reviewTimer) {
@@ -333,76 +336,126 @@ export class TreasureBox {
     if (closeBtn) closeBtn.onclick = closeModal;
     if (cancelBtn) cancelBtn.onclick = closeModal;
 
-    if (submitBtn) {
-      submitBtn.onclick = () => {
-        let answerVal;
-        if (variation.hasRemainder) {
-          const q = Number(card.querySelector('.review-quotient-input')?.value || 0);
-          const r = Number(card.querySelector('.review-remainder-input')?.value || 0);
-          answerVal = { quotient: q, remainder: r };
-        } else {
-          answerVal = Number(card.querySelector('.review-answer-input')?.value || 0);
-        }
-
-        const evalResult = CurriculumEngine.evaluateAnswer(variation, answerVal);
-
-        if (evalResult.isCorrect) {
-          const wasMasteredBefore = item.masteryLevel === 2;
-          recordAttempt(item, true);
-
-          if (item.masteryLevel === 2) {
-            SoundEffects.playSound('stage_clear');
-            if (feedbackBox) {
-              feedbackBox.style.display = 'block';
-              feedbackBox.style.background = 'rgba(16,185,129,0.2)';
-              feedbackBox.style.color = 'var(--color-emerald-success)';
-              feedbackBox.innerHTML = '🎉 2回連続正解！完全マスター達成！';
-            }
-            if (!wasMasteredBefore) {
-              GamificationEngine.recordTreasureMastered();
-            }
-            showToast(null, 'success', '完全マスター達成！お宝を自分のものにしたよ！');
-          } else {
-            SoundEffects.playSound('correct');
-            if (feedbackBox) {
-              feedbackBox.style.display = 'block';
-              feedbackBox.style.background = 'rgba(14,165,233,0.2)';
-              feedbackBox.style.color = 'var(--color-accent-cyan)';
-              feedbackBox.innerHTML = '✨ 正解！あと1回正解で完全マスター！';
-            }
-          }
-
-          if (typeof this.onSave === 'function' && this.progress) {
-            this.onSave(this.progress);
-          }
-          if (typeof this.onUpdateHeader === 'function') {
-            this.onUpdateHeader();
-          }
-
-          this.reviewTimer = setTimeout(() => {
-            closeModal();
-            this.update(this.progress);
-          }, 1200);
-        } else {
-          SoundEffects.playSound('near_miss');
-          recordAttempt(item, false);
-
+    const handleSubmitReview = () => {
+      let answerVal;
+      if (variation.hasRemainder) {
+        const qRaw = String(quotientInput?.value ?? '').trim();
+        const rRaw = String(remainderInput?.value ?? '').trim();
+        if (qRaw === '') {
           if (feedbackBox) {
             feedbackBox.style.display = 'block';
             feedbackBox.style.background = 'rgba(234,179,8,0.2)';
             feedbackBox.style.color = 'var(--color-amber-warm)';
-            feedbackBox.innerHTML = '💡 おしい！もう一度落ち着いて解いてみよう！';
+            feedbackBox.innerHTML = '💡 商（こたえ）の数字を入力してから「決定！」をおしてね！';
           }
+          quotientInput?.focus?.();
+          return;
+        }
+        answerVal = { quotient: Number(qRaw), remainder: rRaw === '' ? 0 : Number(rRaw) };
+      } else {
+        const raw = String(singleInput?.value ?? '').trim();
+        if (raw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 数字を入力してから「決定！」をおしてね！';
+          }
+          singleInput?.focus?.();
+          return;
+        }
+        answerVal = Number(raw);
+      }
 
-          if (typeof this.onSave === 'function' && this.progress) {
-            this.onSave(this.progress);
+      const evalResult = CurriculumEngine.evaluateAnswer(variation, answerVal);
+
+      if (evalResult.isCorrect) {
+        const wasMasteredBefore = item.masteryLevel === 2;
+        recordAttempt(item, true);
+
+        if (item.masteryLevel === 2) {
+          SoundEffects.playSound('stage_clear');
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(16,185,129,0.2)';
+            feedbackBox.style.color = 'var(--color-emerald-success)';
+            feedbackBox.innerHTML = '🎉 2回連続正解！完全マスター達成！';
+          }
+          if (!wasMasteredBefore) {
+            GamificationEngine.recordTreasureMastered();
+          }
+          showToast(null, 'success', '完全マスター達成！お宝を自分のものにしたよ！');
+        } else {
+          SoundEffects.playSound('correct');
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(14,165,233,0.2)';
+            feedbackBox.style.color = 'var(--color-accent-cyan)';
+            feedbackBox.innerHTML = '✨ 正解！あと1回正解で完全マスター！';
           }
         }
-      };
+
+        if (typeof this.onSave === 'function' && this.progress) {
+          this.onSave(this.progress);
+        }
+        if (typeof this.onUpdateHeader === 'function') {
+          this.onUpdateHeader();
+        }
+
+        this.reviewTimer = setTimeout(() => {
+          closeModal();
+          this.update(this.progress);
+        }, 1200);
+      } else {
+        SoundEffects.playSound('near_miss');
+        recordAttempt(item, false);
+        const diag = evalResult.diagnosis || CurriculumEngine.diagnoseError(variation, answerVal);
+
+        if (feedbackBox) {
+          feedbackBox.style.display = 'block';
+          feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+          feedbackBox.style.color = 'var(--color-amber-warm)';
+          feedbackBox.innerHTML = `💡 ${diag?.adviceMessage || 'おしい！もう一度落ち着いて解いてみよう！'}`;
+        }
+
+        // Clear wrong inputs so the student can re-enter cleanly
+        if (singleInput) {
+          singleInput.value = '';
+          singleInput.focus?.();
+        }
+        if (quotientInput) {
+          quotientInput.value = '';
+          quotientInput.focus?.();
+        }
+        if (remainderInput) {
+          remainderInput.value = '';
+        }
+
+        if (typeof this.onSave === 'function' && this.progress) {
+          this.onSave(this.progress);
+        }
+      }
+    };
+
+    if (submitBtn) {
+      submitBtn.onclick = handleSubmitReview;
     }
+
+    [singleInput, quotientInput, remainderInput].forEach((inp) => {
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            handleSubmitReview();
+          }
+        });
+      }
+    });
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
+    (quotientInput || singleInput)?.focus?.();
   }
 
   destroy() {

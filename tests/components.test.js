@@ -368,6 +368,33 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       assert.deepEqual(sessionUndef.steps, []);
     });
 
+    it('rejects empty, whitespace, null, undefined, and boolean inputs even when expectedStepValue is 0', () => {
+      const zeroStepProb = {
+        id: 'zero-step-prob',
+        stepGuide: [
+          { stepTitle: '余りを書こう', hint: '0も数字だよ', expectedStepValue: 0 }
+        ]
+      };
+      const session = createSession(zeroStepProb);
+      for (const bad of ['', '   ', null, undefined, false, true]) {
+        const res = submitStepAnswer(session, 0, bad);
+        assert.equal(res.success, false);
+        assert.equal(session.completed, false);
+        assert.equal(session.stepAnswers[0], undefined);
+      }
+
+      // Numeric 0 and "0" must still be accepted
+      const sessionNum = createSession(zeroStepProb);
+      const resNum = submitStepAnswer(sessionNum, 0, 0);
+      assert.equal(resNum.success, true);
+      assert.equal(sessionNum.completed, true);
+
+      const sessionStr = createSession(zeroStepProb);
+      const resStr = submitStepAnswer(sessionStr, 0, '0');
+      assert.equal(resStr.success, true);
+      assert.equal(sessionStr.completed, true);
+    });
+
     it('instantiates StepGuideModal and handles lifecycle methods', () => {
       const prob = CurriculumEngineReference.generateSingleProblem(1, 1, 1, 2);
       const modal = new StepGuideModal({ problem: prob });
