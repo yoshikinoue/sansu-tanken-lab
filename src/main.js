@@ -68,9 +68,23 @@ export class MathLabApp {
     this.arenaKeypad = null;
     this.arenaStepGuide = null;
     this.arenaMascotWidget = null;
+    this.arenaAdvanceTimer = null;
     this.stageCompleteModal = null;
     this.bonusModal = null;
     this.characterBookModal = null;
+  }
+
+  syncGamificationProgress() {
+    if (!this.progress) return;
+    if (!this.progress.gamification || typeof this.progress.gamification !== 'object') {
+      this.progress.gamification = {};
+    }
+    const exported = GamificationEngine.exportGamificationState();
+    this.progress.gamification.totalScore = exported.totalScore;
+    this.progress.gamification.labExp = exported.labExp;
+    this.progress.gamification.labRank = exported.labRank;
+    this.progress.gamification.selfCorrectionCount = exported.selfCorrectionCount;
+    this.progress.gamification.unlockedBadges = exported.unlockedBadges;
   }
 
   ensureBonusState() {
@@ -113,6 +127,8 @@ export class MathLabApp {
     if (!this.progress) {
       this.progress = StorageService.createDefaultProgress();
     }
+
+    GamificationEngine.loadGamificationState(this.progress);
 
     // 2. Setup Global UI Elements & Event Listeners
     this.setupGlobalEvents();
@@ -195,11 +211,16 @@ export class MathLabApp {
     const selfCorrectEl = document.getElementById('header-self-correct-count');
 
     const profile = GamificationEngine.getUserProfile(this.progress.gamification);
-    if (rankTitleEl && profile?.rank?.title) {
-      rankTitleEl.textContent = profile.rank.title;
+    const rankTitle = profile?.labRank?.title || profile?.rank?.title || profile?.rankTitle;
+    if (rankTitleEl && rankTitle) {
+      rankTitleEl.textContent = rankTitle;
     }
     if (selfCorrectEl) {
-      selfCorrectEl.textContent = String(profile?.selfCorrectionCount ?? 0);
+      const count = Math.max(
+        Number(profile?.selfCorrectionCount) || 0,
+        Number(this.progress?.gamification?.selfCorrectionCount) || 0
+      );
+      selfCorrectEl.textContent = String(count);
     }
   }
 
@@ -257,6 +278,11 @@ export class MathLabApp {
       this.arenaStepGuide.destroy();
     }
     this.arenaStepGuide = null;
+
+    if (this.arenaAdvanceTimer) {
+      clearTimeout(this.arenaAdvanceTimer);
+      this.arenaAdvanceTimer = null;
+    }
 
     if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
       this.arenaMascotWidget.destroy();
@@ -376,6 +402,10 @@ export class MathLabApp {
       wasSelfCorrected: false,
       correctCount: 0,
       firstTryCount: 0,
+      selfCorrectedCount: 0,
+      isAdvancing: false,
+      lastCompletedSteps: null,
+      lastDiagnosis: null,
       history: []
     };
 
@@ -400,6 +430,7 @@ export class MathLabApp {
 
           <div class="problem-display-card">
             <div class="problem-prompt" id="arena-problem-prompt"></div>
+            <div class="arena-step-summary" id="arena-step-summary" style="display:none;"></div>
           </div>
 
           <div id="arena-mascot-container"></div>
@@ -489,6 +520,12 @@ export class MathLabApp {
       promptEl.innerHTML = `<span>${promptText}</span>`;
     }
 
+    const summaryEl = document.getElementById('arena-step-summary');
+    if (summaryEl) {
+      summaryEl.style.display = 'none';
+      summaryEl.innerHTML = '';
+    }
+
     // Update dots
     for (let i = 0; i < 5; i++) {
       const dot = document.querySelector(`.q-dot[data-q="${i}"]`);
@@ -515,11 +552,52 @@ export class MathLabApp {
 
     session.attempts = 0;
     session.wasSelfCorrected = false;
+    session.isAdvancing = false;
+    session.lastCompletedSteps = null;
+    session.lastDiagnosis = null;
+  }
+
+  renderArenaStepSummary() {
+    const summaryEl = document.getElementById('arena-step-summary');
+    const session = this.currentSession;
+    if (!summaryEl || !session) return;
+
+    const prob = session.problems[session.currentIndex];
+    const steps = Array.isArray(session.lastCompletedSteps) ? session.lastCompletedSteps : [];
+    const diag = session.lastDiagnosis;
+
+    if (steps.length === 0 && !diag) {
+      summaryEl.style.display = 'none';
+      summaryEl.innerHTML = '';
+      return;
+    }
+
+    const stepChips = steps
+      .map((s) => `<span class="step-summary-chip">${s.title}: <strong>${s.value}</strong></span>`)
+      .join(' ');
+    const diagText = diag?.adviceMessage || diag?.diagnosis || '';
+
+    summaryEl.style.display = 'flex';
+    summaryEl.innerHTML = `
+      <div class="step-summary-info">
+        ${steps.length > 0 ? `<div class="step-summary-chips">🔍 ステップメモ: ${stepChips}</div>` : ''}
+        ${steps.length === 0 && diagText ? `<div class="step-summary-diag">💡 ${diagText}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline btn-reopen-step-guide">🔍 ステップを見る</button>
+    `;
+
+    const reopenBtn = summaryEl.querySelector('.btn-reopen-step-guide');
+    if (reopenBtn && prob) {
+      reopenBtn.onclick = () => {
+        SoundEffects.playSound('tap');
+        this.launchStepGuide(prob, diag);
+      };
+    }
   }
 
   handleArenaSubmit(answerValue) {
     const session = this.currentSession;
-    if (!session) return;
+    if (!session || session.isAdvancing) return;
 
     const prob = session.problems[session.currentIndex];
     if (!prob) return;
@@ -533,12 +611,21 @@ export class MathLabApp {
       if (isFirstTry) {
         session.firstTryCount++;
       }
+      if (session.wasSelfCorrected) {
+        session.selfCorrectedCount = (session.selfCorrectedCount || 0) + 1;
+      }
 
       // Gamification scoring
       GamificationEngine.recordResult({
+        problemId: prob.id,
+        worldId: prob.worldId || session.worldId,
+        stageId: session.stageId,
         isCorrect: true,
-        wasSelfCorrected: session.wasSelfCorrected
+        wasSelfCorrected: session.wasSelfCorrected,
+        isStageComplete: false
       });
+      this.syncGamificationProgress();
+      StorageService.saveProgress(this.progress).catch(() => {});
 
       if (session.wasSelfCorrected) {
         SoundEffects.playSound('self_correct');
@@ -557,8 +644,15 @@ export class MathLabApp {
       if (session.currentIndex >= 5) {
         this.handleArenaStageComplete();
       } else {
-        setTimeout(() => {
-          this.updateArenaProblemDisplay();
+        session.isAdvancing = true;
+        if (this.arenaAdvanceTimer) {
+          clearTimeout(this.arenaAdvanceTimer);
+        }
+        this.arenaAdvanceTimer = setTimeout(() => {
+          this.arenaAdvanceTimer = null;
+          if (this.currentSession === session && this.currentRoute.view === '#stage') {
+            this.updateArenaProblemDisplay();
+          }
         }, 600);
       }
     } else {
@@ -567,8 +661,23 @@ export class MathLabApp {
       SoundEffects.playSound('near_miss');
       this.arenaMascotWidget?.setMood('cheer');
 
-      // Diagnose error
-      CurriculumEngine.diagnoseError(prob, answerValue);
+      // Diagnose error & preserve for follow-up StepGuideModal
+      const diagnosis = result.diagnosis || CurriculumEngine.diagnoseError(prob, answerValue);
+      session.lastDiagnosis = diagnosis;
+
+      // Clear keypad immediately so old wrong digits / remainder activeField do not persist on return
+      if (this.arenaKeypad) {
+        this.arenaKeypad.clear();
+      }
+
+      GamificationEngine.recordResult({
+        problemId: prob.id,
+        worldId: prob.worldId || session.worldId,
+        stageId: session.stageId,
+        isCorrect: false,
+        isStageComplete: false
+      });
+      this.syncGamificationProgress();
 
       // Quarantine problem in Power-Up Treasure Box
       if (this.progress?.treasureBox) {
@@ -577,27 +686,67 @@ export class MathLabApp {
       }
 
       // Show warm amber encouragement toast
-      showToast(null, 'encourage', 'おしい！もう一歩！');
+      const toastMsg = diagnosis?.adviceMessage || 'おしい！もう一歩！';
+      showToast(null, 'encourage', toastMsg);
 
       // Open StepGuideModal for scaffolding self-correction
-      this.launchStepGuide(prob);
+      this.launchStepGuide(prob, diagnosis);
     }
   }
 
-  launchStepGuide(problem) {
+  launchStepGuide(problem, diagnosis = null) {
     const modalRoot = document.getElementById('modal-root') || document.body;
+
+    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
+      this.arenaStepGuide.destroy();
+      this.arenaStepGuide = null;
+    }
+
+    const activeDiagnosis = diagnosis || this.currentSession?.lastDiagnosis || null;
 
     this.arenaStepGuide = new StepGuideModal({
       problem,
-      onComplete: () => {
+      diagnosis: activeDiagnosis,
+      onStepSuccess: ({ session }) => {
+        SoundEffects.playSound('tap');
+        if (this.currentSession && session) {
+          this.currentSession.lastCompletedSteps = session.steps
+            .map((st, idx) => ({
+              title: st.title || st.label || `ステップ${idx + 1}`,
+              value: session.stepAnswers[idx]
+            }))
+            .filter((item) => item.value !== undefined);
+        }
+      },
+      onStepError: () => {
+        SoundEffects.playSound('near_miss');
+      },
+      onComplete: ({ session }) => {
         if (this.currentSession) {
           this.currentSession.wasSelfCorrected = true;
+          if (session) {
+            this.currentSession.lastCompletedSteps = session.steps
+              .map((st, idx) => ({
+                title: st.title || st.label || `ステップ${idx + 1}`,
+                value: session.stepAnswers[idx]
+              }))
+              .filter((item) => item.value !== undefined);
+          }
         }
-        showToast(null, 'hint', 'ステップ完了！もう一度問題に挑戦しよう！');
-        this.arenaStepGuide?.destroy();
-        this.arenaStepGuide = null;
+        if (this.arenaKeypad) {
+          this.arenaKeypad.clear();
+        }
+        SoundEffects.playSound('self_correct');
+        // Keep the modal open so the completion banner and 「問題へ戻る」 button are shown to the user.
       },
       onClose: () => {
+        if (this.arenaKeypad) {
+          this.arenaKeypad.clear();
+        }
+        if (this.currentSession?.wasSelfCorrected) {
+          showToast(null, 'hint', 'ステップ完了！もう一度問題に挑戦しよう！');
+        }
+        this.renderArenaStepSummary();
         this.arenaStepGuide?.destroy();
         this.arenaStepGuide = null;
       }
@@ -612,11 +761,11 @@ export class MathLabApp {
 
     SoundEffects.playSound('stage_clear');
 
-    // Calculate stars
+    // Calculate stars across all 5 questions (including all self-corrected items)
     const stars = GamificationEngine.calculateStageStars({
       totalQuestions: 5,
       firstTryCorrectCount: session.firstTryCount,
-      selfCorrectedCount: session.wasSelfCorrected ? 1 : 0
+      selfCorrectedCount: session.selfCorrectedCount || 0
     });
 
     // Update progress
@@ -628,6 +777,9 @@ export class MathLabApp {
       ...prev,
       cleared: true,
       stars: Math.max(prev.stars || 0, stars),
+      firstTryCorrectCount: Math.max(prev.firstTryCorrectCount || 0, session.firstTryCount),
+      selfCorrectedCount: Math.max(prev.selfCorrectedCount || 0, session.selfCorrectedCount || 0),
+      totalAttempts: (prev.totalAttempts || 0) + 5 + session.attempts,
       bestScore: Math.max(prev.bestScore || 0, session.correctCount * 10),
       lastPlayed: new Date().toISOString()
     };
@@ -636,6 +788,7 @@ export class MathLabApp {
     const bonusState = this.ensureBonusState();
     bonusState.tickets = (bonusState.tickets || 0) + 1;
 
+    this.syncGamificationProgress();
     // Save progress
     StorageService.saveProgress(this.progress).catch(() => {});
     this.updateHeaderStats();
@@ -803,7 +956,10 @@ export class MathLabApp {
       container,
       progress: this.progress,
       onSave: (p) => StorageService.saveProgress(p),
-      onUpdateHeader: () => this.updateHeaderStats()
+      onUpdateHeader: () => {
+        this.syncGamificationProgress();
+        this.updateHeaderStats();
+      }
     }).mount(container);
   }
 
@@ -814,6 +970,7 @@ export class MathLabApp {
       onSave: (p) => StorageService.saveProgress(p),
       onTransferRestored: (newProgress) => {
         this.progress = newProgress;
+        GamificationEngine.loadGamificationState(this.progress);
         this.updateHeaderStats();
         showToast(null, 'success', '学習データを引き継ぎました！');
       }

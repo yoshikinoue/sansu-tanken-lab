@@ -34,7 +34,12 @@ export function submitStepAnswer(session, stepIndex, val) {
   const step = session.steps[stepIndex];
   if (!step) return false;
 
-  const numericVal = Number(val);
+  const isEmptyInput =
+    val === null ||
+    val === undefined ||
+    typeof val === 'boolean' ||
+    (typeof val === 'string' && val.trim() === '');
+  const numericVal = isEmptyInput ? NaN : Number(val);
   const rawExpected = step.expectedStepValue !== undefined
     ? step.expectedStepValue
     : (step.expectedValue !== undefined ? step.expectedValue : step.answer);
@@ -68,19 +73,25 @@ export function submitStepAnswer(session, stepIndex, val) {
 export class StepGuideModal {
   constructor(options = {}) {
     this.problem = options.problem || null;
+    this.diagnosis = options.diagnosis || null;
     this.session = options.session || (options.problem ? createSession(options.problem) : null);
     this.onComplete = options.onComplete || null;
+    this.onFinish = options.onFinish || null;
     this.onStepSuccess = options.onStepSuccess || null;
     this.onStepError = options.onStepError || null;
     this.onClose = options.onClose || null;
     this.container = options.container || null;
     this.modalEl = null;
     this.isOpen = false;
+    this._completedNotified = false;
+    this._openFocusTimer = null;
   }
 
-  setProblem(problem) {
+  setProblem(problem, diagnosis = null) {
     this.problem = problem;
+    this.diagnosis = diagnosis;
     this.session = createSession(problem);
+    this._completedNotified = false;
     if (this.isOpen) {
       this.refresh();
     }
@@ -113,6 +124,24 @@ export class StepGuideModal {
 
     const content = document.createElement('div');
     content.className = 'step-guide-content';
+
+    // Original Problem & Error Diagnosis Banner
+    const problemPrompt = this.problem?.prompt ||
+      (this.problem?.operands ? `${this.problem.operands[0]} ${this.problem.operator || ''} ${this.problem.operands[1]} = ?` : '');
+    const diagMsg = this.diagnosis?.adviceMessage ||
+      this.diagnosis?.diagnosis ||
+      this.problem?.commonTrap?.hintMessage ||
+      '';
+
+    if (problemPrompt || diagMsg) {
+      const problemBanner = document.createElement('div');
+      problemBanner.className = 'step-guide-problem-banner';
+      problemBanner.innerHTML = `
+        ${problemPrompt ? `<div class="step-guide-problem-prompt">📝 もんだい: <strong>${problemPrompt}</strong></div>` : ''}
+        ${diagMsg ? `<div class="step-guide-diagnosis">💡 ${diagMsg}</div>` : ''}
+      `;
+      content.appendChild(problemBanner);
+    }
 
     this.session.steps.forEach((step, idx) => {
       const isCompleted = idx < this.session.currentStepIndex || this.session.stepAnswers[idx] !== undefined;
@@ -156,7 +185,7 @@ export class StepGuideModal {
       completeBanner.innerHTML = `
         <div style="text-align: center; padding: 20px;">
           <h3 style="color: var(--color-emerald-success); font-size: 1.3rem;">🎉 全ステップ正解！自分の力で直せたね！</h3>
-          <p style="color: var(--color-text-muted); margin-top: 8px;">この調子で答えを完成させよう！</p>
+          <p style="color: var(--color-text-muted); margin-top: 8px;">もとの問題画面にもどって、10キーで答えを入力しよう！</p>
           <button type="button" class="btn btn-success btn-large step-finish-btn" style="margin-top: 16px;">問題へ戻る</button>
         </div>
       `;
@@ -176,30 +205,46 @@ export class StepGuideModal {
   _bindEvents(overlay) {
     overlay.querySelector('.modal-close-btn')?.addEventListener('click', () => this.close());
 
+    const submitFromInput = (input) => {
+      if (!input) return;
+      const rawStepIdx = input.dataset?.stepIndex ?? input.getAttribute?.('data-step-index');
+      const stepIdx = Number(rawStepIdx);
+      const val = String(input.value ?? '').trim();
+      if (val === '') {
+        this._showStepHint(stepIdx, '数字を入力してから「確認」をおしてね！');
+        input.focus?.();
+        return;
+      }
+      this.submit(stepIdx, val);
+    };
+
     overlay.querySelectorAll('.step-check-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const row = e.target.closest('.step-input-row');
         const input = row?.querySelector('.step-input');
-        if (!input) return;
-        const stepIdx = Number(input.dataset.stepIndex);
-        this.submit(stepIdx, input.value.trim());
+        submitFromInput(input);
       });
     });
 
     overlay.querySelectorAll('.step-input').forEach(input => {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-          const stepIdx = Number(input.dataset.stepIndex);
-          this.submit(stepIdx, input.value.trim());
+          e.preventDefault?.();
+          e.stopPropagation?.();
+          submitFromInput(input);
         }
       });
     });
 
     overlay.querySelector('.step-finish-btn')?.addEventListener('click', () => {
-      this.close();
-      if (typeof this.onComplete === 'function') {
+      if (this.session?.completed && !this._completedNotified && typeof this.onComplete === 'function') {
+        this._completedNotified = true;
         this.onComplete({ session: this.session, wasSelfCorrected: true });
       }
+      if (typeof this.onFinish === 'function') {
+        this.onFinish({ session: this.session, wasSelfCorrected: true });
+      }
+      this.close();
     });
 
     // Close on overlay backdrop click
@@ -219,7 +264,8 @@ export class StepGuideModal {
         this.onStepSuccess({ stepIndex, result: res, session: this.session });
       }
       this.refresh();
-      if (this.session.completed && typeof this.onComplete === 'function') {
+      if (this.session.completed && !this._completedNotified && typeof this.onComplete === 'function') {
+        this._completedNotified = true;
         this.onComplete({ session: this.session, wasSelfCorrected: true });
       }
     } else {
@@ -227,6 +273,11 @@ export class StepGuideModal {
         this.onStepError({ stepIndex, result: res, session: this.session });
       }
       this._showStepHint(stepIndex, res.hint);
+      const currentInput = this.modalEl?.querySelector(`.step-card[data-step-index="${stepIndex}"] .step-input`);
+      if (currentInput) {
+        currentInput.value = '';
+        currentInput.focus?.();
+      }
     }
     return res;
   }
@@ -254,17 +305,27 @@ export class StepGuideModal {
       if (el) target.appendChild(el);
     }
 
-    // Auto-focus current step input
-    setTimeout(() => {
-      const currentInput = this.modalEl?.querySelector('.step-card.current .step-input');
-      if (currentInput) {
-        currentInput.focus();
+    // Auto-focus current step input or finish button
+    if (this._openFocusTimer) {
+      clearTimeout(this._openFocusTimer);
+    }
+    this._openFocusTimer = setTimeout(() => {
+      this._openFocusTimer = null;
+      const focusTarget = this.session?.completed
+        ? this.modalEl?.querySelector('.step-finish-btn')
+        : this.modalEl?.querySelector('.step-card.current .step-input');
+      if (focusTarget) {
+        focusTarget.focus?.();
       }
     }, 50);
   }
 
   close() {
     this.isOpen = false;
+    if (this._openFocusTimer) {
+      clearTimeout(this._openFocusTimer);
+      this._openFocusTimer = null;
+    }
     if (this.modalEl) {
       this.modalEl.classList.remove('open');
     }
@@ -275,19 +336,26 @@ export class StepGuideModal {
 
   refresh() {
     if (!this.modalEl || !this.modalEl.parentNode) return;
-    const parent = this.modalEl.parentNode;
+    const oldEl = this.modalEl;
+    const parent = oldEl.parentNode;
     const newEl = this.render();
     if (newEl) {
-      parent.replaceChild(newEl, this.modalEl);
+      parent.replaceChild(newEl, oldEl);
       this.modalEl = newEl;
-      const currentInput = this.modalEl.querySelector('.step-card.current .step-input');
-      if (currentInput) {
-        currentInput.focus();
+      const focusTarget = this.session?.completed
+        ? this.modalEl.querySelector('.step-finish-btn')
+        : this.modalEl.querySelector('.step-card.current .step-input');
+      if (focusTarget) {
+        focusTarget.focus?.();
       }
     }
   }
 
   destroy() {
+    if (this._openFocusTimer) {
+      clearTimeout(this._openFocusTimer);
+      this._openFocusTimer = null;
+    }
     if (this.modalEl && this.modalEl.parentNode) {
       this.modalEl.parentNode.removeChild(this.modalEl);
     }

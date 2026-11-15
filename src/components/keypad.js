@@ -186,8 +186,16 @@ export class Keypad {
     // Physical keyboard listener
     if (typeof window !== 'undefined') {
       this._boundKeyDownHandler = (e) => {
-        // Ignore if user is typing into an input/textarea
-        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+        // Ignore if any modal dialog is currently open
+        if (typeof document !== 'undefined' && typeof document.querySelector === 'function' && document.querySelector('.modal-overlay.open')) {
+          return;
+        }
+        // Ignore if user is typing into an input/textarea/select
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+          return;
+        }
+        // Ignore Enter on non-keypad buttons so focused navigation/modal controls do not double-trigger keypad
+        if (e.target && e.target.tagName === 'BUTTON' && e.key === 'Enter' && !e.target.closest?.('.keypad-container')) {
           return;
         }
 

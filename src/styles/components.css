@@ -608,6 +608,74 @@ canvas.memo-canvas {
   color: var(--color-amber-warm);
 }
 
+.step-guide-problem-banner {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-guide-problem-prompt {
+  font-size: 1.15rem;
+  color: var(--color-text-main);
+}
+
+.step-guide-diagnosis {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-amber-warm);
+}
+
+.step-guide-complete-banner {
+  background: rgba(16, 185, 129, 0.12);
+  border: 2px solid var(--color-emerald-success);
+  border-radius: var(--radius-lg);
+}
+
+.arena-step-summary {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.step-summary-info {
+  flex: 1;
+  min-width: 180px;
+  text-align: left;
+}
+
+.step-summary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-main);
+}
+
+.step-summary-chip {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: 0.85rem;
+}
+
+.step-summary-diag {
+  color: var(--color-amber-warm);
+  font-weight: 600;
+}
+
 /* Toast Feedback Notification (No-X Compliant) */
 .toast-container {
   position: fixed;

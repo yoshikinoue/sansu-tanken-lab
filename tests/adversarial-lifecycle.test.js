@@ -59,16 +59,19 @@ function matches(el, selector) {
     let am;
     while ((am = attrRe.exec(attrsStr)) !== null) {
       const [, k, v] = am;
-      if (v !== undefined) {
-        if (k.startsWith('data-')) {
-          if (el.dataset[k.slice(5)] !== v) return false;
-        } else if (el.getAttribute(k) !== v) {
-          return false;
+      if (k.startsWith('data-')) {
+        const rawKey = k.slice(5);
+        const camelKey = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+        const actual = el.dataset[rawKey] !== undefined ? el.dataset[rawKey] : el.dataset[camelKey];
+        if (v !== undefined) {
+          if (actual !== v && el.getAttribute(k) !== v) return false;
+        } else {
+          if (actual === undefined && el.getAttribute(k) === null) return false;
         }
+      } else if (v !== undefined) {
+        if (el.getAttribute(k) !== v) return false;
       } else {
-        if (el.getAttribute(k) === null && el.dataset[k.slice(5)] === undefined) {
-          return false;
-        }
+        if (el.getAttribute(k) === null) return false;
       }
     }
   }
@@ -203,8 +206,13 @@ class MockElement {
     this.attributes.set(k, String(v));
     if (k === 'id') this.id = String(v);
     if (k === 'class') this.className = String(v);
+    if (k === 'value') this.value = String(v);
+    if (k === 'disabled') this.disabled = true;
     if (k.startsWith('data-')) {
-      this.dataset[k.slice(5)] = String(v);
+      const rawKey = k.slice(5);
+      const camelKey = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      this.dataset[rawKey] = String(v);
+      this.dataset[camelKey] = String(v);
     }
   }
   getAttribute(k) {
@@ -212,8 +220,12 @@ class MockElement {
   }
   removeAttribute(k) {
     this.attributes.delete(k);
+    if (k === 'disabled') this.disabled = false;
     if (k.startsWith('data-')) {
-      delete this.dataset[k.slice(5)];
+      const rawKey = k.slice(5);
+      const camelKey = rawKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      delete this.dataset[rawKey];
+      delete this.dataset[camelKey];
     }
   }
 
@@ -885,6 +897,478 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(env.cheerBanner.style.display, 'none');
       const msg = app.progress.parentCheer.cheerMessages.find(m => m.id === 'cheer-test-1');
       assert.equal(msg.readByChild, true);
+    });
+  });
+
+  // =========================================================================
+  // Challenge 5: Problem Failure Follow-Up & Self-Correction E2E Flow
+  // =========================================================================
+  describe('5. Problem Failure Follow-Up & Self-Correction E2E Flow', () => {
+    let origSetTimeout;
+    let origClearTimeout;
+
+    function routeTo(hash) {
+      global.window.location.hash = hash;
+      app.handleRoute();
+    }
+
+    function getAllText(el) {
+      if (!el) return '';
+      let txt = el._textContent || '';
+      for (const child of el.children || []) {
+        txt += ' ' + getAllText(child);
+      }
+      return txt.trim();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    function getExpectedInput(prob) {
+      const ea = prob.expectedAnswer || prob.correctAnswer || {};
+      if (prob.hasRemainder || ea.remainder !== undefined) {
+        return { quotient: Number(ea.quotient ?? 0), remainder: Number(ea.remainder ?? 0) };
+      }
+      const val = ea.value !== undefined ? ea.value : (prob.answer ?? 0);
+      return Number(val);
+    }
+
+    function getWrongInput(prob) {
+      const exp = getExpectedInput(prob);
+      if (typeof exp === 'object') {
+        return { quotient: exp.quotient + 1, remainder: exp.remainder + 1 };
+      }
+      return exp + 17;
+    }
+
+    function clickKeypadKey(viewContainer, key) {
+      const btn = viewContainer.querySelector(`.key-btn[data-key="${key}"]`)
+        || viewContainer.querySelectorAll('button').find(b => b.dataset.key === key || b.getAttribute('data-key') === key);
+      assert.ok(btn, `Expected keypad button for key "${key}"`);
+      domClick(btn);
+    }
+
+    function submitKeypadAnswer(viewContainer, answer) {
+      clickKeypadKey(viewContainer, 'clear');
+      if (typeof answer === 'object' && answer !== null) {
+        for (const ch of String(answer.quotient)) clickKeypadKey(viewContainer, ch);
+        clickKeypadKey(viewContainer, 'rem');
+        for (const ch of String(answer.remainder)) clickKeypadKey(viewContainer, ch);
+      } else {
+        for (const ch of String(answer)) clickKeypadKey(viewContainer, ch);
+      }
+      clickKeypadKey(viewContainer, 'enter');
+    }
+
+    function pressEnterOnElement(el) {
+      const evt = {
+        type: 'keydown',
+        key: 'Enter',
+        target: el,
+        currentTarget: el,
+        preventDefault() {},
+        stopPropagation() {}
+      };
+      const handlers = el.listeners.get('keydown');
+      if (handlers) {
+        for (const h of Array.from(handlers)) h(evt);
+      }
+    }
+
+    function pressWindowKey(key, target = env.mockDocument.body) {
+      env.mockWindow.dispatchEvent({
+        type: 'keydown',
+        key,
+        target,
+        preventDefault() {},
+        stopPropagation() {}
+      });
+    }
+
+    function solveStepGuideModal(stepGuide) {
+      assert.ok(stepGuide, 'Expected active StepGuideModal');
+      const total = stepGuide.session.steps.length;
+      for (let i = 0; i < total; i++) {
+        const expected = stepGuide.session.steps[stepGuide.session.currentStepIndex].expectedStepValue;
+        const input = env.modalRoot.querySelector('.step-card.current .step-input')
+          || env.modalRoot.querySelector('.step-input');
+        const checkBtn = env.modalRoot.querySelector('.step-card.current .step-check-btn')
+          || env.modalRoot.querySelector('.step-check-btn');
+        assert.ok(input, `Expected .step-input for step ${i}`);
+        assert.ok(checkBtn, `Expected .step-check-btn for step ${i}`);
+        input.value = String(expected);
+        domClick(checkBtn);
+      }
+    }
+
+    function setupTimerCapture() {
+      let nextId = 10000;
+      const byId = new Map();
+      origSetTimeout = global.setTimeout;
+      origClearTimeout = global.clearTimeout;
+
+      global.setTimeout = (fn, delay = 0, ...args) => {
+        if (delay >= 500 && typeof fn === 'function') {
+          const id = ++nextId;
+          byId.set(id, () => {
+            byId.delete(id);
+            fn(...args);
+          });
+          return id;
+        }
+        return origSetTimeout(fn, delay, ...args);
+      };
+      global.clearTimeout = (id) => {
+        if (byId.has(id)) {
+          byId.delete(id);
+          return;
+        }
+        return origClearTimeout(id);
+      };
+      return {
+        byId,
+        has(id) {
+          return byId.has(id);
+        },
+        flushAdvance() {
+          const id = app.arenaAdvanceTimer;
+          assert.ok(id !== null && id !== undefined, 'Expected app.arenaAdvanceTimer to be set');
+          assert.ok(byId.has(id), 'Expected app.arenaAdvanceTimer to be registered in timers');
+          const fn = byId.get(id);
+          fn();
+        }
+      };
+    }
+
+    beforeEach(() => {
+      GamificationEngine.resetGamificationState();
+      app.syncGamificationProgress();
+      app.updateHeaderStats();
+    });
+
+    afterEach(() => {
+      if (origSetTimeout) {
+        global.setTimeout = origSetTimeout;
+        origSetTimeout = null;
+      }
+      if (origClearTimeout) {
+        global.clearTimeout = origClearTimeout;
+        origClearTimeout = null;
+      }
+      if (app.arenaStepGuide) {
+        app.arenaStepGuide.destroy();
+        app.arenaStepGuide = null;
+      }
+      if (app.arenaAdvanceTimer) {
+        clearTimeout(app.arenaAdvanceTimer);
+        app.arenaAdvanceTimer = null;
+      }
+    });
+
+    it('clears arenaKeypad immediately on wrong answer and opens StepGuideModal with prompt and diagnosis', () => {
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+      submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+
+      // Keypad must be cleared right away so wrong digits never linger
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      assert.equal(app.arenaKeypad.state.remainderText, '');
+
+      // Modal opened with problem prompt and diagnosis banner
+      assert.equal(env.modalRoot.children.length, 1);
+      const overlay = env.modalRoot.querySelector('.modal-overlay.open');
+      assert.ok(overlay);
+      const banner = env.modalRoot.querySelector('.step-guide-problem-banner');
+      assert.ok(banner);
+      const promptEl = env.modalRoot.querySelector('.step-guide-problem-prompt');
+      const diagEl = env.modalRoot.querySelector('.step-guide-diagnosis');
+      assert.ok(promptEl);
+      assert.ok(diagEl);
+      assert.ok(getAllText(promptEl).length > 0);
+      assert.ok(getAllText(diagEl).length > 0);
+    });
+
+    it('ignores physical window keydown events ("9" and "Enter") for background arenaKeypad while modal is open', () => {
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+      submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+
+      assert.ok(env.modalRoot.querySelector('.modal-overlay.open'));
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+
+      pressWindowKey('9');
+      pressWindowKey('7');
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+
+      const attemptsBefore = app.currentSession.attempts;
+      pressWindowKey('Enter');
+      const stepInput = env.modalRoot.querySelector('.step-input');
+      pressWindowKey('5', stepInput);
+      pressWindowKey('Enter', stepInput);
+
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      assert.equal(app.currentSession.attempts, attemptsBefore);
+      assert.equal(env.modalRoot.children.length, 1);
+    });
+
+    it('blocks empty or whitespace-only step input submission in StepGuideModal DOM even when expectedStepValue is 0', () => {
+      const zeroProb = {
+        id: 'dom-zero-step',
+        prompt: '10 ÷ 2 = ?',
+        stepGuide: [
+          { stepTitle: '余りを書こう', hint: '割り切れるときは 0 だよ', expectedStepValue: 0 }
+        ]
+      };
+      const modal = new StepGuideModal({ problem: zeroProb });
+      modal.open(env.modalRoot);
+
+      const input = env.modalRoot.querySelector('.step-input');
+      const checkBtn = env.modalRoot.querySelector('.step-check-btn');
+      assert.ok(input && checkBtn);
+
+      // Empty string must NOT coerce via Number("") === 0 and must not increment errorCount
+      input.value = '';
+      domClick(checkBtn);
+      assert.equal(modal.session.completed, false);
+      assert.equal(modal.session.stepAnswers[0], undefined);
+      assert.equal(modal.session.errorCount, 0);
+      assert.ok(getAllText(env.modalRoot.querySelector('.step-hint-box')).length > 0);
+
+      // Whitespace-only Enter keydown must also be rejected
+      const currentInput = env.modalRoot.querySelector('.step-input');
+      currentInput.value = '   ';
+      pressEnterOnElement(currentInput);
+      assert.equal(modal.session.completed, false);
+      assert.equal(modal.session.stepAnswers[0], undefined);
+      assert.equal(modal.session.errorCount, 0);
+
+      // Actual "0" must pass cleanly
+      const finalInput = env.modalRoot.querySelector('.step-input');
+      finalInput.value = '0';
+      domClick(env.modalRoot.querySelector('.step-check-btn'));
+      assert.equal(modal.session.completed, true);
+      assert.ok(env.modalRoot.querySelector('.step-guide-complete-banner'));
+      assert.ok(env.modalRoot.querySelector('.step-finish-btn'));
+
+      modal.destroy();
+    });
+
+    it('clears wrong step input, keeps completion banner open until .step-finish-btn click, shows summary, and avoids digit concatenation on retry', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+      submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+
+      const stepGuide = app.arenaStepGuide;
+      assert.ok(stepGuide);
+
+      // Submit a wrong step value first
+      const firstExpected = stepGuide.session.steps[0].expectedStepValue;
+      const firstInput = env.modalRoot.querySelector('.step-card.current .step-input');
+      firstInput.value = String(firstExpected + 99);
+      domClick(env.modalRoot.querySelector('.step-card.current .step-check-btn'));
+
+      assert.equal(stepGuide.session.errorCount, 1);
+      assert.ok(getAllText(env.modalRoot.querySelector('.step-hint-box')).length > 0);
+      // On wrong answer, the active .step-input must be cleared cleanly
+      assert.equal(env.modalRoot.querySelector('.step-card.current .step-input').value, '');
+
+      // Complete all steps
+      solveStepGuideModal(stepGuide);
+
+      // Completion banner & "問題へ戻る" button stay visible BEFORE click; no premature close or self-correction credit
+      assert.ok(app.arenaStepGuide, 'StepGuideModal should remain open on completion banner');
+      assert.ok(env.modalRoot.querySelector('.modal-overlay.open'));
+      assert.ok(env.modalRoot.querySelector('.step-guide-complete-banner'));
+      const finishBtn = env.modalRoot.querySelector('.step-finish-btn');
+      assert.ok(finishBtn);
+      assert.equal(app.currentSession.wasSelfCorrected, true);
+      assert.equal(app.progress.gamification.selfCorrectionCount, 0);
+
+      // Click "問題へ戻る"
+      domClick(finishBtn);
+      assert.equal(app.arenaStepGuide, null);
+      assert.equal(env.modalRoot.children.length, 0);
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      assert.equal(app.arenaKeypad.state.remainderText, '');
+
+      // Summary banner populated in arena
+      const summary = env.viewContainer.querySelector('#arena-step-summary');
+      assert.ok(summary);
+      assert.ok(getAllText(summary).length > 0);
+
+      // Re-submit the exact correct answer via keypad without digit concatenation
+      submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+      assert.equal(app.currentSession.selfCorrectedCount, 1);
+      assert.equal(app.progress.gamification.selfCorrectionCount, 1);
+      assert.ok(getAllText(env.elementsById.get('header-self-correct-count')).includes('1'));
+      assert.ok(timers.has(app.arenaAdvanceTimer));
+      timers.flushAdvance();
+    });
+
+    it('prevents double-submission during arenaAdvanceTimer and cancels timer on route change', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+
+      submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+      assert.equal(app.currentSession.isAdvancing, true);
+      assert.equal(app.currentSession.correctCount, 1);
+      const firstTimerId = app.arenaAdvanceTimer;
+      assert.ok(firstTimerId !== null && timers.has(firstTimerId));
+
+      // Second submission while advancing must be ignored
+      submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+      assert.equal(app.currentSession.correctCount, 1);
+      assert.equal(app.arenaAdvanceTimer, firstTimerId);
+
+      // Route change must cancel the pending advance timer
+      routeTo('#map');
+      assert.equal(app.arenaAdvanceTimer, null);
+      assert.equal(timers.has(firstTimerId), false);
+    });
+
+    it('resets activeField from remainder back to quotient on Stage 7 division-with-remainder failure and self-correction', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-7');
+      const prob = app.currentSession.problems[0];
+      assert.equal(app.arenaKeypad.state.hasRemainder, true);
+
+      // Fail while activeField is 'remainder'
+      const wrong = getWrongInput(prob);
+      submitKeypadAnswer(env.viewContainer, wrong);
+
+      // Both fields cleared AND activeField reset back to 'quotient'
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      assert.equal(app.arenaKeypad.state.remainderText, '');
+      assert.equal(app.arenaKeypad.state.activeField, 'quotient');
+
+      solveStepGuideModal(app.arenaStepGuide);
+      domClick(env.modalRoot.querySelector('.step-finish-btn'));
+
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      assert.equal(app.arenaKeypad.state.remainderText, '');
+      assert.equal(app.arenaKeypad.state.activeField, 'quotient');
+
+      // Now enter the true quotient and remainder
+      submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+      assert.equal(app.currentSession.selfCorrectedCount, 1);
+      assert.equal(app.progress.gamification.selfCorrectionCount, 1);
+      timers.flushAdvance();
+    });
+
+    it('tracks multiple self-corrections across a full 5-question stage and persists exact stars and counts', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+      assert.equal(total, 5);
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i < 3) {
+          // Fail first, walk through StepGuideModal, finish back to arena, then enter right answer
+          submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) {
+          assert.ok(timers.has(app.arenaAdvanceTimer));
+          timers.flushAdvance();
+        }
+      }
+
+      assert.equal(app.currentSession.selfCorrectedCount, 3);
+      assert.equal(app.currentSession.firstTryCount, 2);
+      assert.equal(app.progress.stageProgress['stage-1'].cleared, true);
+      assert.equal(app.progress.stageProgress['stage-1'].selfCorrectedCount, 3);
+      assert.equal(app.progress.stageProgress['stage-1'].firstTryCorrectCount, 2);
+      assert.equal(app.progress.stageProgress['stage-1'].stars, 3);
+      assert.equal(app.progress.gamification.selfCorrectionCount, 3);
+    });
+
+    it('TreasureBox review modal rejects empty input without submitting 0 and clears input with diagnosis on wrong answer', () => {
+      const prob = CurriculumEngine.generateSingleProblem(1, 1, 1, 2);
+      const item = addTreasureItem(app.progress.treasureBox, prob);
+
+      const tb = new TreasureBox({
+        progress: app.progress,
+        onUpdateHeader: () => {
+          app.syncGamificationProgress();
+          app.updateHeaderStats();
+        }
+      });
+      tb.render(env.viewContainer);
+      tb.launchReviewModal(item);
+
+      const variation = tb.currentVariation;
+      assert.ok(tb.reviewModalEl);
+      assert.equal(tb.reviewModalEl.classList.contains('open'), true);
+
+      const submitBtn = tb.reviewModalEl.querySelector('.review-submit-btn');
+      const feedbackBox = tb.reviewModalEl.querySelector('.review-feedback');
+      const qInput = tb.reviewModalEl.querySelector('.review-quotient-input');
+      const rInput = tb.reviewModalEl.querySelector('.review-remainder-input');
+      const sInput = tb.reviewModalEl.querySelector('.review-answer-input');
+      const primaryInput = variation.hasRemainder ? qInput : sInput;
+      assert.ok(submitBtn && primaryInput);
+
+      // Empty submission must NOT pass or close modal
+      primaryInput.value = '';
+      if (rInput) rInput.value = '';
+      domClick(submitBtn);
+      assert.ok(tb.reviewModalEl);
+      assert.equal(item.masteryLevel, 0);
+      assert.equal(feedbackBox.style.display, 'block');
+
+      // Wrong answer must show diagnosis feedback and clear input
+      const wrong = getWrongInput(variation);
+      if (variation.hasRemainder) {
+        qInput.value = String(wrong.quotient);
+        rInput.value = String(wrong.remainder);
+      } else {
+        sInput.value = String(wrong);
+      }
+      domClick(submitBtn);
+      assert.equal(primaryInput.value, '');
+      assert.equal(item.masteryLevel, 0);
+      assert.ok(tb.reviewModalEl);
+      assert.equal(feedbackBox.style.display, 'block');
+
+      // Correct answer resolves review via Enter key
+      const right = getExpectedInput(variation);
+      if (variation.hasRemainder) {
+        qInput.value = String(right.quotient);
+        rInput.value = String(right.remainder);
+      } else {
+        sInput.value = String(right);
+      }
+      pressEnterOnElement(primaryInput);
+      assert.equal(item.masteryLevel, 1);
+
+      tb.destroy();
     });
   });
 });
