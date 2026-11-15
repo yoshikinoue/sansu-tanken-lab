@@ -11,6 +11,13 @@
 import { WORLDS_METADATA } from '../services/curriculum-engine.js';
 import * as SoundEffects from '../services/sound-effects.js';
 import { showToast } from './toast-feedback.js';
+import {
+  CUTE_CHARACTERS,
+  DEFAULT_CHARACTER_ID,
+  INITIAL_UNLOCKED_CHARACTERS,
+  getCharacterById,
+  renderCharacterSvg
+} from './cute-characters.js';
 
 // --- PURE HELPER FUNCTIONS & CONSTANTS (HEADLESS COMPATIBLE) ---
 
@@ -55,6 +62,8 @@ export class StageMap {
     this.progress = options.progress || null;
     this.onSelectStage = options.onSelectStage || null;
     this.onOpenLesson = options.onOpenLesson || null;
+    this.onOpenBonusGame = options.onOpenBonusGame || null;
+    this.onOpenCharacterBook = options.onOpenCharacterBook || null;
     this.rootEl = null;
   }
 
@@ -83,6 +92,58 @@ export class StageMap {
     stageMapEl.className = 'stage-map-view';
 
     const stageProg = this.progress?.stageProgress || {};
+    const bonusData = this.progress?.bonusGame || {};
+    const selectedChar = getCharacterById(bonusData.selectedCharacterId || DEFAULT_CHARACTER_ID);
+    const unlockedList = Array.isArray(bonusData.unlockedCharacters) && bonusData.unlockedCharacters.length > 0
+      ? bonusData.unlockedCharacters
+      : INITIAL_UNLOCKED_CHARACTERS;
+    const tickets = typeof bonusData.tickets === 'number' ? bonusData.tickets : 1;
+
+    // Top Bonus Game & Cute Character Hub Banner
+    const hubBar = document.createElement('section');
+    hubBar.className = 'bonus-hub-bar';
+    hubBar.innerHTML = `
+      <div class="hub-card companion-hub-card">
+        <div class="hub-char-avatar">${renderCharacterSvg(selectedChar.id, 'happy', 64)}</div>
+        <div class="hub-card-info">
+          <div class="hub-card-title">💖 今の応援相棒：${selectedChar.name}</div>
+          <div class="hub-card-sub">おともだち図鑑：<strong>${unlockedList.length} / ${CUTE_CHARACTERS.length}</strong> キャラ</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary btn-open-char-book">🐾 図鑑・キャラ変更</button>
+      </div>
+      <div class="hub-card backrooms-hub-card">
+        <div class="hub-backrooms-icon" aria-hidden="true">🟨</div>
+        <div class="hub-card-info">
+          <div class="hub-card-title">ボーナスゲーム：バックルームたんけん</div>
+          <div class="hub-card-sub">🎫 チケット：<strong>${tickets}</strong> 枚（1ステージクリアごとに+1枚！）</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-accent btn-open-bonus-game">🎮 バックルームへ！</button>
+      </div>
+    `;
+
+    const bookBtn = hubBar.querySelector('.btn-open-char-book');
+    if (bookBtn) {
+      bookBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        SoundEffects.playSound('tap');
+        if (typeof this.onOpenCharacterBook === 'function') {
+          this.onOpenCharacterBook();
+        }
+      });
+    }
+
+    const bonusBtn = hubBar.querySelector('.btn-open-bonus-game');
+    if (bonusBtn) {
+      bonusBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        SoundEffects.playSound('tap');
+        if (typeof this.onOpenBonusGame === 'function') {
+          this.onOpenBonusGame();
+        }
+      });
+    }
+
+    stageMapEl.appendChild(hubBar);
 
     // Render 5 Worlds
     WORLDS_METADATA.forEach(world => {
