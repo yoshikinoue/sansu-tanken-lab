@@ -437,3 +437,58 @@ export function playStarPop(options) {
 export function playUnlock(options) {
   return playSound('badge', options);
 }
+
+/**
+ * Play a cute character chirp/voice effect using Web Audio API (safe in headless Node.js).
+ * @param {string} [characterId='momonga']
+ * @param {object} [options={}]
+ */
+export function playCuteVoice(characterId = 'momonga', options = {}) {
+  if (mutedState) {
+    return playSound('stamp', options);
+  }
+  const ctx = getOrCreateAudioContext();
+  if (!ctx) {
+    return playSound('stamp', options);
+  }
+  const effectiveVolume = options.volume !== undefined
+    ? Math.max(0.0, Math.min(1.0, Number(options.volume)))
+    : masterVolume;
+  if (effectiveVolume <= 0) {
+    return playSound('stamp', options);
+  }
+
+  // Distinct cute squeak/chirp pitch pairs per character
+  const pitchMap = {
+    momonga: [783.99, 1046.50, 1318.51],
+    marupi: [659.25, 880.00, 1046.50],
+    hachiwaren: [587.33, 783.99, 987.77],
+    usapyon: [880.00, 1174.66, 1567.98],
+    kuriman: [440.00, 523.25, 659.25],
+    shisa: [698.46, 880.00, 1174.66],
+    rakko: [523.25, 659.25, 783.99],
+    kanichan: [739.99, 987.77, 1174.66]
+  };
+  const notes = pitchMap[characterId] || pitchMap.momonga;
+
+  try {
+    if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+      ctx.resume()?.catch?.(() => {});
+    }
+    const now = typeof ctx.currentTime === 'number' ? ctx.currentTime : 0;
+    const peakGain = 0.18 * effectiveVolume;
+    notes.forEach((freq, idx) => {
+      scheduleTone(ctx, {
+        freq,
+        endFreq: freq * 1.12,
+        waveform: 'sine',
+        startTime: now + idx * 0.065,
+        duration: 0.08,
+        peakGain
+      });
+    });
+    return { played: true, effect: 'cute_voice', characterId, notes, waveform: 'sine', duration: 0.24 };
+  } catch {
+    return playSound('stamp', options);
+  }
+}

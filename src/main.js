@@ -22,6 +22,15 @@ import MiniLessonModal from './components/mini-lesson.js';
 import StageMap from './components/stage-map.js';
 import TreasureBox, { addItem as addTreasureItem } from './components/treasure-box.js';
 import ParentBoard from './components/parent-board.js';
+import {
+  DEFAULT_CHARACTER_ID,
+  INITIAL_UNLOCKED_CHARACTERS,
+  getCharacterById,
+  renderCharacterSvg,
+  MascotCompanionWidget,
+  CharacterBookModal
+} from './components/cute-characters.js';
+import { BackroomsBonusModal } from './components/backrooms-bonus.js';
 
 // --- HEADLESS COMPATIBLE ROUTER REFERENCE CONTRACT ---
 
@@ -58,7 +67,35 @@ export class MathLabApp {
     this.arenaCanvasPad = null;
     this.arenaKeypad = null;
     this.arenaStepGuide = null;
+    this.arenaMascotWidget = null;
     this.stageCompleteModal = null;
+    this.bonusModal = null;
+    this.characterBookModal = null;
+  }
+
+  ensureBonusState() {
+    if (!this.progress) {
+      this.progress = StorageService.createDefaultProgress();
+    }
+    if (!this.progress.bonusGame || typeof this.progress.bonusGame !== 'object') {
+      this.progress.bonusGame = {
+        tickets: 1,
+        totalPlayed: 0,
+        totalEscapes: 0,
+        selectedCharacterId: DEFAULT_CHARACTER_ID,
+        unlockedCharacters: [...INITIAL_UNLOCKED_CHARACTERS]
+      };
+    }
+    if (!Array.isArray(this.progress.bonusGame.unlockedCharacters) || this.progress.bonusGame.unlockedCharacters.length === 0) {
+      this.progress.bonusGame.unlockedCharacters = [...INITIAL_UNLOCKED_CHARACTERS];
+    }
+    if (!this.progress.bonusGame.selectedCharacterId) {
+      this.progress.bonusGame.selectedCharacterId = DEFAULT_CHARACTER_ID;
+    }
+    if (typeof this.progress.bonusGame.tickets !== 'number') {
+      this.progress.bonusGame.tickets = 1;
+    }
+    return this.progress.bonusGame;
   }
 
   async init() {
@@ -134,6 +171,22 @@ export class MathLabApp {
         window.location.hash = '#parent';
       });
     }
+
+    const btnCharBook = document.getElementById('btn-nav-charbook');
+    if (btnCharBook) {
+      btnCharBook.addEventListener('click', () => {
+        SoundEffects.playSound('tap');
+        this.openCharacterBook();
+      });
+    }
+
+    const btnBonus = document.getElementById('btn-nav-bonus');
+    if (btnBonus) {
+      btnBonus.addEventListener('click', () => {
+        SoundEffects.playSound('tap');
+        this.openBonusGame();
+      });
+    }
   }
 
   updateHeaderStats() {
@@ -205,6 +258,21 @@ export class MathLabApp {
     }
     this.arenaStepGuide = null;
 
+    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
+      this.arenaMascotWidget.destroy();
+    }
+    this.arenaMascotWidget = null;
+
+    if (this.bonusModal && typeof this.bonusModal.destroy === 'function') {
+      this.bonusModal.destroy();
+    }
+    this.bonusModal = null;
+
+    if (this.characterBookModal && typeof this.characterBookModal.destroy === 'function') {
+      this.characterBookModal.destroy();
+    }
+    this.characterBookModal = null;
+
     // Cleanup stage complete modal
     if (this.stageCompleteModal) {
       if (this.stageCompleteModal.parentNode) {
@@ -255,6 +323,12 @@ export class MathLabApp {
       },
       onOpenLesson: (stageId) => {
         window.location.hash = `#lesson/${stageId}`;
+      },
+      onOpenBonusGame: () => {
+        this.openBonusGame();
+      },
+      onOpenCharacterBook: () => {
+        this.openCharacterBook();
       }
     }).mount(container);
   }
@@ -328,7 +402,9 @@ export class MathLabApp {
             <div class="problem-prompt" id="arena-problem-prompt"></div>
           </div>
 
-          <div id="arena-canvas-container" style="flex:1; min-height:280px;"></div>
+          <div id="arena-mascot-container"></div>
+
+          <div id="arena-canvas-container" style="flex:1; min-height:240px;"></div>
         </div>
 
         <!-- Right: Keypad -->
@@ -354,12 +430,33 @@ export class MathLabApp {
       };
     }
 
+    const bonusState = this.ensureBonusState();
+
+    // Initialize MascotCompanionWidget (Momonga by default, switchable anytime)
+    const mascotContainer = container.querySelector('#arena-mascot-container');
+    if (mascotContainer) {
+      this.arenaMascotWidget = new MascotCompanionWidget({
+        selectedCharacterId: bonusState.selectedCharacterId,
+        unlockedCharacters: bonusState.unlockedCharacters,
+        onSelectCharacter: (newCharId) => {
+          this.setSelectedCharacter(newCharId);
+        },
+        onOpenBook: () => {
+          this.openCharacterBook();
+        }
+      }).mount(mascotContainer);
+    }
+
     // Initialize CanvasPad
     const canvasContainer = container.querySelector('#arena-canvas-container');
     if (canvasContainer) {
       this.arenaCanvasPad = new CanvasPad({
         dpr: (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 2,
-        gridMode: 'none'
+        gridMode: 'none',
+        watermarkCharacterId: bonusState.selectedCharacterId,
+        onDrawStart: () => {
+          this.arenaMascotWidget?.setMood('focus');
+        }
       }).mount(canvasContainer);
     }
 
@@ -446,9 +543,11 @@ export class MathLabApp {
       if (session.wasSelfCorrected) {
         SoundEffects.playSound('self_correct');
         showToast(null, 'self-correct', '自分で気づいて直せたね！すばらしい！');
+        this.arenaMascotWidget?.setMood('selfCorrect');
       } else {
         SoundEffects.playSound('correct');
         showToast(null, 'encourage', '大正解！その調子！');
+        this.arenaMascotWidget?.setMood('happy');
       }
 
       this.updateHeaderStats();
@@ -466,6 +565,7 @@ export class MathLabApp {
       // Incorrect - NEVER show X!
       session.attempts++;
       SoundEffects.playSound('near_miss');
+      this.arenaMascotWidget?.setMood('cheer');
 
       // Diagnose error
       CurriculumEngine.diagnoseError(prob, answerValue);
@@ -532,6 +632,10 @@ export class MathLabApp {
       lastPlayed: new Date().toISOString()
     };
 
+    // Award +1 Backrooms Bonus Ticket on every stage clear
+    const bonusState = this.ensureBonusState();
+    bonusState.tickets = (bonusState.tickets || 0) + 1;
+
     // Save progress
     StorageService.saveProgress(this.progress).catch(() => {});
     this.updateHeaderStats();
@@ -549,26 +653,45 @@ export class MathLabApp {
 
     const card = document.createElement('div');
     card.className = 'modal-card';
-    card.style.maxWidth = '460px';
+    card.style.maxWidth = '480px';
     card.style.textAlign = 'center';
     card.style.padding = '32px';
 
     const starString = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    const activeChar = getCharacterById(bonusState.selectedCharacterId);
 
     card.innerHTML = `
-      <div style="font-size:3rem; margin-bottom:8px;">🏆</div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px;">
+        <span style="font-size:2.8rem;">🏆</span>
+        ${renderCharacterSvg(activeChar.id, 'happy', 68)}
+      </div>
       <h2 style="font-size:1.6rem; color:var(--color-accent-cyan);">ステージクリア！</h2>
       <p style="color:var(--color-text-muted); margin:8px 0;">STAGE ${session.stageNum} を見事に攻略しました！</p>
-      <div style="font-size:2.2rem; letter-spacing:4px; color:var(--color-amber-warm); margin:16px 0;">
+      <div style="font-size:2.2rem; letter-spacing:4px; color:var(--color-amber-warm); margin:12px 0;">
         ${starString}
       </div>
-      <div style="background:rgba(0,0,0,0.3); padding:16px; border-radius:var(--radius-lg); margin-bottom:20px;">
+      <div style="background:rgba(0,0,0,0.3); padding:14px; border-radius:var(--radius-lg); margin-bottom:14px;">
         <div style="font-size:1.1rem; font-weight:700;">正解数: ${session.correctCount} / 5 問</div>
       </div>
-      <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.1rem;">
+      <div class="stage-bonus-ticket-banner">
+        🎫 バックルーム探検チケット <strong>+1枚</strong> ゲット！（合計 ${bonusState.tickets}枚）
+      </div>
+      <button type="button" class="btn btn-accent btn-stage-bonus" style="width:100%; padding:14px; font-size:1.1rem; margin-bottom:10px;">
+        🎮 ボーナスゲーム（バックルーム）で遊ぶ！
+      </button>
+      <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.05rem;">
         マップへ戻る 🗺️
       </button>
     `;
+
+    const bonusBtn = card.querySelector('.btn-stage-bonus');
+    if (bonusBtn) {
+      bonusBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        this.openBonusGame();
+      };
+    }
 
     const finishBtn = card.querySelector('.btn-stage-finish');
     if (finishBtn) {
@@ -582,6 +705,97 @@ export class MathLabApp {
     overlay.appendChild(card);
     modalRoot.appendChild(overlay);
     this.stageCompleteModal = overlay;
+  }
+
+  setSelectedCharacter(charId) {
+    const bonusState = this.ensureBonusState();
+    const char = getCharacterById(charId);
+    bonusState.selectedCharacterId = char.id;
+    if (!bonusState.unlockedCharacters.includes(char.id)) {
+      bonusState.unlockedCharacters.push(char.id);
+    }
+
+    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.setWatermarkCharacter === 'function') {
+      this.arenaCanvasPad.setWatermarkCharacter(char.id);
+    }
+    if (this.arenaMascotWidget && this.arenaMascotWidget.characterId !== char.id) {
+      this.arenaMascotWidget.setCharacter(char.id);
+    }
+    if (this.currentRoute.view === '#map' && this.activeViewComponent && typeof this.activeViewComponent.update === 'function') {
+      this.activeViewComponent.update(this.progress);
+    }
+
+    StorageService.saveProgress(this.progress).catch(() => {});
+    showToast(null, 'success', `応援キャラを「${char.name}」に変更したよ！`);
+  }
+
+  openCharacterBook() {
+    const bonusState = this.ensureBonusState();
+    const modalRoot = document.getElementById('modal-root') || document.body;
+    if (this.characterBookModal) {
+      this.characterBookModal.destroy();
+      this.characterBookModal = null;
+    }
+    this.characterBookModal = new CharacterBookModal({
+      selectedCharacterId: bonusState.selectedCharacterId,
+      unlockedCharacters: bonusState.unlockedCharacters,
+      onSelectCharacter: (charId) => {
+        this.setSelectedCharacter(charId);
+      },
+      onOpenBonusGame: () => {
+        this.openBonusGame();
+      },
+      onClose: () => {
+        this.characterBookModal = null;
+      }
+    }).open(modalRoot);
+  }
+
+  openBonusGame() {
+    const bonusState = this.ensureBonusState();
+    const modalRoot = document.getElementById('modal-root') || document.body;
+    if (this.bonusModal) {
+      this.bonusModal.destroy();
+      this.bonusModal = null;
+    }
+
+    if (bonusState.tickets > 0) {
+      bonusState.tickets -= 1;
+    }
+    bonusState.totalPlayed = (bonusState.totalPlayed || 0) + 1;
+    StorageService.saveProgress(this.progress).catch(() => {});
+
+    this.bonusModal = new BackroomsBonusModal({
+      progress: this.progress,
+      selectedCharacterId: bonusState.selectedCharacterId,
+      unlockedCharacters: bonusState.unlockedCharacters,
+      onComplete: ({ score, rescuedCharacterId }) => {
+        bonusState.totalEscapes = (bonusState.totalEscapes || 0) + 1;
+        if (rescuedCharacterId && !bonusState.unlockedCharacters.includes(rescuedCharacterId)) {
+          bonusState.unlockedCharacters.push(rescuedCharacterId);
+        }
+        if (this.progress.gamification) {
+          this.progress.gamification.totalScore = (this.progress.gamification.totalScore || 0) + Math.max(0, Number(score) || 0);
+        }
+        this.arenaMascotWidget?.setUnlockedCharacters(bonusState.unlockedCharacters);
+        StorageService.saveProgress(this.progress).catch(() => {});
+        this.updateHeaderStats();
+      },
+      onOpenBook: () => {
+        this.bonusModal = null;
+        this.openCharacterBook();
+      },
+      onClose: () => {
+        this.bonusModal = null;
+        if (this.currentRoute.view === '#map' && this.activeViewComponent && typeof this.activeViewComponent.update === 'function') {
+          this.activeViewComponent.update(this.progress);
+        }
+        if (this.arenaMascotWidget && this.arenaMascotWidget.characterId !== bonusState.selectedCharacterId) {
+          this.arenaMascotWidget.setCharacter(bonusState.selectedCharacterId);
+          this.arenaCanvasPad?.setWatermarkCharacter(bonusState.selectedCharacterId);
+        }
+      }
+    }).open(modalRoot);
   }
 
   renderTreasureBox(container) {

@@ -144,6 +144,13 @@ export function createDefaultProgress() {
       ttsAutoPlay: true,
       ttsVoice: 'ja-JP',
       ttsRate: 1.0
+    },
+    bonusGame: {
+      tickets: 1,
+      totalPlayed: 0,
+      totalEscapes: 0,
+      selectedCharacterId: 'momonga',
+      unlockedCharacters: ['momonga', 'marupi', 'hachiwaren']
     }
   };
 }
@@ -240,6 +247,24 @@ export function normalizeProgressData(data) {
     settings: {
       ...base.settings,
       ...(cloned.settings || {})
+    },
+    bonusGame: {
+      tickets: typeof cloned.bonusGame?.tickets === 'number' && cloned.bonusGame.tickets >= 0
+        ? Math.floor(cloned.bonusGame.tickets)
+        : base.bonusGame.tickets,
+      totalPlayed: typeof cloned.bonusGame?.totalPlayed === 'number' && cloned.bonusGame.totalPlayed >= 0
+        ? Math.floor(cloned.bonusGame.totalPlayed)
+        : 0,
+      totalEscapes: typeof cloned.bonusGame?.totalEscapes === 'number' && cloned.bonusGame.totalEscapes >= 0
+        ? Math.floor(cloned.bonusGame.totalEscapes)
+        : 0,
+      selectedCharacterId: typeof cloned.bonusGame?.selectedCharacterId === 'string' && cloned.bonusGame.selectedCharacterId.trim()
+        ? cloned.bonusGame.selectedCharacterId
+        : base.bonusGame.selectedCharacterId,
+      unlockedCharacters: Array.from(new Set([
+        ...base.bonusGame.unlockedCharacters,
+        ...(Array.isArray(cloned.bonusGame?.unlockedCharacters) ? cloned.bonusGame.unlockedCharacters : [])
+      ]))
     }
   };
 }
@@ -673,9 +698,6 @@ export function saveProgress(userData, options = {}) {
         debounceTimer = null;
         flushPendingSync(options).catch(() => {});
       }, options.debounceMs);
-      if (debounceTimer && typeof debounceTimer.unref === 'function') {
-        debounceTimer.unref();
-      }
     });
   }
 

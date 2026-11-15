@@ -8,6 +8,15 @@
  *    pointer events, smooth stroke drawing, and math grid / column guides.
  */
 
+import { DEFAULT_CHARACTER_ID, renderCharacterSvg } from './cute-characters.js';
+
+export const PEN_COLORS = [
+  { id: 'cyan', color: '#38bdf8', label: 'みずいろ' },
+  { id: 'pink', color: '#f472b6', label: 'ももいろ' },
+  { id: 'yellow', color: '#facc15', label: 'きいろ' },
+  { id: 'mint', color: '#34d399', label: 'ミント' }
+];
+
 // --- PURE STATE MANAGEMENT FUNCTIONS (HEADLESS COMPATIBLE) ---
 
 export function createPadState(options = {}) {
@@ -18,11 +27,21 @@ export function createPadState(options = {}) {
   return {
     dpr,
     gridMode: options.gridMode || 'none', // 'none' | 'grid' | 'column'
+    strokeColor: options.strokeColor || '#38bdf8',
+    strokeColors: [],
+    watermarkCharacterId: options.watermarkCharacterId || DEFAULT_CHARACTER_ID,
     strokes: [],
     currentStroke: null,
     width: options.width || 600,
     height: options.height || 400
   };
+}
+
+export function setStrokeColor(state, color) {
+  if (typeof color === 'string' && color.trim().length > 0) {
+    state.strokeColor = color;
+  }
+  return state;
 }
 
 export function setGridMode(state, mode) {
@@ -47,17 +66,25 @@ export function moveStroke(state, x, y) {
 export function endStroke(state) {
   if (state.currentStroke && state.currentStroke.length > 0) {
     state.strokes.push([...state.currentStroke]);
+    if (!Array.isArray(state.strokeColors)) {
+      state.strokeColors = [];
+    }
+    state.strokeColors.push(state.strokeColor || '#38bdf8');
   }
   state.currentStroke = null;
   return state;
 }
 
 export function undo(state) {
+  if (Array.isArray(state.strokeColors) && state.strokeColors.length > 0) {
+    state.strokeColors.pop();
+  }
   return state.strokes.pop();
 }
 
 export function clear(state) {
   state.strokes = [];
+  state.strokeColors = [];
   state.currentStroke = null;
   return state;
 }
@@ -86,6 +113,7 @@ export class CanvasPad {
     this._boundPointerCancel = null;
     this._boundToolbarClick = null;
     this._onStrokeChange = options.onStrokeChange || null;
+    this._onDrawStart = options.onDrawStart || null;
   }
 
   mount(target) {
@@ -101,6 +129,10 @@ export class CanvasPad {
   }
 
   render() {
+    const colorBtnsHtml = PEN_COLORS.map((c) => `
+      <button type="button" class="pen-color-btn ${this.state.strokeColor === c.color ? 'active' : ''}" data-color="${c.color}" title="${c.label}ペン" aria-label="${c.label}ペン" style="background:${c.color};"></button>
+    `).join('');
+
     this.container.innerHTML = `
       <div class="canvas-pad-container">
         <div class="canvas-toolbar">
@@ -109,12 +141,16 @@ export class CanvasPad {
             <button type="button" class="btn btn-sm btn-outline grid-btn ${this.state.gridMode === 'grid' ? 'active' : ''}" data-grid="grid">方眼</button>
             <button type="button" class="btn btn-sm btn-outline grid-btn ${this.state.gridMode === 'column' ? 'active' : ''}" data-grid="column">筆算ガイド</button>
           </div>
+          <div class="toolbar-group pen-color-group" aria-label="ペンいろ">
+            ${colorBtnsHtml}
+          </div>
           <div class="toolbar-group">
             <button type="button" class="btn btn-sm btn-outline undo-btn" title="1つ戻す">元に戻す</button>
             <button type="button" class="btn btn-sm btn-outline clear-btn" title="全消去">全消去</button>
           </div>
         </div>
         <div class="canvas-wrapper">
+          <div class="canvas-mascot-watermark" aria-hidden="true">${renderCharacterSvg(this.state.watermarkCharacterId, 'normal', 76)}</div>
           <canvas class="memo-canvas"></canvas>
         </div>
       </div>
@@ -148,6 +184,14 @@ export class CanvasPad {
           const mode = gridBtn.dataset.grid;
           this.setGridMode(mode);
           this.toolbar.querySelectorAll('.grid-btn').forEach(b => b.classList.toggle('active', b === gridBtn));
+          return;
+        }
+
+        const colorBtn = e.target.closest('.pen-color-btn');
+        if (colorBtn) {
+          const color = colorBtn.dataset.color;
+          this.setStrokeColor(color);
+          this.toolbar.querySelectorAll('.pen-color-btn').forEach(b => b.classList.toggle('active', b === colorBtn));
           return;
         }
 
@@ -187,8 +231,12 @@ export class CanvasPad {
     const { x, y } = this.getPointerCoords(e);
     startStroke(this.state, x, y);
 
+    if (typeof this._onDrawStart === 'function') {
+      this._onDrawStart(this.state);
+    }
+
     // Immediate visual feedback for single tap
-    this.drawPoint(x, y);
+    this.drawPoint(x, y, this.state.strokeColor || this.options.strokeColor);
   }
 
   handlePointerMove(e) {
@@ -203,7 +251,7 @@ export class CanvasPad {
       this.ctx.beginPath();
       this.ctx.moveTo(prev.x, prev.y);
       this.ctx.lineTo(x, y);
-      this.ctx.strokeStyle = this.options.strokeColor;
+      this.ctx.strokeStyle = this.state.strokeColor || this.options.strokeColor;
       this.ctx.lineWidth = this.options.lineWidth;
       this.ctx.lineCap = 'round';
       this.ctx.lineJoin = 'round';
@@ -230,6 +278,21 @@ export class CanvasPad {
   setGridMode(mode) {
     setGridMode(this.state, mode);
     this.redraw();
+  }
+
+  setStrokeColor(color) {
+    setStrokeColor(this.state, color);
+    this.options.strokeColor = this.state.strokeColor;
+  }
+
+  setWatermarkCharacter(charId) {
+    this.state.watermarkCharacterId = charId || DEFAULT_CHARACTER_ID;
+    if (this.container) {
+      const wm = this.container.querySelector('.canvas-mascot-watermark');
+      if (wm) {
+        wm.innerHTML = renderCharacterSvg(this.state.watermarkCharacterId, 'normal', 76);
+      }
+    }
   }
 
   undo() {
@@ -268,13 +331,13 @@ export class CanvasPad {
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
 
-    this.ctx.scale(dpr, dpr);
+    this.ctx.scale?.(dpr, dpr);
     this.redraw();
   }
 
   redraw() {
     if (!this.ctx) return;
-    const { width, height, gridMode, strokes, currentStroke } = this.state;
+    const { width, height, gridMode, strokes, strokeColors, currentStroke } = this.state;
     this.ctx.clearRect(0, 0, width, height);
 
     // 1. Draw Background Guides
@@ -285,28 +348,30 @@ export class CanvasPad {
     }
 
     // 2. Draw Committed Strokes
-    for (const stroke of strokes) {
-      this.drawStroke(stroke);
+    for (let i = 0; i < strokes.length; i++) {
+      const color = (Array.isArray(strokeColors) && strokeColors[i]) || this.options.strokeColor;
+      this.drawStroke(strokes[i], color);
     }
 
     // 3. Draw Active In-Progress Stroke
     if (currentStroke) {
-      this.drawStroke(currentStroke);
+      this.drawStroke(currentStroke, this.state.strokeColor || this.options.strokeColor);
     }
   }
 
-  drawPoint(x, y) {
+  drawPoint(x, y, color = null) {
     if (!this.ctx) return;
-    this.ctx.fillStyle = this.options.strokeColor;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, this.options.lineWidth / 2, 0, Math.PI * 2);
-    this.ctx.fill();
+    this.ctx.fillStyle = color || this.state.strokeColor || this.options.strokeColor;
+    this.ctx.beginPath?.();
+    this.ctx.arc?.(x, y, this.options.lineWidth / 2, 0, Math.PI * 2);
+    this.ctx.fill?.();
   }
 
-  drawStroke(stroke) {
+  drawStroke(stroke, color = null) {
     if (!this.ctx || !stroke || stroke.length === 0) return;
+    const strokeCol = color || this.state.strokeColor || this.options.strokeColor;
     if (stroke.length === 1) {
-      this.drawPoint(stroke[0].x, stroke[0].y);
+      this.drawPoint(stroke[0].x, stroke[0].y, strokeCol);
       return;
     }
 
@@ -325,7 +390,7 @@ export class CanvasPad {
       this.ctx.lineTo(stroke[stroke.length - 1].x, stroke[stroke.length - 1].y);
     }
 
-    this.ctx.strokeStyle = this.options.strokeColor;
+    this.ctx.strokeStyle = strokeCol;
     this.ctx.lineWidth = this.options.lineWidth;
     this.ctx.lineCap = 'round';
     this.ctx.lineJoin = 'round';
