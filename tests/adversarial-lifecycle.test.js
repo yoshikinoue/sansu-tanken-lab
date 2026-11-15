@@ -199,7 +199,7 @@ class MockElement {
       oldChild.parentNode = null;
       return oldChild;
     }
-    return this.appendChild(newChild);
+    throw new Error('NotFoundError: The node to be replaced is not a child of this node');
   }
 
   setAttribute(k, v) {
@@ -1369,6 +1369,171 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(item.masteryLevel, 1);
 
       tb.destroy();
+    });
+  });
+
+  // =========================================================================
+  // Challenge 6: MiniLesson Visual Card & Next/Prev Navigation E2E Flow
+  // =========================================================================
+  describe('6. MiniLesson Visual Card & Next/Prev Navigation E2E Flow', () => {
+    function routeTo(hash) {
+      global.window.location.hash = hash;
+      app.handleRoute();
+    }
+
+    function getAllText(el) {
+      if (!el) return '';
+      let txt = el._textContent || '';
+      for (const child of el.children || []) {
+        txt += ' ' + getAllText(child);
+      }
+      return txt.trim();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    it('navigates MiniLesson Card 0 <-> Card 1 <-> Card 2 via DOM button clicks without replaceChild NotFoundError and enforces quiz gate', () => {
+      routeTo('#lesson/stage-1');
+      assert.equal(env.modalRoot.children.length, 1);
+
+      const modal = app.activeViewComponent;
+      assert.ok(modal instanceof MiniLessonModal);
+
+      // Card 0: Concept / Flash card should have rich visual & explanation content
+      const placeholder = env.modalRoot.querySelector('.lesson-image-placeholder');
+      assert.ok(placeholder, 'Card 0 must render .lesson-image-placeholder');
+      const badge = env.modalRoot.querySelector('.lesson-concept-badge');
+      const conceptTitle = env.modalRoot.querySelector('.lesson-concept-title');
+      const visualDiagram = env.modalRoot.querySelector('.lesson-visual-diagram');
+      const lessonText = env.modalRoot.querySelector('.lesson-text');
+      const detailBody = env.modalRoot.querySelector('.lesson-detail-body');
+
+      assert.ok(getAllText(badge).length > 0, 'Concept badge should be non-empty');
+      assert.ok(getAllText(conceptTitle).length > 0, 'Concept title should be non-empty');
+      assert.ok(getAllText(visualDiagram).length > 0, 'Visual diagram should be non-empty');
+      assert.ok(getAllText(lessonText).length > 0, 'Lesson text should be non-empty');
+      assert.ok(getAllText(detailBody).length > 0, 'Lesson detail body should be non-empty');
+
+      const prevBtnCard0 = env.modalRoot.querySelector('.prev-card-btn');
+      const nextBtnCard0 = env.modalRoot.querySelector('.next-card-btn');
+      assert.equal(prevBtnCard0.disabled, true, 'Prev button must be disabled on Card 0');
+      assert.equal(nextBtnCard0.disabled, false, 'Next button must be enabled on Card 0');
+
+      // Advance Card 0 -> Card 1 via DOM click (would throw NotFoundError before fix)
+      domClick(nextBtnCard0);
+      assert.equal(env.modalRoot.children.length, 1);
+      assert.equal(modal.state.currentCardIndex, 1);
+
+      const quizQuestion = env.modalRoot.querySelector('.quiz-question');
+      assert.ok(getAllText(quizQuestion).length > 0, 'Card 1 must render .quiz-question');
+      assert.equal(env.modalRoot.querySelector('.prev-card-btn').disabled, false, 'Prev button must be enabled on Card 1');
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, true, 'Next button must be locked until quiz answered correctly');
+
+      // Navigate back Card 1 -> Card 0 via DOM click
+      domClick(env.modalRoot.querySelector('.prev-card-btn'));
+      assert.equal(env.modalRoot.children.length, 1);
+      assert.equal(modal.state.currentCardIndex, 0);
+      assert.ok(env.modalRoot.querySelector('.lesson-visual-diagram'), 'Back on Card 0 visual diagram should be rendered');
+
+      // Advance again Card 0 -> Card 1
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+      assert.equal(modal.state.currentCardIndex, 1);
+
+      const lessonData = SpeechService.getMiniLessonData('stage-1');
+      const correctOpt = lessonData.card2.correctOption;
+      const wrongOpt = correctOpt === 'A' ? 'B' : 'A';
+
+      // Click wrong option -> feedback shown, next button remains disabled
+      domClick(env.modalRoot.querySelector(`.quiz-btn[data-option="${wrongOpt}"]`));
+      assert.equal(modal.state.currentCardIndex, 1);
+      assert.equal(modal.state.quizIsCorrect, false);
+      assert.ok(getAllText(env.modalRoot.querySelector('.quiz-feedback')).length > 0, 'Wrong answer must display feedback');
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, true, 'Next button must stay disabled after wrong answer');
+
+      // Click correct option -> feedback shown, next button unlocks
+      domClick(env.modalRoot.querySelector(`.quiz-btn[data-option="${correctOpt}"]`));
+      assert.equal(modal.state.quizIsCorrect, true);
+      assert.ok(getAllText(env.modalRoot.querySelector('.quiz-feedback')).length > 0, 'Correct answer must display feedback');
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, false, 'Next button must unlock after correct answer');
+
+      // Advance Card 1 -> Card 2
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+      assert.equal(env.modalRoot.children.length, 1);
+      assert.equal(modal.state.currentCardIndex, 2);
+      assert.ok(env.modalRoot.querySelector('.summary-box'), 'Card 2 must render .summary-box');
+      assert.ok(getAllText(env.modalRoot.querySelector('.summary-rule')).length > 0, 'Card 2 must render non-empty .summary-rule');
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').textContent, '探検スタート！ 🚀');
+
+      // Navigate back Card 2 -> Card 1 -> state preserved & next still unlocked
+      domClick(env.modalRoot.querySelector('.prev-card-btn'));
+      assert.equal(modal.state.currentCardIndex, 1);
+      assert.equal(modal.state.quizIsCorrect, true);
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, false);
+
+      // Complete Card 1 -> Card 2 -> Finish
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+      assert.equal(modal.state.currentCardIndex, 2);
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+
+      assert.equal(app.progress.stageProgress['stage-1']?.miniLessonSeen, true);
+      assert.equal(global.window.location.hash, '#stage/stage-1');
+    });
+
+    it('renders non-empty concept title, visual diagram, and explanation for all 15 stages and completes Card 0 -> Card 1 -> Card 2 via DOM', () => {
+      for (let s = 1; s <= 15; s++) {
+        const sId = `stage-${s}`;
+        routeTo(`#lesson/${sId}`);
+        assert.equal(env.modalRoot.children.length, 1, `${sId}: modal should be mounted`);
+
+        const titleEl = env.modalRoot.querySelector('.lesson-concept-title');
+        const diagramEl = env.modalRoot.querySelector('.lesson-visual-diagram');
+        const textEl = env.modalRoot.querySelector('.lesson-text');
+        assert.ok(getAllText(titleEl).length > 0, `${sId}: concept title must not be empty`);
+        assert.ok(getAllText(diagramEl).length > 0, `${sId}: visual diagram must not be empty`);
+        assert.ok(getAllText(textEl).length > 0, `${sId}: lesson text must not be empty`);
+
+        // Card 0 -> Card 1
+        domClick(env.modalRoot.querySelector('.next-card-btn'));
+        const correctOpt = SpeechService.getMiniLessonData(sId).card2.correctOption;
+        const rightBtn = env.modalRoot.querySelector(`.quiz-btn[data-option="${correctOpt}"]`);
+        assert.ok(rightBtn, `${sId}: correct option button ${correctOpt} must exist`);
+        domClick(rightBtn);
+
+        const nextBtnCard1 = env.modalRoot.querySelector('.next-card-btn');
+        assert.equal(nextBtnCard1.disabled, false, `${sId}: next button should unlock on correct option`);
+
+        // Card 1 -> Card 2
+        domClick(nextBtnCard1);
+        const summaryRule = env.modalRoot.querySelector('.summary-rule');
+        assert.ok(getAllText(summaryRule).length > 0, `${sId}: Card 2 summary rule must not be empty`);
+        assert.equal(env.modalRoot.children.length, 1, `${sId}: modal root should still have single modal`);
+      }
+
+      routeTo('#map');
+      assert.equal(env.modalRoot.children.length, 0);
     });
   });
 });
