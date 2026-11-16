@@ -640,6 +640,50 @@ export function recordResult(payload = {}) {
 }
 
 /**
+ * Record stage clear status and stars into gamification internal state so
+ * profile.stars and world radar stats stay synchronized with stageProgress.
+ * @param {object} [params={}]
+ * @returns {object}
+ */
+export function recordStageClear({
+  stageId = 1,
+  worldId,
+  stars = 0,
+  firstTryCorrectCount = 0,
+  selfCorrectedCount = 0
+} = {}) {
+  const resolved = resolveWorldAndStage(worldId, stageId);
+  const stg = state.stageStats[resolved.stageKey];
+  const wt = state.worldTracking[resolved.worldId];
+  const numericStars = Math.max(0, Math.min(3, Number(stars) || 0));
+
+  if (stg) {
+    stg.cleared = true;
+    stg.stars = Math.max(stg.stars || 0, numericStars);
+    stg.firstTryCorrectCount = Math.max(stg.firstTryCorrectCount || 0, Number(firstTryCorrectCount) || 0);
+    stg.selfCorrectedCount = Math.max(stg.selfCorrectedCount || 0, Number(selfCorrectedCount) || 0);
+    state.stageStars[resolved.stageKey] = Math.max(state.stageStars[resolved.stageKey] || 0, stg.stars);
+  }
+  if (wt) {
+    wt.clearedStages.add(resolved.stageKey);
+  }
+  if (numericStars === 3 && stg && stg.mistakesCount === 0) {
+    state.perfectClearCount += 1;
+  }
+
+  const newlyUnlockedBadges = evaluateBadges();
+  const totalStars = Object.values(state.stageStars).reduce((sum, s) => sum + (Number(s) || 0), 0);
+
+  return {
+    stageId: resolved.stageKey,
+    worldId: resolved.worldId,
+    stars: state.stageStars[resolved.stageKey] || 0,
+    totalStars,
+    newlyUnlockedBadges
+  };
+}
+
+/**
  * Record that a Power-Up Treasure Box item was fully mastered (2 consecutive clears).
  * @param {object} [params={}]
  * @returns {object}
@@ -840,10 +884,11 @@ export function loadGamificationState(saved = {}) {
   if (gam.stageStars && typeof gam.stageStars === 'object') {
     for (const [k, v] of Object.entries(gam.stageStars)) {
       if (state.stageStars[k] !== undefined) {
-        state.stageStars[k] = Number(v) || 0;
-        if (state.stageStars[k] > 0) {
+        const merged = Math.max(Number(state.stageStars[k]) || 0, Number(v) || 0);
+        state.stageStars[k] = merged;
+        if (merged > 0) {
           state.stageStats[k].cleared = true;
-          state.stageStats[k].stars = state.stageStars[k];
+          state.stageStats[k].stars = Math.max(Number(state.stageStats[k].stars) || 0, merged);
         }
       }
     }
@@ -852,17 +897,34 @@ export function loadGamificationState(saved = {}) {
   if (saved.stageProgress && typeof saved.stageProgress === 'object') {
     for (const [k, sp] of Object.entries(saved.stageProgress)) {
       if (state.stageStats[k] && sp) {
-        state.stageStats[k].cleared = Boolean(sp.cleared);
-        state.stageStats[k].stars = Number(sp.stars) || 0;
-        state.stageStats[k].firstTryCorrectCount = Number(sp.firstTryCorrectCount) || 0;
-        state.stageStats[k].attempts = Number(sp.totalAttempts) || 0;
-        state.stageStars[k] = state.stageStats[k].stars;
+        const mergedStars = Math.max(
+          Number(state.stageStars[k]) || 0,
+          Number(state.stageStats[k].stars) || 0,
+          Number(sp.stars) || 0
+        );
+        const isCleared = Boolean(sp.cleared) || Boolean(state.stageStats[k].cleared) || mergedStars > 0;
+        state.stageStats[k].cleared = isCleared;
+        state.stageStats[k].stars = mergedStars;
+        state.stageStats[k].firstTryCorrectCount = Math.max(
+          state.stageStats[k].firstTryCorrectCount || 0,
+          Number(sp.firstTryCorrectCount) || 0
+        );
+        state.stageStats[k].selfCorrectedCount = Math.max(
+          state.stageStats[k].selfCorrectedCount || 0,
+          Number(sp.selfCorrectedCount) || 0
+        );
+        state.stageStats[k].attempts = Math.max(
+          state.stageStats[k].attempts || 0,
+          Number(sp.totalAttempts) || 0
+        );
+        state.stageStars[k] = mergedStars;
 
         const wId = state.stageStats[k].worldId;
         if (state.worldTracking[wId]) {
-          if (sp.cleared) state.worldTracking[wId].clearedStages.add(k);
+          if (isCleared) state.worldTracking[wId].clearedStages.add(k);
           state.worldTracking[wId].attempts += Number(sp.totalAttempts) || 0;
           state.worldTracking[wId].firstTryCorrectCount += Number(sp.firstTryCorrectCount) || 0;
+          state.worldTracking[wId].selfCorrectedCount += Number(sp.selfCorrectedCount) || 0;
         }
       }
     }

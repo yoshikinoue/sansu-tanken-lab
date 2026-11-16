@@ -12,7 +12,8 @@ import StorageService, {
   flushPendingSync,
   isSyncPending,
   resetStorageState,
-  isStaticHostingEnvironment
+  isStaticHostingEnvironment,
+  getOfflineBannerText
 } from '../src/services/storage-service.js';
 import { ParentBoard } from '../src/components/parent-board.js';
 
@@ -250,6 +251,36 @@ describe('Static Hosting, PWA Manifest & GitHub Pages Support', () => {
       assert.ok(html.includes('<link rel="icon" type="image/svg+xml" href="./assets/icon.svg">'));
       assert.ok(html.includes('<link rel="apple-touch-icon" href="./assets/icon.svg">'));
       assert.ok(html.includes('<meta name="apple-mobile-web-app-title" content="算数探検ラボ">'));
+    });
+  });
+
+  describe('Offline banner text and viewport accessibility (BUG-005 & BUG-006)', () => {
+    it('returns environment-appropriate offline banner text for static vs server hosting (BUG-005)', () => {
+      globalThis.window = { location: { protocol: 'https:', hostname: 'yoshikinoue.github.io' } };
+      const staticText = getOfflineBannerText();
+      assert.ok(staticText.includes('この端末に保存されます'));
+      assert.equal(staticText.includes('自動同期されます'), false);
+
+      globalThis.window = { location: { protocol: 'http:', hostname: 'localhost' } };
+      const serverText = getOfflineBannerText();
+      assert.ok(serverText.includes('自動同期されます'));
+    });
+
+    it('uses non-misleading default offline banner and allows pinch-zoom in both index.html and sansu_tanken_lab.html (BUG-005 & BUG-006)', () => {
+      for (const fileName of ['index.html', 'sansu_tanken_lab.html']) {
+        const html = fs.readFileSync(path.join(ROOT_DIR, fileName), 'utf8');
+        const viewportMatch = html.match(/<meta\s+name=["']viewport["'][^>]*>/i);
+        assert.ok(viewportMatch, `${fileName} must contain viewport meta tag`);
+        assert.equal(viewportMatch[0].includes('user-scalable=no'), false, `${fileName} must allow pinch-zoom (no user-scalable=no)`);
+        assert.equal(viewportMatch[0].includes('maximum-scale=1.0'), false, `${fileName} must allow pinch-zoom (no maximum-scale=1.0)`);
+
+        const bannerMatch = html.match(/<div[^>]*id=["']offline-banner["'][^>]*>([\s\S]*?)<\/div>/i);
+        assert.ok(bannerMatch, `${fileName} must contain #offline-banner`);
+        assert.equal(bannerMatch[1].includes('自動同期されます'), false, `${fileName} static default banner must not claim server sync`);
+      }
+
+      const tabletCss = fs.readFileSync(path.join(ROOT_DIR, 'src/styles/tablet.css'), 'utf8');
+      assert.ok(tabletCss.includes('@media (max-width: 640px)'), 'tablet.css must include smartphone portrait rules');
     });
   });
 });

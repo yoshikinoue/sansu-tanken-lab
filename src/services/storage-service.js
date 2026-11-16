@@ -135,6 +135,7 @@ export function createDefaultProgress() {
     },
     parentCheer: {
       parentPinHash: '1234',
+      pinConfigured: false,
       cheerMessages: []
     },
     settings: {
@@ -213,6 +214,15 @@ export function normalizeProgressData(data) {
     }
   }
 
+  const rawParentCheer = cloned.parentCheer || {};
+  const resolvedPinHash = rawParentCheer.parentPinHash !== undefined
+    ? rawParentCheer.parentPinHash
+    : base.parentCheer.parentPinHash;
+  const resolvedPinConfigured = Boolean(
+    rawParentCheer.pinConfigured ||
+    (resolvedPinHash && String(resolvedPinHash) !== '1234')
+  );
+
   return {
     ...base,
     ...cloned,
@@ -239,7 +249,9 @@ export function normalizeProgressData(data) {
     },
     parentCheer: {
       ...base.parentCheer,
-      ...(cloned.parentCheer || {}),
+      ...rawParentCheer,
+      parentPinHash: resolvedPinHash,
+      pinConfigured: resolvedPinConfigured,
       cheerMessages: Array.isArray(cloned.parentCheer?.cheerMessages)
         ? [...cloned.parentCheer.cheerMessages]
         : []
@@ -476,6 +488,20 @@ export function isStaticHostingEnvironment(options = {}) {
     hostname.endsWith('.netlify.app') ||
     hostname.endsWith('.vercel.app')
   );
+}
+
+/**
+ * Return the status/offline banner text tailored to the hosting environment.
+ * Static hosts (e.g., GitHub Pages) never sync to `/api/progress`, so they
+ * must not claim automatic server synchronization on reconnect.
+ * @param {object} [options]
+ * @returns {string}
+ */
+export function getOfflineBannerText(options = {}) {
+  if (isStaticHostingEnvironment(options)) {
+    return '💾 学習データはこの端末に保存されます（別の端末へ移すときは保護者ボードからバックアップがおすすめです）';
+  }
+  return '⚡ オフラインモードで動作中（学習データはこの端末に保存され、再接続時に自動同期されます）';
 }
 
 /**
@@ -1015,7 +1041,8 @@ export const StorageService = {
   restoreFromTransferCode,
   resetStorageState,
   getStorageBackend,
-  isStaticHostingEnvironment
+  isStaticHostingEnvironment,
+  getOfflineBannerText
 };
 
 export default StorageService;

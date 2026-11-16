@@ -84,10 +84,30 @@ export class ParentBoard {
     this.onSendStamp = options.onSendStamp || null;
     this.onSave = options.onSave || null;
     this.onTransferRestored = options.onTransferRestored || null;
-    this.storedPin = options.pin || '1234';
+    this._explicitPinOption = Boolean(options.pin !== undefined && options.pin !== null && options.pin !== '');
+    this.storedPin = this._explicitPinOption
+      ? String(options.pin)
+      : String(this.progress?.parentCheer?.parentPinHash || '1234');
     this.isAuthenticated = false;
     this.selectedStampId = 'STAMP_RECOVERY';
     this.rootEl = null;
+
+    this.maxFailedAttempts = typeof options.maxFailedAttempts === 'number' && options.maxFailedAttempts > 0
+      ? options.maxFailedAttempts
+      : 5;
+    this.lockoutDurationMs = typeof options.lockoutDurationMs === 'number' && options.lockoutDurationMs > 0
+      ? options.lockoutDurationMs
+      : 3 * 60 * 1000;
+    this.lockoutEnabled = Boolean(
+      options.enableLockout ||
+      typeof options.maxFailedAttempts === 'number' ||
+      options.progress ||
+      options.container ||
+      typeof document !== 'undefined'
+    );
+    this.failedAttempts = Number(this.progress?.parentCheer?.failedAttempts) || 0;
+    this.lockoutUntil = Number(this.progress?.parentCheer?.lockoutUntil) || 0;
+    this.pinErrorMessage = '';
   }
 
   mount(container) {
@@ -98,6 +118,9 @@ export class ParentBoard {
 
   update(progress) {
     this.progress = progress;
+    if (!this._explicitPinOption && this.progress?.parentCheer?.parentPinHash) {
+      this.storedPin = String(this.progress.parentCheer.parentPinHash);
+    }
     if (this.rootEl && this.rootEl.parentNode) {
       const oldEl = this.rootEl;
       const parent = oldEl.parentNode;
@@ -109,20 +132,156 @@ export class ParentBoard {
     }
   }
 
+  isPinSetupRequired() {
+    if (this._explicitPinOption) return false;
+    const pc = this.progress?.parentCheer;
+    if (!pc) return false;
+    return !pc.pinConfigured && String(pc.parentPinHash || '1234') === '1234';
+  }
+
+  isLockedOut(now = Date.now()) {
+    if (!this.lockoutEnabled) return false;
+    if (this.lockoutUntil && now < this.lockoutUntil) {
+      return true;
+    }
+    if (this.lockoutUntil && now >= this.lockoutUntil) {
+      this.lockoutUntil = 0;
+      this.failedAttempts = 0;
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.lockoutUntil = 0;
+        this.progress.parentCheer.failedAttempts = 0;
+      }
+    }
+    return false;
+  }
+
+  getRemainingLockoutMs(now = Date.now()) {
+    if (!this.isLockedOut(now)) return 0;
+    return Math.max(0, this.lockoutUntil - now);
+  }
+
+  setupInitialPin(newPin) {
+    const pinStr = String(newPin ?? '').trim();
+    if (!/^\d{4}$/.test(pinStr)) {
+      SoundEffects.playSound('near_miss');
+      this.pinErrorMessage = '⚠️ 4桁の数字を入力してください';
+      return false;
+    }
+
+    this.storedPin = pinStr;
+    this._explicitPinOption = true;
+    this.failedAttempts = 0;
+    this.lockoutUntil = 0;
+    this.pinErrorMessage = '';
+
+    if (this.progress) {
+      if (!this.progress.parentCheer || typeof this.progress.parentCheer !== 'object') {
+        this.progress.parentCheer = { cheerMessages: [] };
+      }
+      this.progress.parentCheer.parentPinHash = pinStr;
+      this.progress.parentCheer.pinConfigured = true;
+      this.progress.parentCheer.failedAttempts = 0;
+      this.progress.parentCheer.lockoutUntil = 0;
+      if (typeof this.onSave === 'function') {
+        Promise.resolve(this.onSave(this.progress)).catch(() => {});
+      }
+    }
+
+    this.isAuthenticated = true;
+    SoundEffects.playSound('unlock');
+    showToast(null, 'success', '保護者PINを設定しました！');
+    this.render();
+    return true;
+  }
+
+  changePin(newPinOrCurrent, maybeNewPin) {
+    let newPinRaw = newPinOrCurrent;
+    if (maybeNewPin !== undefined) {
+      if (!verifyPin(newPinOrCurrent, this.storedPin)) {
+        SoundEffects.playSound('near_miss');
+        return { success: false, error: '現在の暗証番号が正しくありません' };
+      }
+      newPinRaw = maybeNewPin;
+    }
+
+    const newPin = String(newPinRaw ?? '').trim();
+    if (!/^\d{4}$/.test(newPin)) {
+      SoundEffects.playSound('near_miss');
+      return { success: false, error: '新しい暗証番号は4桁の数字で入力してください' };
+    }
+
+    this.storedPin = newPin;
+    this._explicitPinOption = true;
+    this.failedAttempts = 0;
+    this.lockoutUntil = 0;
+    this.pinErrorMessage = '';
+
+    if (this.progress) {
+      if (!this.progress.parentCheer || typeof this.progress.parentCheer !== 'object') {
+        this.progress.parentCheer = { cheerMessages: [] };
+      }
+      this.progress.parentCheer.parentPinHash = newPin;
+      this.progress.parentCheer.pinConfigured = true;
+      this.progress.parentCheer.failedAttempts = 0;
+      this.progress.parentCheer.lockoutUntil = 0;
+      if (typeof this.onSave === 'function') {
+        Promise.resolve(this.onSave(this.progress)).catch(() => {});
+      }
+    }
+
+    SoundEffects.playSound('unlock');
+    return { success: true };
+  }
+
   authenticate(pin) {
+    if (this.isLockedOut()) {
+      SoundEffects.playSound('near_miss');
+      const remainMin = Math.max(1, Math.ceil(this.getRemainingLockoutMs() / 60000));
+      this.pinErrorMessage = `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、一時ロック中です（あと約${remainMin}分お待ちください）`;
+      return false;
+    }
+
     if (verifyPin(pin, this.storedPin)) {
       this.isAuthenticated = true;
+      this.failedAttempts = 0;
+      this.lockoutUntil = 0;
+      this.pinErrorMessage = '';
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.failedAttempts = 0;
+        this.progress.parentCheer.lockoutUntil = 0;
+      }
       SoundEffects.playSound('unlock');
       this.render();
       return true;
-    } else {
-      SoundEffects.playSound('near_miss');
-      return false;
     }
+
+    SoundEffects.playSound('near_miss');
+    if (this.lockoutEnabled) {
+      this.failedAttempts += 1;
+      if (this.failedAttempts >= this.maxFailedAttempts) {
+        this.lockoutUntil = Date.now() + this.lockoutDurationMs;
+        const remainMin = Math.max(1, Math.ceil(this.lockoutDurationMs / 60000));
+        this.pinErrorMessage = `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、${remainMin}分間ロックされました。`;
+      } else {
+        const left = this.maxFailedAttempts - this.failedAttempts;
+        this.pinErrorMessage = `⚠️ 暗証番号が正しくありません（あと${left}回間違えるとロックされます）`;
+      }
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.failedAttempts = this.failedAttempts;
+        this.progress.parentCheer.lockoutUntil = this.lockoutUntil;
+        if (this.lockoutUntil > 0 && typeof this.onSave === 'function') {
+          Promise.resolve(this.onSave(this.progress)).catch(() => {});
+        }
+      }
+    } else {
+      this.pinErrorMessage = '⚠️ 暗証番号が正しくありません';
+    }
+    return false;
   }
 
   lock() {
     this.isAuthenticated = false;
+    this.pinErrorMessage = '';
     SoundEffects.playSound('tap');
     this.render();
   }
@@ -152,22 +311,38 @@ export class ParentBoard {
     const card = document.createElement('div');
     card.className = 'pin-entry-card';
 
+    const needsSetup = this.isPinSetupRequired();
+    const lockedOut = !needsSetup && this.isLockedOut();
+    const remainMin = lockedOut ? Math.max(1, Math.ceil(this.getRemainingLockoutMs() / 60000)) : 0;
+    const defaultErrorText = lockedOut
+      ? `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、一時ロック中です（あと約${remainMin}分お待ちください）`
+      : (this.pinErrorMessage || '⚠️ 暗証番号が正しくありません');
+    const showErrorInitially = Boolean(lockedOut || this.pinErrorMessage);
+
+    const headingText = needsSetup ? '保護者PINの初期設定' : '保護者認証';
+    const descText = needsSetup
+      ? 'お子様の学習記録や設定を保護するため、おうちの方専用の4桁の暗証番号（数字4桁）を設定してください。'
+      : 'お子様の学習記録とおうちの方専用の設定を保護するため、4桁の暗証番号を入力してください。';
+    const placeholderText = needsSetup ? '新しい4桁のPIN' : '4桁の暗証番号';
+    const buttonText = needsSetup ? 'PINを設定して開く 🔐' : 'ロック解除 🔓';
+
     card.innerHTML = `
       <div style="font-size:3rem; margin-bottom:8px;">🛡️</div>
-      <h2 style="font-size:1.4rem;">保護者認証</h2>
+      <h2 style="font-size:1.4rem;">${headingText}</h2>
       <p style="color:var(--color-text-muted); font-size:0.9rem;">
-        お子様の学習記録とおうちの方専用の設定を保護するため、4桁の暗証番号を入力してください。
+        ${descText}
       </p>
       <div style="margin:16px 0;">
         <input type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" class="pin-input"
-          placeholder="4桁のPIN (初期値: 1234)"
+          placeholder="${placeholderText}"
+          ${lockedOut ? 'disabled' : ''}
           style="font-size:1.8rem; letter-spacing:8px; text-align:center; width:220px; padding:12px; border-radius:var(--radius-lg); border:2px solid var(--color-card-border); background:rgba(0,0,0,0.3); color:white;">
       </div>
-      <div class="pin-error-msg" style="display:none; color:var(--color-amber-warm); font-weight:700; font-size:0.9rem;">
-        ⚠️ 暗証番号が正しくありません
+      <div class="pin-error-msg" style="display:${showErrorInitially ? 'block' : 'none'}; color:var(--color-amber-warm); font-weight:700; font-size:0.9rem;">
+        ${defaultErrorText}
       </div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
-        <button type="button" class="btn btn-primary btn-unlock" style="padding:12px;">ロック解除 🔓</button>
+        <button type="button" class="btn btn-primary btn-unlock" style="padding:12px;" ${lockedOut ? 'disabled' : ''}>${buttonText}</button>
         <button type="button" class="btn btn-secondary btn-back-home" style="padding:8px;">マップへ戻る</button>
       </div>
     `;
@@ -179,9 +354,31 @@ export class ParentBoard {
 
     const tryUnlock = () => {
       const pinVal = input?.value?.trim() || '';
+      if (needsSetup) {
+        const ok = this.setupInitialPin(pinVal);
+        if (!ok) {
+          if (errorMsg) {
+            errorMsg.textContent = this.pinErrorMessage || '⚠️ 4桁の数字を入力してください';
+            errorMsg.style.display = 'block';
+          }
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+        }
+        return;
+      }
+
       const success = this.authenticate(pinVal);
       if (!success) {
-        if (errorMsg) errorMsg.style.display = 'block';
+        if (this.isLockedOut()) {
+          this.render();
+          return;
+        }
+        if (errorMsg) {
+          errorMsg.textContent = this.pinErrorMessage || '⚠️ 暗証番号が正しくありません';
+          errorMsg.style.display = 'block';
+        }
         if (input) {
           input.value = '';
           input.focus();
@@ -194,7 +391,9 @@ export class ParentBoard {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') tryUnlock();
       });
-      setTimeout(() => input.focus(), 100);
+      if (!lockedOut) {
+        setTimeout(() => input.focus(), 100);
+      }
     }
 
     if (backBtn) {
@@ -214,12 +413,38 @@ export class ParentBoard {
 
     const profile = GamificationEngine.getUserProfile(this.progress?.gamification);
     const radarScores = calculateRadarScores(this.progress);
+    const stageProgressValues = Object.values(this.progress?.stageProgress || {});
+    const stageProgressStars = stageProgressValues.reduce((sum, sp) => sum + (Number(sp?.stars) || 0), 0);
+    const gamificationStageStars = Object.values(this.progress?.gamification?.stageStars || {}).reduce(
+      (sum, s) => sum + (Number(s) || 0),
+      0
+    );
+    const gamificationStars = Math.max(
+      Number(profile?.stars) || 0,
+      Number(profile?.totalStars) || 0,
+      Number(this.progress?.gamification?.totalStars) || 0,
+      gamificationStageStars
+    );
+    const displayStars = Math.max(stageProgressStars, gamificationStars);
+
+    const stageSelfCorrectedTotal = stageProgressValues.reduce(
+      (sum, sp) => sum + (Number(sp?.selfCorrectedCount) || 0),
+      0
+    );
     const displaySelfCorrectionCount = Math.max(
       Number(this.progress?.gamification?.selfCorrectionCount) || 0,
-      Number(profile?.selfCorrectionCount) || 0
+      Number(profile?.selfCorrectionCount) || 0,
+      stageSelfCorrectedTotal
+    );
+    const stageFirstTryTotal = stageProgressValues.reduce(
+      (sum, sp) => sum + (Number(sp?.firstTryCorrectCount) || 0),
+      0
+    );
+    const displayFirstTryCount = Math.max(
+      stageFirstTryTotal,
+      (profile?.worldStats || []).reduce((sum, w) => sum + (Number(w?.firstTryCorrectCount) || 0), 0)
     );
     const displayRankTitle = profile?.labRank?.title || profile?.rankTitle || profile?.rank?.title || '見習い探検員';
-    const displayStars = profile?.stars ?? profile?.totalStars ?? Object.values(this.progress?.stageProgress || {}).reduce((sum, sp) => sum + (Number(sp?.stars) || 0), 0);
 
     // Top Header & Lock
     const header = document.createElement('div');
@@ -278,6 +503,14 @@ export class ParentBoard {
           <p style="font-size:0.85rem; color:var(--color-text-muted); margin:0;">
             間違えたとき、あきらめずにステップガイドやヒントを使って自力で正解を導き出せた回数です。結果の点数以上に尊い「粘り強く考える力」が育っています！
           </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <span class="parent-stat-chip" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:var(--color-emerald-success); padding:4px 10px; border-radius:var(--radius-full); font-size:0.8rem; font-weight:700;">
+              ✨ 初回正解: ${displayFirstTryCount}問
+            </span>
+            <span class="parent-stat-chip" style="background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.35); color:var(--color-amber-warm); padding:4px 10px; border-radius:var(--radius-full); font-size:0.8rem; font-weight:700;">
+              💡 じぶん修正: ${displaySelfCorrectionCount}回
+            </span>
+          </div>
         </div>
         <div style="display:flex; gap:12px; font-size:0.85rem;">
           <div style="background:rgba(0,0,0,0.3); padding:10px 16px; border-radius:var(--radius-md); text-align:center;">
@@ -543,6 +776,10 @@ export class ParentBoard {
             const content = ev.target?.result;
             const imported = StorageService.importBackupJSON(content);
             this.progress = imported;
+            if (imported?.parentCheer?.parentPinHash) {
+              this.storedPin = String(imported.parentCheer.parentPinHash);
+              this._explicitPinOption = Boolean(imported.parentCheer.pinConfigured);
+            }
             await StorageService.saveProgress(imported);
             showToast(null, 'success', 'バックアップから学習データを復元しました！');
             if (typeof this.onTransferRestored === 'function') {
@@ -592,6 +829,10 @@ export class ParentBoard {
           const restored = await StorageService.restoreFromTransferCode(codeVal);
           if (restored) {
             this.progress = restored;
+            if (restored?.parentCheer?.parentPinHash) {
+              this.storedPin = String(restored.parentCheer.parentPinHash);
+              this._explicitPinOption = Boolean(restored.parentCheer.pinConfigured);
+            }
             await StorageService.saveProgress(restored);
             showToast(null, 'success', '引き継ぎコードから学習データを復元しました！');
             if (typeof this.onTransferRestored === 'function') {
@@ -606,6 +847,69 @@ export class ParentBoard {
     }
 
     dashboard.appendChild(backupCard);
+
+    // Parent PIN Settings Card
+    const pinCard = document.createElement('div');
+    pinCard.className = 'card-dark parent-pin-settings-card';
+    pinCard.style.padding = '24px';
+    pinCard.style.borderRadius = 'var(--radius-xl)';
+    pinCard.style.border = '1px solid var(--color-card-border)';
+
+    pinCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+        <span>🔐</span>
+        <span>保護者PIN（暗証番号）の変更</span>
+      </h3>
+      <p style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:14px;">
+        お子様が保護者ボードを開けないよう、4桁の数字で暗証番号を設定・変更できます。
+      </p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" class="input-new-pin"
+          placeholder="新しい4桁のPIN"
+          style="padding:10px 14px; font-size:1.1rem; letter-spacing:4px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:rgba(0,0,0,0.3); color:white; width:180px;">
+        <button type="button" class="btn btn-secondary btn-change-pin" style="padding:10px 20px;">
+          PINを変更する
+        </button>
+      </div>
+      <div class="pin-change-msg" style="display:none; margin-top:10px; font-size:0.9rem; font-weight:700;"></div>
+    `;
+
+    const newPinInput = pinCard.querySelector('.input-new-pin');
+    const changePinBtn = pinCard.querySelector('.btn-change-pin');
+    const pinChangeMsg = pinCard.querySelector('.pin-change-msg');
+
+    const handleChangePin = () => {
+      const nextPin = newPinInput?.value?.trim() || '';
+      const res = this.changePin(nextPin);
+      if (pinChangeMsg) {
+        pinChangeMsg.style.display = 'block';
+        if (res.success) {
+          pinChangeMsg.style.color = 'var(--color-emerald-success)';
+          pinChangeMsg.textContent = '✅ 保護者PINを変更しました！次回ロック解除から新しいPINが使われます。';
+          showToast(null, 'success', '保護者PINを変更しました！');
+        } else {
+          pinChangeMsg.style.color = 'var(--color-amber-warm)';
+          pinChangeMsg.textContent = `⚠️ ${res.error}`;
+        }
+      }
+      if (res.success && newPinInput) {
+        newPinInput.value = '';
+      }
+    };
+
+    if (changePinBtn) {
+      changePinBtn.onclick = handleChangePin;
+    }
+    if (newPinInput) {
+      newPinInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault?.();
+          handleChangePin();
+        }
+      });
+    }
+
+    dashboard.appendChild(pinCard);
     return dashboard;
   }
 

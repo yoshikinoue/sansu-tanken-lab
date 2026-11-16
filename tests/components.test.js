@@ -28,7 +28,8 @@ import Keypad, {
   keys,
   createKeypadState,
   handleInput,
-  getValue
+  getValue,
+  resolveAnswerLabel
 } from '../src/components/keypad.js';
 
 import StepGuideModal, {
@@ -276,6 +277,18 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       keypad.clear();
       assert.deepEqual(keypad.getValue(), { quotient: 0, remainder: 0 });
       keypad.destroy();
+    });
+
+    it('resolves operator-specific answer labels (和/差/積/商/こたえ) accurately (BUG-003)', () => {
+      assert.equal(resolveAnswerLabel({ operator: '+', hasRemainder: false, prompt: '555 + 219 = ?' }), '和 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '-', hasRemainder: false, prompt: '673 - 148 = ?' }), '差 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '−', hasRemainder: false, prompt: '673 − 148 = ?' }), '差 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '×', hasRemainder: false, prompt: '408 × 6 = ?' }), '積 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '÷', hasRemainder: false, prompt: '624 ÷ 3 = ?' }), '商 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '÷', hasRemainder: true, prompt: '53 ÷ 7 = ?' }), '商 (こたえ)');
+      assert.equal(resolveAnswerLabel({ operator: '+', hasRemainder: false, prompt: '□ + 35 = 80' }), 'こたえ');
+      assert.equal(resolveAnswerLabel({ operator: 'mixed', hasRemainder: false, prompt: '20 + 15 × 3 = ?' }), 'こたえ');
+      assert.equal(resolveAnswerLabel({}), 'こたえ');
     });
   });
 

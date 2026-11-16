@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1808,6 +1808,66 @@ canvas.memo-canvas {
   }
 }
 
+@media (max-width: 640px) {
+  /* Smartphone Portrait */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .header-status {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .view-container {
+    padding: 10px;
+  }
+
+  .problem-arena {
+    gap: 12px;
+  }
+
+  .arena-left {
+    height: auto;
+    min-height: 420px;
+  }
+
+  .problem-header-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .problem-display-card {
+    padding: 16px 12px;
+    min-height: 100px;
+  }
+
+  .problem-prompt {
+    font-size: clamp(1.5rem, 6vw, 2.2rem);
+    word-break: break-word;
+  }
+
+  .keypad-container {
+    height: auto;
+    min-height: 320px;
+  }
+
+  .stages-grid,
+  .bonus-hub-bar {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .quiz-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 1024px) {
   /* Tablet Landscape & Desktop */
   .problem-arena {
@@ -1886,7 +1946,7 @@ input:focus-visible {
 
     <!-- Offline Banner -->
     <div id="offline-banner" class="offline-banner" role="status" aria-live="polite">
-      ⚡ オフラインモードで動作中（学習データは端末に保存され、再接続時に自動同期されます）
+      💾 学習データはこの端末に保存されます（別の端末へ移すときは保護者ボードからバックアップがおすすめです）
     </div>
 
     <!-- Parent Cheer Banner -->
@@ -5796,6 +5856,7 @@ function createDefaultProgress() {
     },
     parentCheer: {
       parentPinHash: '1234',
+      pinConfigured: false,
       cheerMessages: []
     },
     settings: {
@@ -5874,6 +5935,15 @@ function normalizeProgressData(data) {
     }
   }
 
+  const rawParentCheer = cloned.parentCheer || {};
+  const resolvedPinHash = rawParentCheer.parentPinHash !== undefined
+    ? rawParentCheer.parentPinHash
+    : base.parentCheer.parentPinHash;
+  const resolvedPinConfigured = Boolean(
+    rawParentCheer.pinConfigured ||
+    (resolvedPinHash && String(resolvedPinHash) !== '1234')
+  );
+
   return {
     ...base,
     ...cloned,
@@ -5900,7 +5970,9 @@ function normalizeProgressData(data) {
     },
     parentCheer: {
       ...base.parentCheer,
-      ...(cloned.parentCheer || {}),
+      ...rawParentCheer,
+      parentPinHash: resolvedPinHash,
+      pinConfigured: resolvedPinConfigured,
       cheerMessages: Array.isArray(cloned.parentCheer?.cheerMessages)
         ? [...cloned.parentCheer.cheerMessages]
         : []
@@ -6137,6 +6209,18 @@ function isStaticHostingEnvironment(options = {}) {
     hostname.endsWith('.netlify.app') ||
     hostname.endsWith('.vercel.app')
   );
+}
+
+/**
+ * Return the status/offline banner text tailored to the hosting environment.
+ * @param {object} [options]
+ * @returns {string}
+ */
+function getOfflineBannerText(options = {}) {
+  if (isStaticHostingEnvironment(options)) {
+    return '💾 学習データはこの端末に保存されます（別の端末へ移すときは保護者ボードからバックアップがおすすめです）';
+  }
+  return '⚡ オフラインモードで動作中（学習データはこの端末に保存され、再接続時に自動同期されます）';
 }
 
 /**
@@ -6676,12 +6760,13 @@ const StorageService = {
   restoreFromTransferCode,
   resetStorageState,
   getStorageBackend,
-  isStaticHostingEnvironment
+  isStaticHostingEnvironment,
+  getOfflineBannerText
 };
 
 const __default_export = StorageService;
 
-    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, readLocalProgress, isSyncPending, isStaticHostingEnvironment, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
+    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, readLocalProgress, isSyncPending, isStaticHostingEnvironment, getOfflineBannerText, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
   })();
 
   // === services/sound-effects.js ===
@@ -8598,6 +8683,50 @@ function recordResult(payload = {}) {
 }
 
 /**
+ * Record stage clear status and stars into gamification internal state so
+ * profile.stars and world radar stats stay synchronized with stageProgress.
+ * @param {object} [params={}]
+ * @returns {object}
+ */
+function recordStageClear({
+  stageId = 1,
+  worldId,
+  stars = 0,
+  firstTryCorrectCount = 0,
+  selfCorrectedCount = 0
+} = {}) {
+  const resolved = resolveWorldAndStage(worldId, stageId);
+  const stg = state.stageStats[resolved.stageKey];
+  const wt = state.worldTracking[resolved.worldId];
+  const numericStars = Math.max(0, Math.min(3, Number(stars) || 0));
+
+  if (stg) {
+    stg.cleared = true;
+    stg.stars = Math.max(stg.stars || 0, numericStars);
+    stg.firstTryCorrectCount = Math.max(stg.firstTryCorrectCount || 0, Number(firstTryCorrectCount) || 0);
+    stg.selfCorrectedCount = Math.max(stg.selfCorrectedCount || 0, Number(selfCorrectedCount) || 0);
+    state.stageStars[resolved.stageKey] = Math.max(state.stageStars[resolved.stageKey] || 0, stg.stars);
+  }
+  if (wt) {
+    wt.clearedStages.add(resolved.stageKey);
+  }
+  if (numericStars === 3 && stg && stg.mistakesCount === 0) {
+    state.perfectClearCount += 1;
+  }
+
+  const newlyUnlockedBadges = evaluateBadges();
+  const totalStars = Object.values(state.stageStars).reduce((sum, s) => sum + (Number(s) || 0), 0);
+
+  return {
+    stageId: resolved.stageKey,
+    worldId: resolved.worldId,
+    stars: state.stageStars[resolved.stageKey] || 0,
+    totalStars,
+    newlyUnlockedBadges
+  };
+}
+
+/**
  * Record that a Power-Up Treasure Box item was fully mastered (2 consecutive clears).
  * @param {object} [params={}]
  * @returns {object}
@@ -8798,10 +8927,11 @@ function loadGamificationState(saved = {}) {
   if (gam.stageStars && typeof gam.stageStars === 'object') {
     for (const [k, v] of Object.entries(gam.stageStars)) {
       if (state.stageStars[k] !== undefined) {
-        state.stageStars[k] = Number(v) || 0;
-        if (state.stageStars[k] > 0) {
+        const merged = Math.max(Number(state.stageStars[k]) || 0, Number(v) || 0);
+        state.stageStars[k] = merged;
+        if (merged > 0) {
           state.stageStats[k].cleared = true;
-          state.stageStats[k].stars = state.stageStars[k];
+          state.stageStats[k].stars = Math.max(Number(state.stageStats[k].stars) || 0, merged);
         }
       }
     }
@@ -8810,17 +8940,34 @@ function loadGamificationState(saved = {}) {
   if (saved.stageProgress && typeof saved.stageProgress === 'object') {
     for (const [k, sp] of Object.entries(saved.stageProgress)) {
       if (state.stageStats[k] && sp) {
-        state.stageStats[k].cleared = Boolean(sp.cleared);
-        state.stageStats[k].stars = Number(sp.stars) || 0;
-        state.stageStats[k].firstTryCorrectCount = Number(sp.firstTryCorrectCount) || 0;
-        state.stageStats[k].attempts = Number(sp.totalAttempts) || 0;
-        state.stageStars[k] = state.stageStats[k].stars;
+        const mergedStars = Math.max(
+          Number(state.stageStars[k]) || 0,
+          Number(state.stageStats[k].stars) || 0,
+          Number(sp.stars) || 0
+        );
+        const isCleared = Boolean(sp.cleared) || Boolean(state.stageStats[k].cleared) || mergedStars > 0;
+        state.stageStats[k].cleared = isCleared;
+        state.stageStats[k].stars = mergedStars;
+        state.stageStats[k].firstTryCorrectCount = Math.max(
+          state.stageStats[k].firstTryCorrectCount || 0,
+          Number(sp.firstTryCorrectCount) || 0
+        );
+        state.stageStats[k].selfCorrectedCount = Math.max(
+          state.stageStats[k].selfCorrectedCount || 0,
+          Number(sp.selfCorrectedCount) || 0
+        );
+        state.stageStats[k].attempts = Math.max(
+          state.stageStats[k].attempts || 0,
+          Number(sp.totalAttempts) || 0
+        );
+        state.stageStars[k] = mergedStars;
 
         const wId = state.stageStats[k].worldId;
         if (state.worldTracking[wId]) {
-          if (sp.cleared) state.worldTracking[wId].clearedStages.add(k);
+          if (isCleared) state.worldTracking[wId].clearedStages.add(k);
           state.worldTracking[wId].attempts += Number(sp.totalAttempts) || 0;
           state.worldTracking[wId].firstTryCorrectCount += Number(sp.firstTryCorrectCount) || 0;
+          state.worldTracking[wId].selfCorrectedCount += Number(sp.selfCorrectedCount) || 0;
         }
       }
     }
@@ -8843,7 +8990,7 @@ function resetGamificationState(initialState) {
 }
 
 
-    return { LAB_RANKS, BADGE_DEFINITIONS, WORLD_DEFINITIONS, PARENT_STAMPS, getRankForScore, calculateStageStars, evaluateBadges, calculateWorldRadarStats, recordResult, recordTreasureMastered, recordDailyStreak, sendParentCheer, markCheerRead, getUserProfile, exportGamificationState, loadGamificationState, resetGamificationState };
+    return { LAB_RANKS, BADGE_DEFINITIONS, WORLD_DEFINITIONS, PARENT_STAMPS, getRankForScore, calculateStageStars, evaluateBadges, calculateWorldRadarStats, recordResult, recordStageClear, recordTreasureMastered, recordDailyStreak, sendParentCheer, markCheerRead, getUserProfile, exportGamificationState, loadGamificationState, resetGamificationState };
   })();
 
   // === components/cute-characters.js ===
@@ -10122,6 +10269,33 @@ function getValue(state) {
   return state.quotientText === '' ? 0 : Number(state.quotientText);
 }
 
+function resolveAnswerLabel({
+  operator = null,
+  hasRemainder = false,
+  prompt = '',
+  answerLabel = null
+} = {}) {
+  if (answerLabel) {
+    return String(answerLabel);
+  }
+  if (Boolean(hasRemainder) || operator === '÷' || operator === '/') {
+    return '商 (こたえ)';
+  }
+  if ((typeof prompt === 'string' && prompt.includes('□')) || operator === 'mixed') {
+    return 'こたえ';
+  }
+  if (operator === '+') {
+    return '和 (こたえ)';
+  }
+  if (operator === '-' || operator === '−') {
+    return '差 (こたえ)';
+  }
+  if (operator === '×' || operator === '*') {
+    return '積 (こたえ)';
+  }
+  return 'こたえ';
+}
+
 // --- DOM CONTROLLER CLASS FOR BROWSER RUNTIME ---
 
 class Keypad {
@@ -10131,6 +10305,9 @@ class Keypad {
   constructor(options = {}) {
     this.options = {
       hasRemainder: false,
+      operator: null,
+      prompt: '',
+      answerLabel: null,
       onInput: null,    // (key, state) => void
       onChange: null,   // (value, state) => void
       onSubmit: null,   // (value, state) => void
@@ -10163,13 +10340,19 @@ class Keypad {
 
   render() {
     const hasRem = this.state.hasRemainder;
+    const answerLabel = resolveAnswerLabel({
+      operator: this.options.operator,
+      hasRemainder: hasRem,
+      prompt: this.options.prompt,
+      answerLabel: this.options.answerLabel
+    });
 
     this.container.innerHTML = `
       <div class="keypad-container">
         <!-- Display Section with Interactive Tabs -->
         <div class="keypad-display" id="keypad-display">
           <div class="display-field-row ${this.state.activeField === 'quotient' ? 'active' : ''}" data-field="quotient">
-            <span class="display-label">商 (こたえ)</span>
+            <span class="display-label">${answerLabel}</span>
             <span class="display-value" data-bind="quotient">0</span>
           </div>
           <div class="display-field-row remainder-row ${this.state.activeField === 'remainder' ? 'active' : ''}" data-field="remainder" style="display: ${hasRem ? 'flex' : 'none'};">
@@ -10325,11 +10508,16 @@ class Keypad {
     this.updateDisplay();
   }
 
-  reset(hasRemainder = false) {
+  reset(hasRemainder = false, meta = {}) {
     this.state.hasRemainder = Boolean(hasRemainder);
     this.state.activeField = 'quotient';
     this.state.quotientText = '';
     this.state.remainderText = '';
+    if (meta && typeof meta === 'object') {
+      if ('operator' in meta) this.options.operator = meta.operator;
+      if ('prompt' in meta) this.options.prompt = meta.prompt;
+      if ('answerLabel' in meta) this.options.answerLabel = meta.answerLabel;
+    }
     this.render();
     this.updateDisplay();
     return this;
@@ -10387,7 +10575,7 @@ class Keypad {
 
 const __default_export = Keypad;
 
-    return { minTouchSizePx, keys, createKeypadState, handleInput, getValue, Keypad, default: __default_export };
+    return { minTouchSizePx, keys, createKeypadState, handleInput, getValue, resolveAnswerLabel, Keypad, default: __default_export };
   })();
 
   // === components/step-guide.js ===
@@ -11260,12 +11448,18 @@ class MiniLessonModal {
     this.isOpen = true;
     const target = container || this.container || (typeof document !== 'undefined' ? document.body : null);
     if (!target) return this;
+    if (!this.container) {
+      this.container = target;
+    }
 
     if (this.modalEl && this.modalEl.parentNode) {
       this.modalEl.classList.add('open');
     } else {
       const el = this.render();
-      if (el) target.appendChild(el);
+      if (el) {
+        target.appendChild(el);
+        this.modalEl = el;
+      }
     }
 
     if (this.autoPlaySpeech) {
@@ -11372,14 +11566,48 @@ class MiniLessonModal {
     }
   }
 
+  handleStepDotClick(targetIdx) {
+    if (!Number.isInteger(targetIdx) || targetIdx < 0 || targetIdx > 2) return;
+    const currentIdx = this.state.currentCardIndex;
+    if (targetIdx === currentIdx) return;
+
+    if (targetIdx < currentIdx) {
+      this.state.currentCardIndex = targetIdx;
+      SoundEffects.playSound('tap');
+      this.refresh();
+      if (this.autoPlaySpeech) {
+        this.speakCurrentCard();
+      }
+      return;
+    }
+
+    if (targetIdx === currentIdx + 1) {
+      if (canAdvance(this.state)) {
+        this.handleNext();
+      } else {
+        SoundEffects.playSound('near_miss');
+      }
+    }
+  }
+
   refresh() {
-    if (!this.modalEl || !this.modalEl.parentNode) return;
-    const oldEl = this.modalEl;
-    const parent = oldEl.parentNode;
-    const newEl = this.render();
-    if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
-      parent.replaceChild(newEl, oldEl);
-      this.modalEl = newEl;
+    if (this.modalEl && this.modalEl.parentNode) {
+      const oldEl = this.modalEl;
+      const parent = oldEl.parentNode;
+      const newEl = this.render();
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
+        this.modalEl = newEl;
+      }
+      return;
+    }
+
+    if (this.isOpen && this.container) {
+      const newEl = this.render();
+      if (newEl) {
+        this.container.appendChild(newEl);
+        this.modalEl = newEl;
+      }
     }
   }
 
@@ -11426,10 +11654,24 @@ class MiniLessonModal {
     const stepProgress = document.createElement('div');
     stepProgress.className = 'step-progress-indicator';
     stepProgress.innerHTML = `
-      <div class="step-dot ${currentIdx === 0 ? 'active' : (currentIdx > 0 ? 'completed' : '')}">1. ひらめき</div>
-      <div class="step-dot ${currentIdx === 1 ? 'active' : (currentIdx > 1 ? 'completed' : '')}">2. クイズ</div>
-      <div class="step-dot ${currentIdx === 2 ? 'active' : ''}">3. まとめ</div>
+      <div class="step-dot ${currentIdx === 0 ? 'active' : (currentIdx > 0 ? 'completed' : '')}" data-step-index="0" role="button" tabindex="0">1. ひらめき</div>
+      <div class="step-dot ${currentIdx === 1 ? 'active' : (currentIdx > 1 ? 'completed' : '')}" data-step-index="1" role="button" tabindex="0">2. クイズ</div>
+      <div class="step-dot ${currentIdx === 2 ? 'active' : ''}" data-step-index="2" role="button" tabindex="0">3. まとめ</div>
     `;
+    stepProgress.querySelectorAll('.step-dot').forEach((dot) => {
+      const rawIdx = dot.dataset?.stepIndex ?? dot.getAttribute?.('data-step-index');
+      const targetIdx = Number(rawIdx);
+      if (targetIdx < currentIdx || (targetIdx === currentIdx + 1 && canAdvance(this.state))) {
+        dot.style.cursor = 'pointer';
+      }
+      dot.onclick = () => this.handleStepDotClick(targetIdx);
+      dot.addEventListener?.('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault?.();
+          this.handleStepDotClick(targetIdx);
+        }
+      });
+    });
     body.appendChild(stepProgress);
 
     // Card Content
@@ -11569,7 +11811,9 @@ class MiniLessonModal {
     card.appendChild(footer);
     overlay.appendChild(card);
 
-    this.modalEl = overlay;
+    if (!this.modalEl || !this.modalEl.parentNode) {
+      this.modalEl = overlay;
+    }
     return overlay;
   }
 
@@ -13523,10 +13767,30 @@ class ParentBoard {
     this.onSendStamp = options.onSendStamp || null;
     this.onSave = options.onSave || null;
     this.onTransferRestored = options.onTransferRestored || null;
-    this.storedPin = options.pin || '1234';
+    this._explicitPinOption = Boolean(options.pin !== undefined && options.pin !== null && options.pin !== '');
+    this.storedPin = this._explicitPinOption
+      ? String(options.pin)
+      : String(this.progress?.parentCheer?.parentPinHash || '1234');
     this.isAuthenticated = false;
     this.selectedStampId = 'STAMP_RECOVERY';
     this.rootEl = null;
+
+    this.maxFailedAttempts = typeof options.maxFailedAttempts === 'number' && options.maxFailedAttempts > 0
+      ? options.maxFailedAttempts
+      : 5;
+    this.lockoutDurationMs = typeof options.lockoutDurationMs === 'number' && options.lockoutDurationMs > 0
+      ? options.lockoutDurationMs
+      : 3 * 60 * 1000;
+    this.lockoutEnabled = Boolean(
+      options.enableLockout ||
+      typeof options.maxFailedAttempts === 'number' ||
+      options.progress ||
+      options.container ||
+      typeof document !== 'undefined'
+    );
+    this.failedAttempts = Number(this.progress?.parentCheer?.failedAttempts) || 0;
+    this.lockoutUntil = Number(this.progress?.parentCheer?.lockoutUntil) || 0;
+    this.pinErrorMessage = '';
   }
 
   mount(container) {
@@ -13537,6 +13801,9 @@ class ParentBoard {
 
   update(progress) {
     this.progress = progress;
+    if (!this._explicitPinOption && this.progress?.parentCheer?.parentPinHash) {
+      this.storedPin = String(this.progress.parentCheer.parentPinHash);
+    }
     if (this.rootEl && this.rootEl.parentNode) {
       const oldEl = this.rootEl;
       const parent = oldEl.parentNode;
@@ -13548,20 +13815,156 @@ class ParentBoard {
     }
   }
 
+  isPinSetupRequired() {
+    if (this._explicitPinOption) return false;
+    const pc = this.progress?.parentCheer;
+    if (!pc) return false;
+    return !pc.pinConfigured && String(pc.parentPinHash || '1234') === '1234';
+  }
+
+  isLockedOut(now = Date.now()) {
+    if (!this.lockoutEnabled) return false;
+    if (this.lockoutUntil && now < this.lockoutUntil) {
+      return true;
+    }
+    if (this.lockoutUntil && now >= this.lockoutUntil) {
+      this.lockoutUntil = 0;
+      this.failedAttempts = 0;
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.lockoutUntil = 0;
+        this.progress.parentCheer.failedAttempts = 0;
+      }
+    }
+    return false;
+  }
+
+  getRemainingLockoutMs(now = Date.now()) {
+    if (!this.isLockedOut(now)) return 0;
+    return Math.max(0, this.lockoutUntil - now);
+  }
+
+  setupInitialPin(newPin) {
+    const pinStr = String(newPin ?? '').trim();
+    if (!/^\d{4}$/.test(pinStr)) {
+      SoundEffects.playSound('near_miss');
+      this.pinErrorMessage = '⚠️ 4桁の数字を入力してください';
+      return false;
+    }
+
+    this.storedPin = pinStr;
+    this._explicitPinOption = true;
+    this.failedAttempts = 0;
+    this.lockoutUntil = 0;
+    this.pinErrorMessage = '';
+
+    if (this.progress) {
+      if (!this.progress.parentCheer || typeof this.progress.parentCheer !== 'object') {
+        this.progress.parentCheer = { cheerMessages: [] };
+      }
+      this.progress.parentCheer.parentPinHash = pinStr;
+      this.progress.parentCheer.pinConfigured = true;
+      this.progress.parentCheer.failedAttempts = 0;
+      this.progress.parentCheer.lockoutUntil = 0;
+      if (typeof this.onSave === 'function') {
+        Promise.resolve(this.onSave(this.progress)).catch(() => {});
+      }
+    }
+
+    this.isAuthenticated = true;
+    SoundEffects.playSound('unlock');
+    showToast(null, 'success', '保護者PINを設定しました！');
+    this.render();
+    return true;
+  }
+
+  changePin(newPinOrCurrent, maybeNewPin) {
+    let newPinRaw = newPinOrCurrent;
+    if (maybeNewPin !== undefined) {
+      if (!verifyPin(newPinOrCurrent, this.storedPin)) {
+        SoundEffects.playSound('near_miss');
+        return { success: false, error: '現在の暗証番号が正しくありません' };
+      }
+      newPinRaw = maybeNewPin;
+    }
+
+    const newPin = String(newPinRaw ?? '').trim();
+    if (!/^\d{4}$/.test(newPin)) {
+      SoundEffects.playSound('near_miss');
+      return { success: false, error: '新しい暗証番号は4桁の数字で入力してください' };
+    }
+
+    this.storedPin = newPin;
+    this._explicitPinOption = true;
+    this.failedAttempts = 0;
+    this.lockoutUntil = 0;
+    this.pinErrorMessage = '';
+
+    if (this.progress) {
+      if (!this.progress.parentCheer || typeof this.progress.parentCheer !== 'object') {
+        this.progress.parentCheer = { cheerMessages: [] };
+      }
+      this.progress.parentCheer.parentPinHash = newPin;
+      this.progress.parentCheer.pinConfigured = true;
+      this.progress.parentCheer.failedAttempts = 0;
+      this.progress.parentCheer.lockoutUntil = 0;
+      if (typeof this.onSave === 'function') {
+        Promise.resolve(this.onSave(this.progress)).catch(() => {});
+      }
+    }
+
+    SoundEffects.playSound('unlock');
+    return { success: true };
+  }
+
   authenticate(pin) {
+    if (this.isLockedOut()) {
+      SoundEffects.playSound('near_miss');
+      const remainMin = Math.max(1, Math.ceil(this.getRemainingLockoutMs() / 60000));
+      this.pinErrorMessage = `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、一時ロック中です（あと約${remainMin}分お待ちください）`;
+      return false;
+    }
+
     if (verifyPin(pin, this.storedPin)) {
       this.isAuthenticated = true;
+      this.failedAttempts = 0;
+      this.lockoutUntil = 0;
+      this.pinErrorMessage = '';
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.failedAttempts = 0;
+        this.progress.parentCheer.lockoutUntil = 0;
+      }
       SoundEffects.playSound('unlock');
       this.render();
       return true;
-    } else {
-      SoundEffects.playSound('near_miss');
-      return false;
     }
+
+    SoundEffects.playSound('near_miss');
+    if (this.lockoutEnabled) {
+      this.failedAttempts += 1;
+      if (this.failedAttempts >= this.maxFailedAttempts) {
+        this.lockoutUntil = Date.now() + this.lockoutDurationMs;
+        const remainMin = Math.max(1, Math.ceil(this.lockoutDurationMs / 60000));
+        this.pinErrorMessage = `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、${remainMin}分間ロックされました。`;
+      } else {
+        const left = this.maxFailedAttempts - this.failedAttempts;
+        this.pinErrorMessage = `⚠️ 暗証番号が正しくありません（あと${left}回間違えるとロックされます）`;
+      }
+      if (this.progress?.parentCheer) {
+        this.progress.parentCheer.failedAttempts = this.failedAttempts;
+        this.progress.parentCheer.lockoutUntil = this.lockoutUntil;
+        if (this.lockoutUntil > 0 && typeof this.onSave === 'function') {
+          Promise.resolve(this.onSave(this.progress)).catch(() => {});
+        }
+      }
+    } else {
+      this.pinErrorMessage = '⚠️ 暗証番号が正しくありません';
+    }
+    return false;
   }
 
   lock() {
     this.isAuthenticated = false;
+    this.pinErrorMessage = '';
     SoundEffects.playSound('tap');
     this.render();
   }
@@ -13591,22 +13994,38 @@ class ParentBoard {
     const card = document.createElement('div');
     card.className = 'pin-entry-card';
 
+    const needsSetup = this.isPinSetupRequired();
+    const lockedOut = !needsSetup && this.isLockedOut();
+    const remainMin = lockedOut ? Math.max(1, Math.ceil(this.getRemainingLockoutMs() / 60000)) : 0;
+    const defaultErrorText = lockedOut
+      ? `🔒 暗証番号を${this.maxFailedAttempts}回連続で間違えたため、一時ロック中です（あと約${remainMin}分お待ちください）`
+      : (this.pinErrorMessage || '⚠️ 暗証番号が正しくありません');
+    const showErrorInitially = Boolean(lockedOut || this.pinErrorMessage);
+
+    const headingText = needsSetup ? '保護者PINの初期設定' : '保護者認証';
+    const descText = needsSetup
+      ? 'お子様の学習記録や設定を保護するため、おうちの方専用の4桁の暗証番号（数字4桁）を設定してください。'
+      : 'お子様の学習記録とおうちの方専用の設定を保護するため、4桁の暗証番号を入力してください。';
+    const placeholderText = needsSetup ? '新しい4桁のPIN' : '4桁の暗証番号';
+    const buttonText = needsSetup ? 'PINを設定して開く 🔐' : 'ロック解除 🔓';
+
     card.innerHTML = `
       <div style="font-size:3rem; margin-bottom:8px;">🛡️</div>
-      <h2 style="font-size:1.4rem;">保護者認証</h2>
+      <h2 style="font-size:1.4rem;">${headingText}</h2>
       <p style="color:var(--color-text-muted); font-size:0.9rem;">
-        お子様の学習記録とおうちの方専用の設定を保護するため、4桁の暗証番号を入力してください。
+        ${descText}
       </p>
       <div style="margin:16px 0;">
         <input type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" class="pin-input"
-          placeholder="4桁のPIN (初期値: 1234)"
+          placeholder="${placeholderText}"
+          ${lockedOut ? 'disabled' : ''}
           style="font-size:1.8rem; letter-spacing:8px; text-align:center; width:220px; padding:12px; border-radius:var(--radius-lg); border:2px solid var(--color-card-border); background:rgba(0,0,0,0.3); color:white;">
       </div>
-      <div class="pin-error-msg" style="display:none; color:var(--color-amber-warm); font-weight:700; font-size:0.9rem;">
-        ⚠️ 暗証番号が正しくありません
+      <div class="pin-error-msg" style="display:${showErrorInitially ? 'block' : 'none'}; color:var(--color-amber-warm); font-weight:700; font-size:0.9rem;">
+        ${defaultErrorText}
       </div>
       <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
-        <button type="button" class="btn btn-primary btn-unlock" style="padding:12px;">ロック解除 🔓</button>
+        <button type="button" class="btn btn-primary btn-unlock" style="padding:12px;" ${lockedOut ? 'disabled' : ''}>${buttonText}</button>
         <button type="button" class="btn btn-secondary btn-back-home" style="padding:8px;">マップへ戻る</button>
       </div>
     `;
@@ -13618,9 +14037,31 @@ class ParentBoard {
 
     const tryUnlock = () => {
       const pinVal = input?.value?.trim() || '';
+      if (needsSetup) {
+        const ok = this.setupInitialPin(pinVal);
+        if (!ok) {
+          if (errorMsg) {
+            errorMsg.textContent = this.pinErrorMessage || '⚠️ 4桁の数字を入力してください';
+            errorMsg.style.display = 'block';
+          }
+          if (input) {
+            input.value = '';
+            input.focus();
+          }
+        }
+        return;
+      }
+
       const success = this.authenticate(pinVal);
       if (!success) {
-        if (errorMsg) errorMsg.style.display = 'block';
+        if (this.isLockedOut()) {
+          this.render();
+          return;
+        }
+        if (errorMsg) {
+          errorMsg.textContent = this.pinErrorMessage || '⚠️ 暗証番号が正しくありません';
+          errorMsg.style.display = 'block';
+        }
         if (input) {
           input.value = '';
           input.focus();
@@ -13633,7 +14074,9 @@ class ParentBoard {
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') tryUnlock();
       });
-      setTimeout(() => input.focus(), 100);
+      if (!lockedOut) {
+        setTimeout(() => input.focus(), 100);
+      }
     }
 
     if (backBtn) {
@@ -13653,12 +14096,38 @@ class ParentBoard {
 
     const profile = GamificationEngine.getUserProfile(this.progress?.gamification);
     const radarScores = calculateRadarScores(this.progress);
+    const stageProgressValues = Object.values(this.progress?.stageProgress || {});
+    const stageProgressStars = stageProgressValues.reduce((sum, sp) => sum + (Number(sp?.stars) || 0), 0);
+    const gamificationStageStars = Object.values(this.progress?.gamification?.stageStars || {}).reduce(
+      (sum, s) => sum + (Number(s) || 0),
+      0
+    );
+    const gamificationStars = Math.max(
+      Number(profile?.stars) || 0,
+      Number(profile?.totalStars) || 0,
+      Number(this.progress?.gamification?.totalStars) || 0,
+      gamificationStageStars
+    );
+    const displayStars = Math.max(stageProgressStars, gamificationStars);
+
+    const stageSelfCorrectedTotal = stageProgressValues.reduce(
+      (sum, sp) => sum + (Number(sp?.selfCorrectedCount) || 0),
+      0
+    );
     const displaySelfCorrectionCount = Math.max(
       Number(this.progress?.gamification?.selfCorrectionCount) || 0,
-      Number(profile?.selfCorrectionCount) || 0
+      Number(profile?.selfCorrectionCount) || 0,
+      stageSelfCorrectedTotal
+    );
+    const stageFirstTryTotal = stageProgressValues.reduce(
+      (sum, sp) => sum + (Number(sp?.firstTryCorrectCount) || 0),
+      0
+    );
+    const displayFirstTryCount = Math.max(
+      stageFirstTryTotal,
+      (profile?.worldStats || []).reduce((sum, w) => sum + (Number(w?.firstTryCorrectCount) || 0), 0)
     );
     const displayRankTitle = profile?.labRank?.title || profile?.rankTitle || profile?.rank?.title || '見習い探検員';
-    const displayStars = profile?.stars ?? profile?.totalStars ?? Object.values(this.progress?.stageProgress || {}).reduce((sum, sp) => sum + (Number(sp?.stars) || 0), 0);
 
     // Top Header & Lock
     const header = document.createElement('div');
@@ -13717,6 +14186,14 @@ class ParentBoard {
           <p style="font-size:0.85rem; color:var(--color-text-muted); margin:0;">
             間違えたとき、あきらめずにステップガイドやヒントを使って自力で正解を導き出せた回数です。結果の点数以上に尊い「粘り強く考える力」が育っています！
           </p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+            <span class="parent-stat-chip" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.35); color:var(--color-emerald-success); padding:4px 10px; border-radius:var(--radius-full); font-size:0.8rem; font-weight:700;">
+              ✨ 初回正解: ${displayFirstTryCount}問
+            </span>
+            <span class="parent-stat-chip" style="background:rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.35); color:var(--color-amber-warm); padding:4px 10px; border-radius:var(--radius-full); font-size:0.8rem; font-weight:700;">
+              💡 じぶん修正: ${displaySelfCorrectionCount}回
+            </span>
+          </div>
         </div>
         <div style="display:flex; gap:12px; font-size:0.85rem;">
           <div style="background:rgba(0,0,0,0.3); padding:10px 16px; border-radius:var(--radius-md); text-align:center;">
@@ -13982,6 +14459,10 @@ class ParentBoard {
             const content = ev.target?.result;
             const imported = StorageService.importBackupJSON(content);
             this.progress = imported;
+            if (imported?.parentCheer?.parentPinHash) {
+              this.storedPin = String(imported.parentCheer.parentPinHash);
+              this._explicitPinOption = Boolean(imported.parentCheer.pinConfigured);
+            }
             await StorageService.saveProgress(imported);
             showToast(null, 'success', 'バックアップから学習データを復元しました！');
             if (typeof this.onTransferRestored === 'function') {
@@ -14031,6 +14512,10 @@ class ParentBoard {
           const restored = await StorageService.restoreFromTransferCode(codeVal);
           if (restored) {
             this.progress = restored;
+            if (restored?.parentCheer?.parentPinHash) {
+              this.storedPin = String(restored.parentCheer.parentPinHash);
+              this._explicitPinOption = Boolean(restored.parentCheer.pinConfigured);
+            }
             await StorageService.saveProgress(restored);
             showToast(null, 'success', '引き継ぎコードから学習データを復元しました！');
             if (typeof this.onTransferRestored === 'function') {
@@ -14045,6 +14530,69 @@ class ParentBoard {
     }
 
     dashboard.appendChild(backupCard);
+
+    // Parent PIN Settings Card
+    const pinCard = document.createElement('div');
+    pinCard.className = 'card-dark parent-pin-settings-card';
+    pinCard.style.padding = '24px';
+    pinCard.style.borderRadius = 'var(--radius-xl)';
+    pinCard.style.border = '1px solid var(--color-card-border)';
+
+    pinCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+        <span>🔐</span>
+        <span>保護者PIN（暗証番号）の変更</span>
+      </h3>
+      <p style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:14px;">
+        お子様が保護者ボードを開けないよう、4桁の数字で暗証番号を設定・変更できます。
+      </p>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" class="input-new-pin"
+          placeholder="新しい4桁のPIN"
+          style="padding:10px 14px; font-size:1.1rem; letter-spacing:4px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:rgba(0,0,0,0.3); color:white; width:180px;">
+        <button type="button" class="btn btn-secondary btn-change-pin" style="padding:10px 20px;">
+          PINを変更する
+        </button>
+      </div>
+      <div class="pin-change-msg" style="display:none; margin-top:10px; font-size:0.9rem; font-weight:700;"></div>
+    `;
+
+    const newPinInput = pinCard.querySelector('.input-new-pin');
+    const changePinBtn = pinCard.querySelector('.btn-change-pin');
+    const pinChangeMsg = pinCard.querySelector('.pin-change-msg');
+
+    const handleChangePin = () => {
+      const nextPin = newPinInput?.value?.trim() || '';
+      const res = this.changePin(nextPin);
+      if (pinChangeMsg) {
+        pinChangeMsg.style.display = 'block';
+        if (res.success) {
+          pinChangeMsg.style.color = 'var(--color-emerald-success)';
+          pinChangeMsg.textContent = '✅ 保護者PINを変更しました！次回ロック解除から新しいPINが使われます。';
+          showToast(null, 'success', '保護者PINを変更しました！');
+        } else {
+          pinChangeMsg.style.color = 'var(--color-amber-warm)';
+          pinChangeMsg.textContent = `⚠️ ${res.error}`;
+        }
+      }
+      if (res.success && newPinInput) {
+        newPinInput.value = '';
+      }
+    };
+
+    if (changePinBtn) {
+      changePinBtn.onclick = handleChangePin;
+    }
+    if (newPinInput) {
+      newPinInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault?.();
+          handleChangePin();
+        }
+      });
+    }
+
+    dashboard.appendChild(pinCard);
     return dashboard;
   }
 
@@ -14147,6 +14695,17 @@ class MathLabApp {
     this.progress.gamification.labRank = exported.labRank;
     this.progress.gamification.selfCorrectionCount = exported.selfCorrectionCount;
     this.progress.gamification.unlockedBadges = exported.unlockedBadges;
+    this.progress.gamification.stageStars = { ...(exported.stageStars || {}) };
+
+    const exportedStarsTotal = Object.values(exported.stageStars || {}).reduce(
+      (sum, s) => sum + (Number(s) || 0),
+      0
+    );
+    const stageProgressStarsTotal = Object.values(this.progress.stageProgress || {}).reduce(
+      (sum, sp) => sum + (Number(sp?.stars) || 0),
+      0
+    );
+    this.progress.gamification.totalStars = Math.max(exportedStarsTotal, stageProgressStarsTotal);
   }
 
   ensureBonusState() {
@@ -14203,17 +14762,35 @@ class MathLabApp {
     return this;
   }
 
+  updateOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    if (typeof StorageService.getOfflineBannerText === 'function') {
+      banner.textContent = StorageService.getOfflineBannerText();
+    }
+  }
+
   setupGlobalEvents() {
     // Hash router listener
     window.addEventListener('hashchange', () => this.handleRoute());
 
+    this.updateOfflineBanner();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.add('visible');
+    }
+
     // Online / Offline sync listeners
     window.addEventListener('online', () => {
+      this.updateOfflineBanner();
       const banner = document.getElementById('offline-banner');
       if (banner) banner.classList.remove('visible');
-      StorageService.flushPendingSync().catch(() => {});
+      if (typeof StorageService.isStaticHostingEnvironment !== 'function' || !StorageService.isStaticHostingEnvironment()) {
+        StorageService.flushPendingSync().catch(() => {});
+      }
     });
     window.addEventListener('offline', () => {
+      this.updateOfflineBanner();
       const banner = document.getElementById('offline-banner');
       if (banner) banner.classList.add('visible');
     });
@@ -14561,6 +15138,8 @@ class MathLabApp {
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
         hasRemainder,
+        operator: currentProblem?.operator || null,
+        prompt: currentProblem?.prompt || '',
         onSound: (snd) => SoundEffects.playSound(snd),
         onSubmit: (value) => this.handleArenaSubmit(value)
       }).mount(keypadContainer);
@@ -14601,9 +15180,12 @@ class MathLabApp {
       }
     }
 
-    // Reset keypad to match problem remainder mode
+    // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
-      this.arenaKeypad.reset(Boolean(prob.hasRemainder));
+      this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
+        operator: prob.operator || null,
+        prompt: prob.prompt || ''
+      });
     }
 
     // Clear canvas between problems
@@ -14849,6 +15431,16 @@ class MathLabApp {
     const bonusState = this.ensureBonusState();
     bonusState.tickets = (bonusState.tickets || 0) + 1;
 
+    if (typeof GamificationEngine.recordStageClear === 'function') {
+      GamificationEngine.recordStageClear({
+        stageId: session.stageId,
+        worldId: session.worldId,
+        stars: this.progress.stageProgress[session.stageId].stars,
+        firstTryCorrectCount: session.firstTryCount,
+        selfCorrectedCount: session.selfCorrectedCount || 0
+      });
+    }
+
     this.syncGamificationProgress();
     // Save progress
     StorageService.saveProgress(this.progress).catch(() => {});
@@ -15025,9 +15617,13 @@ class MathLabApp {
   }
 
   renderParentBoard(container) {
+    const configuredPin = this.progress?.parentCheer?.pinConfigured
+      ? this.progress.parentCheer.parentPinHash
+      : undefined;
     this.activeViewComponent = new ParentBoard({
       container,
       progress: this.progress,
+      pin: configuredPin,
       onSave: (p) => StorageService.saveProgress(p),
       onTransferRestored: (newProgress) => {
         this.progress = newProgress;
