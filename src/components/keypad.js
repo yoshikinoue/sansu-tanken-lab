@@ -60,6 +60,33 @@ export function getValue(state) {
   return state.quotientText === '' ? 0 : Number(state.quotientText);
 }
 
+export function resolveAnswerLabel({
+  operator = null,
+  hasRemainder = false,
+  prompt = '',
+  answerLabel = null
+} = {}) {
+  if (answerLabel) {
+    return String(answerLabel);
+  }
+  if (Boolean(hasRemainder) || operator === '÷' || operator === '/') {
+    return '商 (こたえ)';
+  }
+  if ((typeof prompt === 'string' && prompt.includes('□')) || operator === 'mixed') {
+    return 'こたえ';
+  }
+  if (operator === '+') {
+    return '和 (こたえ)';
+  }
+  if (operator === '-' || operator === '−') {
+    return '差 (こたえ)';
+  }
+  if (operator === '×' || operator === '*') {
+    return '積 (こたえ)';
+  }
+  return 'こたえ';
+}
+
 // --- DOM CONTROLLER CLASS FOR BROWSER RUNTIME ---
 
 export class Keypad {
@@ -69,6 +96,9 @@ export class Keypad {
   constructor(options = {}) {
     this.options = {
       hasRemainder: false,
+      operator: null,
+      prompt: '',
+      answerLabel: null,
       onInput: null,    // (key, state) => void
       onChange: null,   // (value, state) => void
       onSubmit: null,   // (value, state) => void
@@ -101,13 +131,19 @@ export class Keypad {
 
   render() {
     const hasRem = this.state.hasRemainder;
+    const answerLabel = resolveAnswerLabel({
+      operator: this.options.operator,
+      hasRemainder: hasRem,
+      prompt: this.options.prompt,
+      answerLabel: this.options.answerLabel
+    });
 
     this.container.innerHTML = `
       <div class="keypad-container">
         <!-- Display Section with Interactive Tabs -->
         <div class="keypad-display" id="keypad-display">
           <div class="display-field-row ${this.state.activeField === 'quotient' ? 'active' : ''}" data-field="quotient">
-            <span class="display-label">商 (こたえ)</span>
+            <span class="display-label">${answerLabel}</span>
             <span class="display-value" data-bind="quotient">0</span>
           </div>
           <div class="display-field-row remainder-row ${this.state.activeField === 'remainder' ? 'active' : ''}" data-field="remainder" style="display: ${hasRem ? 'flex' : 'none'};">
@@ -263,11 +299,16 @@ export class Keypad {
     this.updateDisplay();
   }
 
-  reset(hasRemainder = false) {
+  reset(hasRemainder = false, meta = {}) {
     this.state.hasRemainder = Boolean(hasRemainder);
     this.state.activeField = 'quotient';
     this.state.quotientText = '';
     this.state.remainderText = '';
+    if (meta && typeof meta === 'object') {
+      if ('operator' in meta) this.options.operator = meta.operator;
+      if ('prompt' in meta) this.options.prompt = meta.prompt;
+      if ('answerLabel' in meta) this.options.answerLabel = meta.answerLabel;
+    }
     this.render();
     this.updateDisplay();
     return this;

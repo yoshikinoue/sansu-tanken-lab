@@ -37,6 +37,66 @@
   }
 }
 
+@media (max-width: 640px) {
+  /* Smartphone Portrait */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .header-status {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .view-container {
+    padding: 10px;
+  }
+
+  .problem-arena {
+    gap: 12px;
+  }
+
+  .arena-left {
+    height: auto;
+    min-height: 420px;
+  }
+
+  .problem-header-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .problem-display-card {
+    padding: 16px 12px;
+    min-height: 100px;
+  }
+
+  .problem-prompt {
+    font-size: clamp(1.5rem, 6vw, 2.2rem);
+    word-break: break-word;
+  }
+
+  .keypad-container {
+    height: auto;
+    min-height: 320px;
+  }
+
+  .stages-grid,
+  .bonus-hub-bar {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  .quiz-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 1024px) {
   /* Tablet Landscape & Desktop */
   .problem-arena {

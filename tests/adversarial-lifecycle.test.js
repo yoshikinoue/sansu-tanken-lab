@@ -1536,4 +1536,242 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(env.modalRoot.children.length, 0);
     });
   });
+
+  // =========================================================================
+  // Challenge 7: Bug Report Regression Suite (BUG-001 through BUG-006)
+  // =========================================================================
+  describe('7. Bug Report Regression Verification (BUG-001 to BUG-006)', () => {
+    function getAllText(el) {
+      if (!el) return '';
+      let txt = el._textContent || '';
+      for (const child of el.children || []) {
+        txt += ' ' + getAllText(child);
+      }
+      return txt.trim();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    it('BUG-001: navigates MiniLesson via buttons and step dots, enforces quiz gate, and recovers if detached', () => {
+      global.window.location.hash = '#lesson/stage-1';
+      app.handleRoute();
+
+      const modal = app.activeViewComponent;
+      assert.ok(modal instanceof MiniLessonModal);
+
+      // Step dot click on Card 1 advances Card 0 -> Card 1
+      const dot1 = env.modalRoot.querySelector('.step-dot[data-step-index="1"]');
+      domClick(dot1);
+      assert.equal(modal.state.currentCardIndex, 1);
+
+      // Clicking step dot 2 before solving quiz must stay on Card 1
+      const dot2Locked = env.modalRoot.querySelector('.step-dot[data-step-index="2"]');
+      domClick(dot2Locked);
+      assert.equal(modal.state.currentCardIndex, 1);
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, true);
+
+      // Simulate accidental DOM detachment -> refresh() must recover modal inside container
+      const detachedEl = modal.modalEl;
+      env.modalRoot.removeChild(detachedEl);
+      assert.equal(env.modalRoot.children.length, 0);
+
+      const correctOpt = SpeechService.getMiniLessonData('stage-1').card2.correctOption;
+      modal.handleOptionClick(correctOpt);
+      assert.equal(env.modalRoot.children.length, 1, 'refresh() must re-mount modal if detached while open');
+      assert.equal(env.modalRoot.querySelector('.next-card-btn').disabled, false);
+
+      // Advance to summary and start stage
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+      assert.equal(modal.state.currentCardIndex, 2);
+      domClick(env.modalRoot.querySelector('.next-card-btn'));
+      assert.equal(global.window.location.hash, '#stage/stage-1');
+    });
+
+    it('BUG-002: StageMap stars match ParentBoard displayStars immediately and after reload', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+
+      // Answer all 5 questions (1 self-corrected, 4 first-try -> 3 stars)
+      for (let q = 0; q < 5; q++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (q === 0) {
+          app.handleArenaSubmit(prob.correctAnswer.value + 999);
+          app.arenaStepGuide.session.steps.forEach((step, idx) => {
+            app.arenaStepGuide.submit(idx, step.expectedStepValue);
+          });
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        app.handleArenaSubmit(prob.correctAnswer.value);
+        if (q < 4) {
+          clearTimeout(app.arenaAdvanceTimer);
+          app.arenaAdvanceTimer = null;
+          app.updateArenaProblemDisplay();
+        }
+      }
+
+      const expectedStars = app.progress.stageProgress['stage-1'].stars;
+      assert.equal(expectedStars, 3);
+      assert.equal(app.progress.gamification.stageStars['stage-1'], 3);
+      assert.equal(app.progress.gamification.totalStars, 3);
+      assert.equal(GamificationEngine.getUserProfile().stars, 3);
+
+      // Verify StageMap displays 3 stars
+      global.window.location.hash = '#map';
+      app.handleRoute();
+      const stage1Card = env.viewContainer.querySelector('.stage-card[data-stage-id="stage-1"] .stage-stars');
+      assert.equal(getAllText(stage1Card), '⭐⭐⭐');
+
+      // Verify ParentBoard displays 3 stars without discrepancy
+      global.window.location.hash = '#parent';
+      app.handleRoute();
+      const board = app.activeViewComponent;
+      board.setupInitialPin('4321');
+      const dashText = getAllText(env.viewContainer);
+      assert.ok(dashText.includes('⭐ 3 個'), `ParentBoard must show ⭐ 3 個, got: ${dashText}`);
+
+      // Simulate reload by re-hydrating GamificationEngine from saved progress
+      GamificationEngine.resetGamificationState();
+      const reloadedProfile = GamificationEngine.loadGamificationState(app.progress);
+      assert.equal(reloadedProfile.stars, 3);
+
+      const boardAfterReload = new ParentBoard({
+        container: env.viewContainer,
+        progress: app.progress,
+        pin: '4321'
+      }).mount(env.viewContainer);
+      boardAfterReload.authenticate('4321');
+      assert.ok(getAllText(env.viewContainer).includes('⭐ 3 個'));
+    });
+
+    it('BUG-003: Keypad answer label matches stage operation (和/差/積/商/こたえ)', () => {
+      const checkLabelForStage = (stageNum, expectedLabel, expectedRemLabel = null) => {
+        global.window.location.hash = `#stage/stage-${stageNum}`;
+        app.handleRoute();
+        const qLabel = env.viewContainer.querySelector('.display-field-row[data-field="quotient"] .display-label');
+        const prob = app.currentSession.problems[0];
+        if (stageNum === 3) {
+          assert.equal(getAllText(qLabel), 'こたえ', `Stage ${stageNum} (${prob.prompt}) should show こたえ`);
+        } else {
+          assert.equal(getAllText(qLabel), expectedLabel, `Stage ${stageNum} (${prob.operator}) label mismatch`);
+        }
+        if (expectedRemLabel) {
+          const rLabel = env.viewContainer.querySelector('.display-field-row[data-field="remainder"] .display-label');
+          assert.equal(getAllText(rLabel), expectedRemLabel);
+        }
+      };
+
+      checkLabelForStage(1, '和 (こたえ)');
+      checkLabelForStage(2, '差 (こたえ)');
+      checkLabelForStage(3, 'こたえ');
+      checkLabelForStage(5, '積 (こたえ)');
+      checkLabelForStage(7, '商 (こたえ)', 'あまり');
+      checkLabelForStage(13, 'こたえ');
+    });
+
+    it('BUG-004: ParentBoard hides default PIN 1234, supports initial setup, PIN change, and 5-strike lockout', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#parent';
+      app.handleRoute();
+
+      // Default PIN '1234' must never appear anywhere in DOM or placeholder
+      const pinInput = env.viewContainer.querySelector('.pin-input');
+      assert.ok(pinInput);
+      const placeholder = pinInput.getAttribute('placeholder') || '';
+      assert.equal(placeholder.includes('1234'), false, 'Placeholder must not expose default PIN 1234');
+      assert.equal(getAllText(env.viewContainer).includes('1234'), false, 'PIN view text must not expose 1234');
+
+      // First-time setup with custom PIN '5678'
+      pinInput.value = '12'; // invalid (< 4 digits)
+      domClick(env.viewContainer.querySelector('.btn-unlock'));
+      assert.equal(app.activeViewComponent.isAuthenticated, false);
+      assert.equal(env.viewContainer.querySelector('.pin-error-msg').style.display, 'block');
+
+      const pinInputRetry = env.viewContainer.querySelector('.pin-input');
+      pinInputRetry.value = '5678';
+      domClick(env.viewContainer.querySelector('.btn-unlock'));
+      assert.equal(app.activeViewComponent.isAuthenticated, true);
+      assert.equal(app.progress.parentCheer.pinConfigured, true);
+      assert.equal(app.progress.parentCheer.parentPinHash, '5678');
+
+      // Change PIN from dashboard to '9012'
+      const newPinInput = env.viewContainer.querySelector('.input-new-pin');
+      assert.ok(newPinInput);
+      newPinInput.value = '9012';
+      domClick(env.viewContainer.querySelector('.btn-change-pin'));
+      assert.equal(app.progress.parentCheer.parentPinHash, '9012');
+
+      // Lock board and confirm old PIN '5678' fails and 5 failed attempts trigger lockout
+      domClick(env.viewContainer.querySelector('.btn-lock'));
+      assert.equal(app.activeViewComponent.isAuthenticated, false);
+
+      for (let i = 0; i < 5; i++) {
+        const input = env.viewContainer.querySelector('.pin-input');
+        input.value = '5678';
+        domClick(env.viewContainer.querySelector('.btn-unlock'));
+      }
+
+      assert.equal(app.activeViewComponent.isLockedOut(), true);
+      assert.equal(env.viewContainer.querySelector('.pin-input').disabled, true);
+      assert.equal(env.viewContainer.querySelector('.btn-unlock').disabled, true);
+      assert.equal(app.activeViewComponent.authenticate('9012'), false, 'Even valid PIN must fail while locked out');
+    });
+
+    it('BUG-005: offline/online events show GitHub Pages local-only text vs localhost sync text', () => {
+      const offlineBanner = env.elementsById.get('offline-banner');
+      assert.ok(offlineBanner);
+
+      // Static GitHub Pages environment
+      global.window.location.protocol = 'https:';
+      global.window.location.hostname = 'yoshikinoue.github.io';
+
+      global.window.dispatchEvent({ type: 'offline' });
+      assert.equal(offlineBanner.classList.contains('visible'), true);
+      assert.ok(offlineBanner.textContent.includes('この端末に保存されます'));
+      assert.equal(offlineBanner.textContent.includes('自動同期されます'), false);
+
+      global.window.dispatchEvent({ type: 'online' });
+      assert.equal(offlineBanner.classList.contains('visible'), false);
+      assert.equal(offlineBanner.textContent.includes('自動同期されます'), false);
+
+      // Local server environment
+      global.window.location.protocol = 'http:';
+      global.window.location.hostname = 'localhost';
+
+      global.window.dispatchEvent({ type: 'offline' });
+      assert.equal(offlineBanner.classList.contains('visible'), true);
+      assert.ok(offlineBanner.textContent.includes('自動同期されます'));
+    });
+  });
 });

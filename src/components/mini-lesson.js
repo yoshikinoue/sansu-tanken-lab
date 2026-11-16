@@ -316,12 +316,18 @@ export class MiniLessonModal {
     this.isOpen = true;
     const target = container || this.container || (typeof document !== 'undefined' ? document.body : null);
     if (!target) return this;
+    if (!this.container) {
+      this.container = target;
+    }
 
     if (this.modalEl && this.modalEl.parentNode) {
       this.modalEl.classList.add('open');
     } else {
       const el = this.render();
-      if (el) target.appendChild(el);
+      if (el) {
+        target.appendChild(el);
+        this.modalEl = el;
+      }
     }
 
     if (this.autoPlaySpeech) {
@@ -428,14 +434,48 @@ export class MiniLessonModal {
     }
   }
 
+  handleStepDotClick(targetIdx) {
+    if (!Number.isInteger(targetIdx) || targetIdx < 0 || targetIdx > 2) return;
+    const currentIdx = this.state.currentCardIndex;
+    if (targetIdx === currentIdx) return;
+
+    if (targetIdx < currentIdx) {
+      this.state.currentCardIndex = targetIdx;
+      SoundEffects.playSound('tap');
+      this.refresh();
+      if (this.autoPlaySpeech) {
+        this.speakCurrentCard();
+      }
+      return;
+    }
+
+    if (targetIdx === currentIdx + 1) {
+      if (canAdvance(this.state)) {
+        this.handleNext();
+      } else {
+        SoundEffects.playSound('near_miss');
+      }
+    }
+  }
+
   refresh() {
-    if (!this.modalEl || !this.modalEl.parentNode) return;
-    const oldEl = this.modalEl;
-    const parent = oldEl.parentNode;
-    const newEl = this.render();
-    if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
-      parent.replaceChild(newEl, oldEl);
-      this.modalEl = newEl;
+    if (this.modalEl && this.modalEl.parentNode) {
+      const oldEl = this.modalEl;
+      const parent = oldEl.parentNode;
+      const newEl = this.render();
+      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+        parent.replaceChild(newEl, oldEl);
+        this.modalEl = newEl;
+      }
+      return;
+    }
+
+    if (this.isOpen && this.container) {
+      const newEl = this.render();
+      if (newEl) {
+        this.container.appendChild(newEl);
+        this.modalEl = newEl;
+      }
     }
   }
 
@@ -482,10 +522,24 @@ export class MiniLessonModal {
     const stepProgress = document.createElement('div');
     stepProgress.className = 'step-progress-indicator';
     stepProgress.innerHTML = `
-      <div class="step-dot ${currentIdx === 0 ? 'active' : (currentIdx > 0 ? 'completed' : '')}">1. ひらめき</div>
-      <div class="step-dot ${currentIdx === 1 ? 'active' : (currentIdx > 1 ? 'completed' : '')}">2. クイズ</div>
-      <div class="step-dot ${currentIdx === 2 ? 'active' : ''}">3. まとめ</div>
+      <div class="step-dot ${currentIdx === 0 ? 'active' : (currentIdx > 0 ? 'completed' : '')}" data-step-index="0" role="button" tabindex="0">1. ひらめき</div>
+      <div class="step-dot ${currentIdx === 1 ? 'active' : (currentIdx > 1 ? 'completed' : '')}" data-step-index="1" role="button" tabindex="0">2. クイズ</div>
+      <div class="step-dot ${currentIdx === 2 ? 'active' : ''}" data-step-index="2" role="button" tabindex="0">3. まとめ</div>
     `;
+    stepProgress.querySelectorAll('.step-dot').forEach((dot) => {
+      const rawIdx = dot.dataset?.stepIndex ?? dot.getAttribute?.('data-step-index');
+      const targetIdx = Number(rawIdx);
+      if (targetIdx < currentIdx || (targetIdx === currentIdx + 1 && canAdvance(this.state))) {
+        dot.style.cursor = 'pointer';
+      }
+      dot.onclick = () => this.handleStepDotClick(targetIdx);
+      dot.addEventListener?.('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault?.();
+          this.handleStepDotClick(targetIdx);
+        }
+      });
+    });
     body.appendChild(stepProgress);
 
     // Card Content
@@ -625,7 +679,9 @@ export class MiniLessonModal {
     card.appendChild(footer);
     overlay.appendChild(card);
 
-    this.modalEl = overlay;
+    if (!this.modalEl || !this.modalEl.parentNode) {
+      this.modalEl = overlay;
+    }
     return overlay;
   }
 

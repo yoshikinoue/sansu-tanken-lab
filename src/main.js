@@ -85,6 +85,17 @@ export class MathLabApp {
     this.progress.gamification.labRank = exported.labRank;
     this.progress.gamification.selfCorrectionCount = exported.selfCorrectionCount;
     this.progress.gamification.unlockedBadges = exported.unlockedBadges;
+    this.progress.gamification.stageStars = { ...(exported.stageStars || {}) };
+
+    const exportedStarsTotal = Object.values(exported.stageStars || {}).reduce(
+      (sum, s) => sum + (Number(s) || 0),
+      0
+    );
+    const stageProgressStarsTotal = Object.values(this.progress.stageProgress || {}).reduce(
+      (sum, sp) => sum + (Number(sp?.stars) || 0),
+      0
+    );
+    this.progress.gamification.totalStars = Math.max(exportedStarsTotal, stageProgressStarsTotal);
   }
 
   ensureBonusState() {
@@ -141,17 +152,35 @@ export class MathLabApp {
     return this;
   }
 
+  updateOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    if (typeof StorageService.getOfflineBannerText === 'function') {
+      banner.textContent = StorageService.getOfflineBannerText();
+    }
+  }
+
   setupGlobalEvents() {
     // Hash router listener
     window.addEventListener('hashchange', () => this.handleRoute());
 
+    this.updateOfflineBanner();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      const banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.add('visible');
+    }
+
     // Online / Offline sync listeners
     window.addEventListener('online', () => {
+      this.updateOfflineBanner();
       const banner = document.getElementById('offline-banner');
       if (banner) banner.classList.remove('visible');
-      StorageService.flushPendingSync().catch(() => {});
+      if (typeof StorageService.isStaticHostingEnvironment !== 'function' || !StorageService.isStaticHostingEnvironment()) {
+        StorageService.flushPendingSync().catch(() => {});
+      }
     });
     window.addEventListener('offline', () => {
+      this.updateOfflineBanner();
       const banner = document.getElementById('offline-banner');
       if (banner) banner.classList.add('visible');
     });
@@ -499,6 +528,8 @@ export class MathLabApp {
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
         hasRemainder,
+        operator: currentProblem?.operator || null,
+        prompt: currentProblem?.prompt || '',
         onSound: (snd) => SoundEffects.playSound(snd),
         onSubmit: (value) => this.handleArenaSubmit(value)
       }).mount(keypadContainer);
@@ -539,9 +570,12 @@ export class MathLabApp {
       }
     }
 
-    // Reset keypad to match problem remainder mode
+    // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
-      this.arenaKeypad.reset(Boolean(prob.hasRemainder));
+      this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
+        operator: prob.operator || null,
+        prompt: prob.prompt || ''
+      });
     }
 
     // Clear canvas between problems
@@ -788,6 +822,16 @@ export class MathLabApp {
     const bonusState = this.ensureBonusState();
     bonusState.tickets = (bonusState.tickets || 0) + 1;
 
+    if (typeof GamificationEngine.recordStageClear === 'function') {
+      GamificationEngine.recordStageClear({
+        stageId: session.stageId,
+        worldId: session.worldId,
+        stars: this.progress.stageProgress[session.stageId].stars,
+        firstTryCorrectCount: session.firstTryCount,
+        selfCorrectedCount: session.selfCorrectedCount || 0
+      });
+    }
+
     this.syncGamificationProgress();
     // Save progress
     StorageService.saveProgress(this.progress).catch(() => {});
@@ -964,9 +1008,13 @@ export class MathLabApp {
   }
 
   renderParentBoard(container) {
+    const configuredPin = this.progress?.parentCheer?.pinConfigured
+      ? this.progress.parentCheer.parentPinHash
+      : undefined;
     this.activeViewComponent = new ParentBoard({
       container,
       progress: this.progress,
+      pin: configuredPin,
       onSave: (p) => StorageService.saveProgress(p),
       onTransferRestored: (newProgress) => {
         this.progress = newProgress;
