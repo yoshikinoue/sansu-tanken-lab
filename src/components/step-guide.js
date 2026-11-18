@@ -85,6 +85,7 @@ export class StepGuideModal {
     this.isOpen = false;
     this._completedNotified = false;
     this._openFocusTimer = null;
+    this._adaptStepsToDiagnosis();
   }
 
   setProblem(problem, diagnosis = null) {
@@ -92,9 +93,53 @@ export class StepGuideModal {
     this.diagnosis = diagnosis;
     this.session = createSession(problem);
     this._completedNotified = false;
+    this._adaptStepsToDiagnosis();
     if (this.isOpen) {
       this.refresh();
     }
+  }
+
+  /**
+   * BUG-008: the generated step guide narrates the problem's designed trap
+   * (e.g. a trial quotient that is too big). When the learner's actual error
+   * is the opposite correction (too small instead of too big, or vice versa),
+   * step 1 kept telling the wrong story. Rewrite step 1 from the learner's
+   * actual answer (diagnosis.userAnswer) so the text matches what they did.
+   * The expected step value (the correct quotient) does not change.
+   */
+  _adaptStepsToDiagnosis() {
+    if (!this.session || !Array.isArray(this.session.steps) || !this.problem) return;
+    const ua = this.diagnosis?.userAnswer;
+    if (!ua) return;
+    const [A, B] = this.problem.operands || [];
+    if (!Number.isFinite(A) || !Number.isFinite(B) || !B) return;
+    const userQ = Number(ua.value);
+    const userR = Number(ua.remainder ?? 0);
+    if (!Number.isFinite(userQ) || !Number.isFinite(userR)) return;
+
+    const actualTooSmall = userR >= B;
+    const actualTooBig = userQ * B > A;
+    if (!actualTooSmall && !actualTooBig) return;
+
+    this.session.steps = this.session.steps.map((step) => {
+      const trigger = step?.correctionTrigger;
+      if (!trigger) return step;
+      if (trigger.condition === 'product_greater_than_dividend' && actualTooSmall) {
+        return {
+          ...step,
+          explanation: `${A} ÷ ${B} で、あなたがたてた商「${userQ}」だと、あまりが ${userR} になって、わる数 ${B} より大きいね！商が小さすぎたから、1大きく修正するといくつ？`,
+          hint: `あまりが わる数 ${B} より大きいときは、商を1増やしてみよう！`
+        };
+      }
+      if (trigger.condition === 'difference_gte_divisor' && actualTooBig) {
+        return {
+          ...step,
+          explanation: `${A} ÷ ${B} で、あなたがたてた商「${userQ}」だと、積が ${userQ * B} になって ${A} から引けないね！商が大きすぎたから、1小さく修正するといくつ？`,
+          hint: `積が わられる数 ${A} より大きいときは、商を1減らしてみよう！`
+        };
+      }
+      return step;
+    });
   }
 
   render() {
