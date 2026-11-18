@@ -743,6 +743,52 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       }
     });
 
+    it('BUG-010: closing the review modal manually after a correct answer still refreshes the treasure list immediately', () => {
+      global.window.location.hash = '#treasure';
+      app.handleRoute();
+
+      const treasureBox = app.activeViewComponent;
+      assert.ok(treasureBox instanceof TreasureBox);
+
+      const prob = CurriculumEngine.generateProblem(1, 1, 1);
+      const item = addTreasureItem(app.progress.treasureBox, prob);
+      treasureBox.update(app.progress);
+
+      treasureBox.launchReviewModal(item);
+      assert.ok(treasureBox.reviewModalEl);
+
+      const submitBtn = treasureBox.reviewModalEl.querySelector('.review-submit-btn');
+      const ansInput = treasureBox.reviewModalEl.querySelector('.review-answer-input');
+      const promptDiv = treasureBox.reviewModalEl.querySelector('.modal-body div');
+      const match = (promptDiv?._textContent || promptDiv?.textContent || '').match(/(\d+)\s*([\+\-×÷])\s*(\d+)/);
+      assert.ok(match, 'variation prompt must be parseable');
+      const n1 = Number(match[1]);
+      const op = match[2];
+      const n2 = Number(match[3]);
+      let expAns = 0;
+      if (op === '+') expAns = n1 + n2;
+      else if (op === '-') expAns = n1 - n2;
+      else if (op === '×') expAns = n1 * n2;
+      else if (op === '÷') expAns = Math.floor(n1 / n2);
+      if (ansInput) ansInput.value = String(expAns);
+      submitBtn?.click();
+
+      assert.equal(item.consecutiveCorrect, 1);
+      assert.ok(treasureBox.reviewTimer, 'auto-close timer must be pending after a correct answer');
+
+      // Close manually via the ✕ button before the 1200ms auto-close fires.
+      const closeBtn = treasureBox.reviewModalEl.querySelector('.modal-close-btn');
+      closeBtn?.click();
+
+      assert.equal(treasureBox.reviewModalEl, null);
+      assert.equal(treasureBox.reviewTimer, null);
+      // The list must already show the recorded progress, without a reload.
+      const card = treasureBox.rootEl.querySelector('.treasure-item-card');
+      assert.ok(card, 'treasure card must be re-rendered after manual close');
+      assert.ok(card.innerHTML.includes('1 / 2 連続正解'), card.innerHTML);
+      assert.ok(card.innerHTML.includes('あと1回正解'), card.innerHTML);
+    });
+
     it('abruptly navigates away while MiniLessonModal TTS speech is active, stopping audio immediately', () => {
       let speechCanceled = false;
       const origCancel = global.window.speechSynthesis.cancel;
