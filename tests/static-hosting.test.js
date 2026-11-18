@@ -283,4 +283,50 @@ describe('Static Hosting, PWA Manifest & GitHub Pages Support', () => {
       assert.ok(tabletCss.includes('@media (max-width: 640px)'), 'tablet.css must include smartphone portrait rules');
     });
   });
+
+  describe('Smartphone portrait layout (BUG-007)', () => {
+    const readCss = (rel) => fs.readFileSync(path.join(ROOT_DIR, rel), 'utf8');
+
+    it('toast is anchored to the bottom so it never covers modal headers or the stage bar', () => {
+      const componentsCss = readCss('src/styles/components.css');
+      assert.equal(componentsCss.includes('top: 80px'), false, 'toast-container must not be fixed at top: 80px (it covered modal titles and close buttons)');
+      const toastBlock = componentsCss.match(/\.toast-container\s*\{([^}]*)\}/);
+      assert.ok(toastBlock, 'components.css must define .toast-container');
+      assert.ok(toastBlock[1].includes('bottom:'), 'toast-container must be anchored with bottom');
+      assert.ok(toastBlock[1].includes('max-width:'), 'toast-container must constrain its width on narrow screens');
+    });
+
+    it('hub cards, world header, toolbar and modal header wrap instead of squeezing text into one-character columns', () => {
+      const componentsCss = readCss('src/styles/components.css');
+      const tabletCss = readCss('src/styles/tablet.css');
+
+      const hubBlock = componentsCss.match(/\.hub-card\s*\{([^}]*)\}/);
+      assert.ok(hubBlock && hubBlock[1].includes('flex-wrap: wrap'), '.hub-card must allow wrapping');
+      assert.ok(componentsCss.includes('.world-progress-badge'), 'world progress badge needs a nowrap rule');
+      const toolbarBlock = componentsCss.match(/\.canvas-toolbar\s*\{([^}]*)\}/);
+      assert.ok(toolbarBlock && toolbarBlock[1].includes('flex-wrap: wrap'), '.canvas-toolbar must allow wrapping');
+      const modalHeaderBlock = componentsCss.match(/\.modal-header\s*\{([^}]*)\}/);
+      assert.ok(modalHeaderBlock && modalHeaderBlock[1].includes('flex-wrap: wrap'), '.modal-header must allow wrapping');
+
+      const smartphoneBlock = tabletCss.slice(tabletCss.indexOf('@media (max-width: 640px)'));
+      assert.ok(smartphoneBlock.includes('.hub-card'), 'smartphone rules must restyle .hub-card');
+      assert.ok(smartphoneBlock.includes('.world-header'), 'smartphone rules must restyle .world-header');
+      assert.ok(smartphoneBlock.includes('.modal-overlay'), 'smartphone rules must restyle .modal-overlay');
+    });
+
+    it('flex children that carry wide content can shrink (min-width: 0) so modal content cannot push past the card edge', () => {
+      const componentsCss = readCss('src/styles/components.css');
+      for (const selector of ['.modal-card', '.modal-body', '.mini-lesson-card', '.lesson-visual-diagram', '.step-guide-content']) {
+        const block = componentsCss.match(new RegExp(selector.replace('.', '\\.') + '\\s*\\{([^}]*)\\}'));
+        assert.ok(block, `components.css must define ${selector}`);
+        assert.ok(block[1].includes('min-width: 0'), `${selector} must allow shrinking with min-width: 0`);
+      }
+    });
+
+    it('standalone bundle carries the same BUG-007 CSS fixes', () => {
+      const html = fs.readFileSync(path.join(ROOT_DIR, 'sansu_tanken_lab.html'), 'utf8');
+      assert.equal(html.includes('top: 80px'), false, 'standalone bundle toast must not be fixed at top: 80px');
+      assert.ok(html.includes('.world-progress-badge'), 'standalone bundle must include the world progress badge rule');
+    });
+  });
 });

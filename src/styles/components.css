@@ -95,6 +95,7 @@
   box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 680px;
+  min-width: 0;
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
@@ -112,6 +113,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   border-bottom: 1px solid var(--color-card-border);
 }
 
@@ -121,11 +124,23 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.modal-header .header-actions {
+  flex-shrink: 0;
+}
+
+.modal-header .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .modal-body {
   padding: 24px;
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
 
@@ -170,6 +185,17 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.world-info > div {
+  min-width: 0;
+}
+
+.world-progress-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .world-badge {
@@ -268,6 +294,8 @@
   flex: 1;
   padding: 8px 12px;
   font-size: 0.9rem;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* Problem Solving Arena (Main Workspace) */
@@ -291,10 +319,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   background: var(--color-card-dark);
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-lg);
   padding: 12px 20px;
+}
+
+.problem-header-bar .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .problem-progress {
@@ -373,6 +408,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 8px 16px;
   background: rgba(15, 23, 42, 0.7);
   border-bottom: 1px solid var(--color-card-border);
@@ -382,7 +419,13 @@
 .toolbar-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.canvas-toolbar .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .canvas-wrapper {
@@ -461,6 +504,8 @@ canvas.memo-canvas {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .display-value {
@@ -469,6 +514,10 @@ canvas.memo-canvas {
   font-weight: 700;
   color: var(--color-accent-cyan);
   min-height: 2rem;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .keypad-grid {
@@ -535,6 +584,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .step-card {
@@ -545,6 +595,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
 }
 
 .step-card.current {
@@ -679,11 +730,17 @@ canvas.memo-canvas {
 /* Toast Feedback Notification (No-X Compliant) */
 .toast-container {
   position: fixed;
-  top: 80px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   pointer-events: none;
+  width: max-content;
+  max-width: min(92vw, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .toast-message {
@@ -695,6 +752,10 @@ canvas.memo-canvas {
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  overflow-wrap: break-word;
   animation: toastPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -718,7 +779,7 @@ canvas.memo-canvas {
 }
 
 @keyframes toastPop {
-  from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+  from { opacity: 0; transform: translateY(20px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -737,6 +798,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .lesson-image-placeholder {
@@ -748,6 +810,7 @@ canvas.memo-canvas {
   flex-direction: column;
   gap: 12px;
   text-align: left;
+  min-width: 0;
 }
 
 .lesson-concept-badge {
@@ -777,6 +840,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .lesson-visual-header {
@@ -794,6 +858,8 @@ canvas.memo-canvas {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .lesson-visual-row {
@@ -991,12 +1057,18 @@ canvas.memo-canvas {
 .hub-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 14px 18px;
   border-radius: var(--radius-xl);
   background: var(--color-card-dark);
   border: 2px solid var(--color-card-border);
   box-shadow: var(--shadow-md);
+}
+
+.hub-card .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .companion-hub-card {
@@ -1023,7 +1095,7 @@ canvas.memo-canvas {
 }
 
 .hub-card-info {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -1121,6 +1193,7 @@ canvas.memo-canvas {
   font-weight: 700;
   color: #fff;
   cursor: pointer;
+  overflow-wrap: break-word;
 }
 
 .mascot-widget-actions {
