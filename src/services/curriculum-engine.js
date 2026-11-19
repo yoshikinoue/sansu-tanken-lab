@@ -2415,15 +2415,24 @@ function generateStage4_1({ questionIndex, level, difficultyLevel, rng, variatio
       mistakeValue: q,
       mistakeRemainder: withRemainder ? smallRem : 1,
       reasonCategory: 'remainder_scale',
-      diagnosis: '0をかくして計算したあと、あまりの位（0）を戻すのを忘れているよ！',
-      hintMessage: `商の ${q} は大正解！あまりは ${smallRem} ではなく、隠した0を戻して「${r}」になるよ！`
+      // BUG-008: when the division is exact (r === 0) the remainder-scale
+      // wording is self-contradictory ("あまりは 0 ではなく…「0」になる"),
+      // so the trap texts must be built for the exact case instead.
+      diagnosis: withRemainder
+        ? '0をかくして計算したあと、あまりの位（0）を戻すのを忘れているよ！'
+        : 'ぴったり割り切れる計算だよ！あまりはないはずだよ！',
+      hintMessage: withRemainder
+        ? `商の ${q} は大正解！あまりは ${smallRem} ではなく、隠した0を戻して「${r}」になるよ！`
+        : `商の ${q} は大正解！この計算はぴったり割り切れて、あまりは「0」だよ！`
     },
     errorDiagnostics: [
       {
         predictedErrorValue: q,
         predictedRemainder: smallRem,
         reasonCategory: 'remainder_scale',
-        adviceMessage: `0をかくして計算したあとは、あまりに0を戻してあげよう！本当のあまりは ${smallRem} ではなく「${r}」だね！`
+        adviceMessage: withRemainder
+          ? `0をかくして計算したあとは、あまりに0を戻してあげよう！本当のあまりは ${smallRem} ではなく「${r}」だね！`
+          : `商の ${q} は大正解！この計算はぴったり割り切れて、あまりは「0」だよ！`
       },
       {
         predictedErrorValue: q * 10,
@@ -3552,7 +3561,8 @@ export function diagnoseError(problem, userAnswer) {
           adviceMessage: diag.adviceMessage,
           hintMessage: diag.hintMessage || diag.adviceMessage,
           feedbackTitle: 'ヒントを発見！おしい！もう一歩！',
-          highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value)
+          highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
+          userAnswer: { value: norm.value, remainder: norm.remainder }
         };
       }
     }
@@ -3571,7 +3581,8 @@ export function diagnoseError(problem, userAnswer) {
         adviceMessage: problem.commonTrap.hintMessage,
         hintMessage: problem.commonTrap.hintMessage,
         feedbackTitle: 'ヒントを発見！おしい！もう一歩！',
-        highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value)
+        highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
+        userAnswer: { value: norm.value, remainder: norm.remainder }
       };
     }
   }
@@ -3588,7 +3599,8 @@ export function diagnoseError(problem, userAnswer) {
         adviceMessage: `商の ${trueVal} はバッチリ！0をかくして計算したあとは、あまりにも0を戻して「${trueRem}」にしよう！`,
         hintMessage: `本当のあまりは ${norm.remainder} ではなく「${trueRem}」だよ！`,
         feedbackTitle: 'おしい！あと一歩！',
-        highlightDigitIndex: 0
+        highlightDigitIndex: 0,
+        userAnswer: { value: norm.value, remainder: norm.remainder }
       };
     }
 
@@ -3601,7 +3613,8 @@ export function diagnoseError(problem, userAnswer) {
         adviceMessage: `あまりは必ずわる数（${divisor}）より小さくしよう！商をもう1つ増やしてみよう！`,
         hintMessage: `商を1つ大きくしてもう一度計算してみよう！`,
         feedbackTitle: 'ヒントを発見！',
-        highlightDigitIndex: 0
+        highlightDigitIndex: 0,
+        userAnswer: { value: norm.value, remainder: norm.remainder }
       };
     }
 
@@ -3616,7 +3629,8 @@ export function diagnoseError(problem, userAnswer) {
           adviceMessage: '割れない位があるときは、商に「0」をたてて位を守ろう！',
           hintMessage: '十の位に0を入れると3桁の商になるよ！',
           feedbackTitle: 'おしい！もう一歩！',
-          highlightDigitIndex: 1
+          highlightDigitIndex: 1,
+          userAnswer: { value: norm.value, remainder: norm.remainder }
         };
       }
     }
@@ -3624,15 +3638,41 @@ export function diagnoseError(problem, userAnswer) {
     const diff = Math.abs(trueVal - norm.value);
     if (diff === 10 || diff === 100 || diff === 1000) {
       const placeName = diff === 10 ? '十の位' : diff === 100 ? '百の位' : '千の位';
-      const isAddOrMult = problem?.operator === '+' || problem?.operator === '×';
+      // BUG-008: the wording must match the actual operation. Multiplication
+      // has neither くり上がり in the addition sense nor くり下がり, so a
+      // shared "くり上がり・くり下がり" message misleads the learner.
+      const op = problem?.operator;
+      const byOperator = {
+        '+': {
+          reasonCategory: 'carry_forgotten',
+          diagnosis: `${placeName}へのくり上がりがズレているみたい！`,
+          adviceMessage: `${placeName}の計算で、くり上がりの「1」をもう一度チェックしてみよう！`
+        },
+        '-': {
+          reasonCategory: 'borrow_forgotten',
+          diagnosis: `${placeName}のくり下がりがズレているみたい！`,
+          adviceMessage: `${placeName}の計算で、くり下がりの「1」をもう一度チェックしてみよう！`
+        },
+        '×': {
+          reasonCategory: 'place_value_slip',
+          diagnosis: `${placeName}の位の計算がズレているみたい！`,
+          adviceMessage: `${placeName}の計算をもう一度チェックしてみよう！かけ算では部分積の位に気をつけよう！`
+        }
+      };
+      const wording = byOperator[op] || {
+        reasonCategory: 'place_value_slip',
+        diagnosis: `${placeName}の位の計算がズレているみたい！`,
+        adviceMessage: `${placeName}の計算をもう一度チェックしてみよう！`
+      };
       return {
         matched: true,
-        reasonCategory: isAddOrMult ? 'carry_forgotten' : 'borrow_forgotten',
-        diagnosis: `${placeName}のくり上がり・くり下がりが1つズレているみたい！`,
-        adviceMessage: `${placeName}の計算で、くり上がり・くり下がりの「1」をもう一度チェックしてみよう！`,
+        reasonCategory: wording.reasonCategory,
+        diagnosis: wording.diagnosis,
+        adviceMessage: wording.adviceMessage,
         hintMessage: `${placeName}の数字に注目してステップガイドで確かめてみよう！`,
         feedbackTitle: 'おしい！もう一歩！',
-        highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value)
+        highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
+        userAnswer: { value: norm.value, remainder: norm.remainder }
       };
     }
   }
@@ -3641,14 +3681,11 @@ export function diagnoseError(problem, userAnswer) {
     matched: false,
     reasonCategory: 'general_recheck',
     diagnosis: 'おしい！もう一歩！ステップガイドで途中の計算を一緒に確認してみよう！',
-    adviceMessage:
-      problem?.commonTrap?.hintMessage ||
-      'ヒントを発見！1ステップずつ順番に穴埋めすると自力で解けるよ！',
-    hintMessage:
-      problem?.commonTrap?.hintMessage ||
-      'ステップガイドを開いて、1つずつ確かめてみよう！',
+    adviceMessage: 'ヒントを発見！1ステップずつ順番に穴埋めすると自力で解けるよ！',
+    hintMessage: 'ステップガイドを開いて、1つずつ確かめてみよう！',
     feedbackTitle: 'おしい！もう一歩！',
-    highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value)
+    highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
+    userAnswer: { value: norm.value, remainder: norm.remainder }
   };
 }
 

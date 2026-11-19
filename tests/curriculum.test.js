@@ -14,6 +14,7 @@ import CurriculumEngine, {
   diagnoseError,
   normalizeUserAnswer
 } from '../src/services/curriculum-engine.js';
+import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
   describe('1. Worlds & Stages Metadata (5 Worlds, 15 Stages, Mini-Lessons)', () => {
@@ -427,5 +428,138 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
         }
       }
     });
+  });
+});
+
+describe('BUG-008: hint and step-guide wording must match the actual problem and answer', () => {
+  it('example 1 (stage 4, 70x60): a place-value slip in multiplication never mentions くり下がり', () => {
+    const problem = {
+      operator: '×',
+      operands: [70, 60],
+      correctAnswer: { value: 4200, remainder: 0 },
+      answer: 4200,
+      remainder: 0,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 420, reasonCategory: 'shift_forgotten', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const diag = diagnoseError(problem, 4300); // off by exactly 100
+    assert.equal(diag.matched, true);
+    assert.equal(diag.reasonCategory, 'place_value_slip');
+    assert.ok(!diag.adviceMessage.includes('くり下がり'), diag.adviceMessage);
+    assert.ok(!diag.adviceMessage.includes('くり上がり'), diag.adviceMessage);
+    assert.ok(!diag.diagnosis.includes('くり下がり'), diag.diagnosis);
+    assert.deepEqual(diag.userAnswer, { value: 4300, remainder: 0 });
+  });
+
+  it('place-value slip wording stays operation-specific for addition and subtraction', () => {
+    const base = {
+      operands: [500, 200],
+      correctAnswer: { value: 700, remainder: 0 },
+      answer: 700,
+      remainder: 0,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 701, reasonCategory: 'x', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const addDiag = diagnoseError({ ...base, operator: '+' }, 800);
+    assert.equal(addDiag.reasonCategory, 'carry_forgotten');
+    assert.ok(addDiag.adviceMessage.includes('くり上がり'));
+    assert.ok(!addDiag.adviceMessage.includes('くり下がり'));
+
+    const subDiag = diagnoseError({ ...base, operator: '-', correctAnswer: { value: 300, remainder: 0 }, answer: 300 }, 400);
+    assert.equal(subDiag.reasonCategory, 'borrow_forgotten');
+    assert.ok(subDiag.adviceMessage.includes('くり下がり'));
+    assert.ok(!subDiag.adviceMessage.includes('くり上がり'));
+  });
+
+  it('example 2 (stage 10, exact division): an unmatched answer must not quote the trap hint verbatim', () => {
+    const prob = generateProblem(4, 1, { level: 1, questionIndex: 1 });
+    assert.equal(prob.correctAnswer.remainder, 0, 'warmup stage 4-1 problem must be exact');
+    const q = prob.correctAnswer.quotient ?? prob.correctAnswer.value;
+    // Learner answers one less than the correct quotient, remainder 0.
+    const diag = diagnoseError(prob, { quotient: q - 1, remainder: 0 });
+    assert.equal(diag.reasonCategory, 'general_recheck');
+    assert.ok(!diag.adviceMessage.includes('大正解'), diag.adviceMessage);
+    assert.ok(!diag.adviceMessage.includes('ではなく'), diag.adviceMessage);
+    assert.deepEqual(diag.userAnswer, { value: q - 1, remainder: 0 });
+  });
+
+  it('example 2 (stage 10, exact division): answering the correct quotient with remainder 1 is not self-contradictory', () => {
+    const prob = generateProblem(4, 1, { level: 1, questionIndex: 1 });
+    const q = prob.correctAnswer.quotient ?? prob.correctAnswer.value;
+    const diag = diagnoseError(prob, { quotient: q, remainder: 1 });
+    assert.equal(diag.matched, true);
+    assert.ok(!diag.adviceMessage.includes('ではなく'), diag.adviceMessage);
+    assert.ok(diag.adviceMessage.includes('あまりは「0」'), diag.adviceMessage);
+  });
+
+  it('example 3 (stage 12): diagnosis for a too-small answer advises increasing the quotient', () => {
+    const prob = generateProblem(4, 3, { level: 2, questionIndex: 1 });
+    const q = prob.correctAnswer.quotient ?? prob.correctAnswer.value;
+    const r = prob.correctAnswer.remainder;
+    const B = prob.operands[1];
+    const diag = diagnoseError(prob, { quotient: q - 1, remainder: r + B });
+    assert.equal(diag.reasonCategory, 'quotient_too_small');
+    assert.ok(diag.adviceMessage.includes('商を1つ増やして'), diag.adviceMessage);
+    assert.deepEqual(diag.userAnswer, { value: q - 1, remainder: r + B });
+  });
+
+  it('example 3 (stage 12, 95/34): step 1 is rewritten from the learner\u2019s actual too-small answer', () => {
+    const problem = {
+      operands: [95, 34],
+      operator: '÷',
+      correctAnswer: { value: 2, quotient: 2, remainder: 27 },
+      stepGuide: [
+        {
+          stepNumber: 1,
+          title: '仮の商をたてて自己修正しよう',
+          explanation: '34 をおよそ 30 とみて仮の商「3」をたてると、積が 102 で 95 から引けないね！商を1小さく修正するといくつ？',
+          expectedStepValue: 2,
+          correctionTrigger: {
+            condition: 'product_greater_than_dividend',
+            hintMessage: '仮の商「3」だと積が102になり引けないね！',
+            adjustedValue: 2
+          }
+        }
+      ]
+    };
+    const diagnosis = {
+      reasonCategory: 'quotient_too_small',
+      userAnswer: { value: 1, remainder: 61 }
+    };
+    const modal = new StepGuideModal({ problem, diagnosis });
+    const step1 = modal.session.steps[0];
+    assert.ok(step1.explanation.includes('あなたがたてた商「1」'), step1.explanation);
+    assert.ok(step1.explanation.includes('あまりが 61'), step1.explanation);
+    assert.ok(step1.explanation.includes('1大きく修正するといくつ'), step1.explanation);
+    assert.equal(step1.expectedStepValue, 2);
+    // The problem's own step guide must not be mutated.
+    assert.ok(problem.stepGuide[0].explanation.includes('仮の商「3」'));
+  });
+
+  it('step guide is left untouched when the learner\u2019s error matches the designed trap', () => {
+    const problem = {
+      operands: [95, 34],
+      operator: '÷',
+      correctAnswer: { value: 2, quotient: 2, remainder: 27 },
+      stepGuide: [
+        {
+          stepNumber: 1,
+          title: '仮の商をたてて自己修正しよう',
+          explanation: 'original too-big explanation',
+          expectedStepValue: 2,
+          correctionTrigger: {
+            condition: 'product_greater_than_dividend',
+            hintMessage: 'h',
+            adjustedValue: 2
+          }
+        }
+      ]
+    };
+    const diagnosis = {
+      reasonCategory: 'quotient_too_big',
+      userAnswer: { value: 3, remainder: 0 }
+    };
+    const modal = new StepGuideModal({ problem, diagnosis });
+    assert.equal(modal.session.steps[0].explanation, 'original too-big explanation');
   });
 });
