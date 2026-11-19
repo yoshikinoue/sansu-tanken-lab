@@ -337,6 +337,21 @@ describe('Milestone 6: Network, Concurrency & Persistence Stress Harness', () =>
       assert.equal(res3.source, 'server');
       assert.equal(res3.winner.gamification.totalScore, 300);
     });
+
+    it('issue #13: identical timestamps resolve to the local copy (tie boundary)', () => {
+      const tieLocal = createDefaultProgress();
+      tieLocal.lastUpdated = '2026-11-12T09:00:00.000Z';
+      tieLocal.gamification.totalScore = 111;
+
+      const tieServer = createDefaultProgress();
+      tieServer.lastUpdated = '2026-11-12T09:00:00.000Z';
+      tieServer.gamification.totalScore = 222;
+
+      // serverTime > localTime is false on an exact tie, so local must win.
+      const res = resolveProgressConflict(tieLocal, tieServer);
+      assert.equal(res.source, 'local');
+      assert.equal(res.winner.gamification.totalScore, 111);
+    });
   });
 
   // =========================================================================
