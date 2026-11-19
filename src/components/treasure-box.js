@@ -105,6 +105,10 @@ export class TreasureBox {
     this.rootEl = null;
     this.reviewModalEl = null;
     this.reviewTimer = null;
+    // BUG-010: set when a review attempt changed an item's mastery state.
+    // The list behind the modal must be re-rendered when the modal closes,
+    // no matter how it is closed.
+    this._listDirty = false;
   }
 
   mount(container) {
@@ -119,8 +123,13 @@ export class TreasureBox {
       const oldEl = this.rootEl;
       const parent = oldEl.parentNode;
       const newEl = this.render();
-      if (newEl && oldEl.parentNode === parent && newEl !== oldEl) {
+      // render() already mounts the new element into this.container when a
+      // container is set; only swap manually when it did not (BUG-010:
+      // an unconditional replaceChild could throw and lose the refresh).
+      if (newEl && newEl !== oldEl && newEl.parentNode !== parent) {
         parent.replaceChild(newEl, oldEl);
+      }
+      if (newEl) {
         this.rootEl = newEl;
       }
     }
@@ -332,6 +341,14 @@ export class TreasureBox {
       if (this.reviewModalEl === overlay) {
         this.reviewModalEl = null;
       }
+      // BUG-010: previously the list was refreshed only by the 1200ms
+      // auto-close timer after a correct answer. Closing the modal manually
+      // (✕ / やめる) cancelled that timer, so the recorded progress never
+      // reached the list until a reload. Refresh on every close instead.
+      if (this._listDirty) {
+        this._listDirty = false;
+        this.update(this.progress);
+      }
     };
 
     if (closeBtn) closeBtn.onclick = closeModal;
@@ -402,10 +419,10 @@ export class TreasureBox {
         if (typeof this.onUpdateHeader === 'function') {
           this.onUpdateHeader();
         }
+        this._listDirty = true;
 
         this.reviewTimer = setTimeout(() => {
           closeModal();
-          this.update(this.progress);
         }, 1200);
       } else {
         SoundEffects.playSound('near_miss');
@@ -435,6 +452,9 @@ export class TreasureBox {
         if (typeof this.onSave === 'function' && this.progress) {
           this.onSave(this.progress);
         }
+        // A wrong answer resets consecutiveCorrect / masteryLevel, so the
+        // list behind the modal is stale from this moment too (BUG-010).
+        this._listDirty = true;
       }
     };
 

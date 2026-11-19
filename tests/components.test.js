@@ -541,3 +541,46 @@ describe('Milestone 4: UI Components Unit Tests', () => {
     });
   });
 });
+
+describe('BUG-010: TreasureBox mastery counting integrity', () => {
+  it('counts consecutive correct answers per item and never leaks counts across items', async () => {
+    const { addItem, recordAttempt } = await import('../src/components/treasure-box.js');
+    const box = { items: [] };
+    const itemA = addItem(box, { prompt: '11 + 22 = ?', operands: [11, 22], operator: '+', worldId: 1, stageId: 1 });
+    const itemB = addItem(box, { prompt: '55 - 33 = ?', operands: [55, 33], operator: '-', worldId: 1, stageId: 1 });
+    assert.ok(itemA && itemB && itemA.id !== itemB.id);
+
+    recordAttempt(itemA, true);
+    assert.equal(itemA.consecutiveCorrect, 1);
+    assert.equal(itemA.masteryLevel, 1);
+    assert.equal(itemB.consecutiveCorrect, 0);
+    assert.equal(itemB.masteryLevel, 0);
+
+    recordAttempt(itemA, true);
+    assert.equal(itemA.consecutiveCorrect, 2);
+    assert.equal(itemA.masteryLevel, 2);
+    assert.equal(itemB.consecutiveCorrect, 0);
+
+    recordAttempt(itemA, false);
+    assert.equal(itemA.consecutiveCorrect, 0);
+    assert.equal(itemA.masteryLevel, 0);
+  });
+
+  it('preserves per-item counts through a save/load normalization round-trip', async () => {
+    const { addItem, recordAttempt } = await import('../src/components/treasure-box.js');
+    const { normalizeProgressData } = await import('../src/services/storage-service.js');
+    const box = { items: [] };
+    const itemA = addItem(box, { prompt: '78 ÷ 25 = ?', operands: [78, 25], operator: '÷', worldId: 4, stageId: 2 });
+    const itemB = addItem(box, { prompt: '33 ÷ 11 = ?', operands: [33, 11], operator: '÷', worldId: 4, stageId: 2 });
+    recordAttempt(itemA, true);
+    recordAttempt(itemA, true);
+
+    const revived = normalizeProgressData(JSON.parse(JSON.stringify({ treasureBox: box })));
+    const revivedA = revived.treasureBox.items.find(i => i.id === itemA.id);
+    const revivedB = revived.treasureBox.items.find(i => i.id === itemB.id);
+    assert.equal(revivedA.consecutiveCorrect, 2);
+    assert.equal(revivedA.masteryLevel, 2);
+    assert.equal(revivedB.consecutiveCorrect, 0);
+    assert.equal(revivedB.masteryLevel, 0);
+  });
+});
