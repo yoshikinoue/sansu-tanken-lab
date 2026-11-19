@@ -743,7 +743,16 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       }
     });
 
-    it('BUG-010: closing the review modal manually after a correct answer still refreshes the treasure list immediately', () => {
+    it('BUG-010: closing the review modal manually after a correct answer still refreshes the treasure list immediately', async () => {
+      // Isolate storage: without this, items trained by earlier tests in this
+      // file linger in the shared in-memory fallback storage and the first
+      // card in the list may be a leftover item, making this test pass even
+      // when the refresh is broken (mutation testing, issue #13).
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
       global.window.location.hash = '#treasure';
       app.handleRoute();
 
@@ -753,6 +762,13 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       const prob = CurriculumEngine.generateProblem(1, 1, 1);
       const item = addTreasureItem(app.progress.treasureBox, prob);
       treasureBox.update(app.progress);
+
+      // Judge only this test's own card, identified by its item id.
+      const ownCard = () => treasureBox.rootEl
+        .querySelectorAll('.treasure-item-card')
+        .find(c => c.dataset.itemId === item.id);
+      assert.ok(ownCard(), 'own treasure card must be rendered');
+      assert.ok(ownCard().innerHTML.includes('0 / 2 連続正解'), ownCard().innerHTML);
 
       treasureBox.launchReviewModal(item);
       assert.ok(treasureBox.reviewModalEl);
@@ -783,10 +799,96 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(treasureBox.reviewModalEl, null);
       assert.equal(treasureBox.reviewTimer, null);
       // The list must already show the recorded progress, without a reload.
-      const card = treasureBox.rootEl.querySelector('.treasure-item-card');
-      assert.ok(card, 'treasure card must be re-rendered after manual close');
+      // (Assert on this test's own card only: see the isolation note above.)
+      const card = ownCard();
+      assert.ok(card, 'own treasure card must be re-rendered after manual close');
       assert.ok(card.innerHTML.includes('1 / 2 連続正解'), card.innerHTML);
       assert.ok(card.innerHTML.includes('あと1回正解'), card.innerHTML);
+    });
+
+    it('BUG-010: closing the review modal manually after a wrong answer reflects the reset progress immediately', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#treasure';
+      app.handleRoute();
+      const treasureBox = app.activeViewComponent;
+      assert.ok(treasureBox instanceof TreasureBox);
+
+      const prob = CurriculumEngine.generateProblem(1, 1, 1);
+      const item = addTreasureItem(app.progress.treasureBox, prob);
+      // Start from 1 / 2 so a wrong answer visibly resets the card to 0 / 2.
+      item.consecutiveCorrect = 1;
+      item.masteryLevel = 1;
+      treasureBox.update(app.progress);
+
+      const ownCard = () => treasureBox.rootEl
+        .querySelectorAll('.treasure-item-card')
+        .find(c => c.dataset.itemId === item.id);
+      assert.ok(ownCard().innerHTML.includes('1 / 2 連続正解'), ownCard().innerHTML);
+
+      treasureBox.launchReviewModal(item);
+      assert.ok(treasureBox.reviewModalEl);
+      const submitBtn = treasureBox.reviewModalEl.querySelector('.review-submit-btn');
+      const ansInput = treasureBox.reviewModalEl.querySelector('.review-answer-input');
+      const quotientInput = treasureBox.reviewModalEl.querySelector('.review-quotient-input');
+      const promptDiv = treasureBox.reviewModalEl.querySelector('.modal-body div');
+      const match = (promptDiv?._textContent || promptDiv?.textContent || '').match(/(\d+)\s*([\+\-×÷])\s*(\d+)/);
+      assert.ok(match, 'variation prompt must be parseable');
+      const n1 = Number(match[1]);
+      const op = match[2];
+      const n2 = Number(match[3]);
+      let expAns = 0;
+      if (op === '+') expAns = n1 + n2;
+      else if (op === '-') expAns = n1 - n2;
+      else if (op === '×') expAns = n1 * n2;
+      else if (op === '÷') expAns = Math.floor(n1 / n2);
+      // Submit a deliberately wrong answer.
+      if (ansInput) ansInput.value = String(expAns + 9);
+      else if (quotientInput) quotientInput.value = String(expAns + 9);
+      submitBtn?.click();
+      assert.equal(item.consecutiveCorrect, 0, 'wrong answer must reset the streak');
+
+      // Close manually via the cancel button; the list must show the reset.
+      const cancelBtn = treasureBox.reviewModalEl.querySelector('.review-cancel-btn');
+      cancelBtn?.click();
+      assert.equal(treasureBox.reviewModalEl, null);
+      const card = ownCard();
+      assert.ok(card, 'own treasure card must be re-rendered after manual close');
+      assert.ok(card.innerHTML.includes('0 / 2 連続正解'), card.innerHTML);
+      assert.ok(card.innerHTML.includes('特訓待機中'), card.innerHTML);
+    });
+
+    it('BUG-009 guard: arena submissions are ignored while advancing to the next problem', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      const prob = session.problems[session.currentIndex];
+
+      // During the 600ms advance window a submission must be a silent no-op
+      // (this is the guard whose absence/presence decides BUG-009 reports).
+      session.isAdvancing = true;
+      app.handleArenaSubmit(prob.correctAnswer.value);
+      assert.equal(session.correctCount, 0);
+      assert.equal(session.attempts, 0);
+      assert.equal(session.currentIndex, 0);
+
+      // Once advancing finishes, the same submission is accepted.
+      session.isAdvancing = false;
+      app.handleArenaSubmit(prob.correctAnswer.value);
+      assert.equal(session.correctCount, 1);
+      if (app.arenaAdvanceTimer) {
+        clearTimeout(app.arenaAdvanceTimer);
+        app.arenaAdvanceTimer = null;
+      }
     });
 
     it('abruptly navigates away while MiniLessonModal TTS speech is active, stopping audio immediately', () => {

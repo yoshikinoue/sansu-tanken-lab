@@ -490,6 +490,20 @@ describe('Milestone 3: Gamification Engine (gamification-engine.js)', () => {
     );
   });
 
+  it('issue #13: 3-star threshold is 80% mastery AND at most 3 steps (boundary cases)', () => {
+    // 3 of 5 mastered = 60% < 80% threshold -> 2 stars, even with 0 steps used
+    assert.equal(
+      calculateStageStars({ totalQuestions: 5, firstTryCorrectCount: 3, selfCorrectedCount: 0, stepsUsed: 0 }),
+      2
+    );
+
+    // Full mastery but 5 steps used (> 3) -> the AND condition fails -> 2 stars
+    assert.equal(
+      calculateStageStars({ totalQuestions: 5, firstTryCorrectCount: 5, selfCorrectedCount: 0, stepsUsed: 5 }),
+      2
+    );
+  });
+
   it('progresses through all 10 Lab Ranks from 見習い探検員 (Lv.1) to 伝説の算数マスター (Lv.10)', () => {
     assert.equal(LAB_RANKS.length, 10);
     assert.equal(LAB_RANKS[0].title, '見習い探検員');

@@ -562,4 +562,122 @@ describe('BUG-008: hint and step-guide wording must match the actual problem and
     const modal = new StepGuideModal({ problem, diagnosis });
     assert.equal(modal.session.steps[0].explanation, 'original too-big explanation');
   });
+
+  it('issue #13: a difference of exactly 1000 is diagnosed at the thousands place', () => {
+    const problem = {
+      operator: '+',
+      operands: [3000, 2000],
+      correctAnswer: { value: 5000, remainder: 0 },
+      answer: 5000,
+      remainder: 0,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 5001, reasonCategory: 'x', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const diag = diagnoseError(problem, 4000); // off by exactly 1000
+    assert.equal(diag.matched, true);
+    assert.equal(diag.reasonCategory, 'carry_forgotten');
+    assert.ok(diag.diagnosis.includes('千の位'), diag.diagnosis);
+    assert.ok(!diag.diagnosis.includes('百の位'), diag.diagnosis);
+  });
+
+  it('issue #13: the place named in the diagnosis matches the differing digit (100 vs 1000)', () => {
+    const mul = {
+      operator: '×',
+      operands: [70, 60],
+      correctAnswer: { value: 4200, remainder: 0 },
+      answer: 4200,
+      remainder: 0,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 420, reasonCategory: 'x', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const diag100 = diagnoseError(mul, 4300); // off by exactly 100
+    assert.ok(diag100.diagnosis.includes('百の位'), diag100.diagnosis);
+    assert.ok(!diag100.diagnosis.includes('千の位'), diag100.diagnosis);
+
+    const add = {
+      operator: '+',
+      operands: [3000, 2000],
+      correctAnswer: { value: 5000, remainder: 0 },
+      answer: 5000,
+      remainder: 0,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 5001, reasonCategory: 'x', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const diag1000 = diagnoseError(add, 6000); // off by exactly 1000
+    assert.ok(diag1000.diagnosis.includes('千の位'), diag1000.diagnosis);
+    assert.ok(!diag1000.diagnosis.includes('百の位'), diag1000.diagnosis);
+  });
+
+  it('issue #13: the remainder-scale trap (170/30 answered as 5 r 2) is diagnosed', () => {
+    const problem = {
+      operator: '÷',
+      operands: [170, 30],
+      correctAnswer: { value: 5, quotient: 5, remainder: 20 },
+      answer: 5,
+      remainder: 20,
+      errorDiagnostics: [],
+      commonTrap: { mistakeValue: 4, reasonCategory: 'x', diagnosis: 'x', hintMessage: 'y' }
+    };
+    const diag = diagnoseError(problem, { quotient: 5, remainder: 2 });
+    assert.equal(diag.matched, true);
+    assert.equal(diag.reasonCategory, 'remainder_scale');
+    assert.ok(diag.adviceMessage.includes('20'), diag.adviceMessage);
+  });
+
+  it('issue #13: step 1 is rewritten when the submitted remainder equals the divisor exactly (72/18)', () => {
+    const problem = {
+      operands: [72, 18],
+      operator: '÷',
+      correctAnswer: { value: 4, quotient: 4, remainder: 0 },
+      stepGuide: [
+        {
+          stepNumber: 1,
+          title: '仮の商をたてて自己修正しよう',
+          explanation: 'original too-big explanation',
+          expectedStepValue: 4,
+          correctionTrigger: {
+            condition: 'product_greater_than_dividend',
+            hintMessage: 'h',
+            adjustedValue: 4
+          }
+        }
+      ]
+    };
+    const diagnosis = {
+      reasonCategory: 'quotient_too_small',
+      userAnswer: { value: 3, remainder: 18 } // remainder == divisor: boundary of userR >= B
+    };
+    const modal = new StepGuideModal({ problem, diagnosis });
+    const step1 = modal.session.steps[0];
+    assert.ok(step1.explanation.includes('商が小さすぎたから'), step1.explanation);
+    assert.ok(step1.explanation.includes('あまりが 18'), step1.explanation);
+    assert.equal(step1.expectedStepValue, 4);
+  });
+
+  it('issue #13: step 1 is not rewritten when the submitted product equals the dividend exactly (72/18)', () => {
+    const problem = {
+      operands: [72, 18],
+      operator: '÷',
+      correctAnswer: { value: 4, quotient: 4, remainder: 0 },
+      stepGuide: [
+        {
+          stepNumber: 1,
+          title: '仮の商をたてて自己修正しよう',
+          explanation: 'original too-small explanation',
+          expectedStepValue: 4,
+          correctionTrigger: {
+            condition: 'difference_gte_divisor',
+            hintMessage: 'h',
+            adjustedValue: 4
+          }
+        }
+      ]
+    };
+    const diagnosis = {
+      reasonCategory: 'quotient_too_big',
+      userAnswer: { value: 4, remainder: 5 } // 4 * 18 == 72 == dividend: boundary of userQ * B > A
+    };
+    const modal = new StepGuideModal({ problem, diagnosis });
+    assert.equal(modal.session.steps[0].explanation, 'original too-small explanation');
+  });
 });
