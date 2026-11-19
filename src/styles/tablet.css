@@ -45,6 +45,81 @@
     padding: 10px 12px;
   }
 
+  .logo-title,
+  .logo-badge,
+  .rank-badge,
+  .self-correct-counter {
+    white-space: nowrap;
+  }
+
+  /* Hub cards: keep the info column wide enough that Japanese text
+     does not wrap one character per line (BUG-007) */
+  .hub-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .hub-card-info {
+    flex: 1 1 150px;
+  }
+
+  .hub-card .btn {
+    flex: 1 1 140px;
+  }
+
+  .hub-char-avatar,
+  .hub-backrooms-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* World header: title block and progress badge wrap instead of squeezing */
+  .world-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  /* Modals: use the full small-screen width and wrap header actions */
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-title {
+    font-size: 1.15rem;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+
+  /* Mascot row wraps so the speech bubble keeps a readable width */
+  .mascot-main-row {
+    flex-wrap: wrap;
+  }
+
+  .mascot-bubble-area {
+    flex: 1 1 160px;
+  }
+
+  /* Step guide: input row wraps instead of overflowing */
+  .step-input-row {
+    flex-wrap: wrap;
+  }
+
+  .treasure-grid {
+    grid-template-columns: 1fr;
+  }
+
   .header-status {
     order: 3;
     width: 100%;
@@ -139,4 +214,14 @@ button:focus-visible,
 input:focus-visible {
   outline: 3px solid var(--color-accent-cyan);
   outline-offset: 2px;
+}
+
+/* BUG-007 follow-up: shrink the mini-lesson diagram on small screens so
+   most worked examples fit without horizontal scrolling (scroll remains
+   available for longer lines). */
+@media (max-width: 640px) {
+  .lesson-visual-rows {
+    font-size: 0.82rem;
+    padding: 8px 10px;
+  }
 }

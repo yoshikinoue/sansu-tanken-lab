@@ -389,6 +389,7 @@ html, body {
   box-shadow: var(--shadow-lg);
   width: 100%;
   max-width: 680px;
+  min-width: 0;
   max-height: 90vh;
   overflow-y: auto;
   display: flex;
@@ -406,6 +407,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   border-bottom: 1px solid var(--color-card-border);
 }
 
@@ -415,11 +418,23 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.modal-header .header-actions {
+  flex-shrink: 0;
+}
+
+.modal-header .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .modal-body {
   padding: 24px;
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
 }
 
@@ -464,6 +479,17 @@ html, body {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.world-info > div {
+  min-width: 0;
+}
+
+.world-progress-badge {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .world-badge {
@@ -562,6 +588,8 @@ html, body {
   flex: 1;
   padding: 8px 12px;
   font-size: 0.9rem;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* Problem Solving Arena (Main Workspace) */
@@ -585,10 +613,17 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 10px;
   background: var(--color-card-dark);
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-lg);
   padding: 12px 20px;
+}
+
+.problem-header-bar .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .problem-progress {
@@ -667,6 +702,8 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 8px 16px;
   background: rgba(15, 23, 42, 0.7);
   border-bottom: 1px solid var(--color-card-border);
@@ -676,7 +713,13 @@ html, body {
 .toolbar-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+.canvas-toolbar .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .canvas-wrapper {
@@ -755,6 +798,8 @@ canvas.memo-canvas {
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .display-value {
@@ -763,6 +808,10 @@ canvas.memo-canvas {
   font-weight: 700;
   color: var(--color-accent-cyan);
   min-height: 2rem;
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .keypad-grid {
@@ -829,6 +878,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-width: 0;
 }
 
 .step-card {
@@ -839,6 +889,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
 }
 
 .step-card.current {
@@ -973,11 +1024,17 @@ canvas.memo-canvas {
 /* Toast Feedback Notification (No-X Compliant) */
 .toast-container {
   position: fixed;
-  top: 80px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   pointer-events: none;
+  width: max-content;
+  max-width: min(92vw, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .toast-message {
@@ -989,6 +1046,10 @@ canvas.memo-canvas {
   display: flex;
   align-items: center;
   gap: 10px;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  overflow-wrap: break-word;
   animation: toastPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -1012,7 +1073,7 @@ canvas.memo-canvas {
 }
 
 @keyframes toastPop {
-  from { opacity: 0; transform: translateY(-20px) scale(0.9); }
+  from { opacity: 0; transform: translateY(20px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -1031,6 +1092,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .lesson-image-placeholder {
@@ -1042,6 +1104,7 @@ canvas.memo-canvas {
   flex-direction: column;
   gap: 12px;
   text-align: left;
+  min-width: 0;
 }
 
 .lesson-concept-badge {
@@ -1071,6 +1134,7 @@ canvas.memo-canvas {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .lesson-visual-header {
@@ -1088,6 +1152,8 @@ canvas.memo-canvas {
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .lesson-visual-row {
@@ -1285,12 +1351,18 @@ canvas.memo-canvas {
 .hub-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 14px 18px;
   border-radius: var(--radius-xl);
   background: var(--color-card-dark);
   border: 2px solid var(--color-card-border);
   box-shadow: var(--shadow-md);
+}
+
+.hub-card .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .companion-hub-card {
@@ -1317,7 +1389,7 @@ canvas.memo-canvas {
 }
 
 .hub-card-info {
-  flex: 1;
+  flex: 1 1 180px;
   min-width: 0;
 }
 
@@ -1415,6 +1487,7 @@ canvas.memo-canvas {
   font-weight: 700;
   color: #fff;
   cursor: pointer;
+  overflow-wrap: break-word;
 }
 
 .mascot-widget-actions {
@@ -1816,6 +1889,81 @@ canvas.memo-canvas {
     padding: 10px 12px;
   }
 
+  .logo-title,
+  .logo-badge,
+  .rank-badge,
+  .self-correct-counter {
+    white-space: nowrap;
+  }
+
+  /* Hub cards: keep the info column wide enough that Japanese text
+     does not wrap one character per line (BUG-007) */
+  .hub-card {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .hub-card-info {
+    flex: 1 1 150px;
+  }
+
+  .hub-card .btn {
+    flex: 1 1 140px;
+  }
+
+  .hub-char-avatar,
+  .hub-backrooms-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  /* World header: title block and progress badge wrap instead of squeezing */
+  .world-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  /* Modals: use the full small-screen width and wrap header actions */
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-header {
+    padding: 14px 16px;
+  }
+
+  .modal-title {
+    font-size: 1.15rem;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+
+  /* Mascot row wraps so the speech bubble keeps a readable width */
+  .mascot-main-row {
+    flex-wrap: wrap;
+  }
+
+  .mascot-bubble-area {
+    flex: 1 1 160px;
+  }
+
+  /* Step guide: input row wraps instead of overflowing */
+  .step-input-row {
+    flex-wrap: wrap;
+  }
+
+  .treasure-grid {
+    grid-template-columns: 1fr;
+  }
+
   .header-status {
     order: 3;
     width: 100%;
@@ -1910,6 +2058,16 @@ button:focus-visible,
 input:focus-visible {
   outline: 3px solid var(--color-accent-cyan);
   outline-offset: 2px;
+}
+
+/* BUG-007 follow-up: shrink the mini-lesson diagram on small screens so
+   most worked examples fit without horizontal scrolling (scroll remains
+   available for longer lines). */
+@media (max-width: 640px) {
+  .lesson-visual-rows {
+    font-size: 0.82rem;
+    padding: 8px 10px;
+  }
 }
 
   </style>
