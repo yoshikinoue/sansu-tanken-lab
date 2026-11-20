@@ -107,6 +107,7 @@ export class Keypad {
     };
 
     this.state = createKeypadState(this.options.hasRemainder);
+    this.locked = false;
     this.container = null;
     this.displayQuotientEl = null;
     this.displayRemainderEl = null;
@@ -256,7 +257,20 @@ export class Keypad {
     }
   }
 
+  // BUG-009: while locked (e.g. during the arena's advance window), all
+  // input and submits are ignored visibly instead of being silently
+  // discarded after registering on the display.
+  setLocked(locked) {
+    this.locked = Boolean(locked);
+    const root = this.container?.querySelector?.('.keypad-container');
+    if (root) {
+      root.classList.toggle('keypad-locked', this.locked);
+    }
+    return this;
+  }
+
   pressKey(key) {
+    if (this.locked) return;
     if (key === 'enter') {
       if (typeof this.options.onSound === 'function') {
         this.options.onSound('tap');
