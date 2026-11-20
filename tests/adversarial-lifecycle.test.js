@@ -1027,6 +1027,32 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(container.listeners.get('click')?.size, 0);
     });
 
+    it('BUG-009 hardening: keypad lock appearance survives re-render while locked', () => {
+      const container = new MockElement('div');
+      const kp = new Keypad().mount(container);
+
+      kp.setLocked(true);
+      let root = container.querySelector('.keypad-container');
+      assert.ok(root, 'keypad root must exist after mount');
+      assert.equal(root.classList.contains('keypad-locked'), true);
+
+      // reset() re-renders (innerHTML rebuild): the fresh root must still
+      // carry the locked appearance, matching the JS lock state. Before the
+      // hardening, the class was lost here while input stayed blocked —
+      // the exact "looks usable but does not react" shape of BUG-009.
+      kp.reset(false, {});
+      root = container.querySelector('.keypad-container');
+      assert.equal(kp.locked, true);
+      assert.equal(root.classList.contains('keypad-locked'), true, 're-render must re-apply the locked class');
+      kp.pressKey('5');
+      assert.equal(kp.state.quotientText, '', 'input stays blocked while locked');
+
+      kp.setLocked(false);
+      root = container.querySelector('.keypad-container');
+      assert.equal(root.classList.contains('keypad-locked'), false);
+      kp.destroy();
+    });
+
     it('verifies sound effects toggle and mute state persistence across view transitions', () => {
       assert.equal(app.isMuted, false);
 
