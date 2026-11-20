@@ -10551,8 +10551,12 @@ class Keypad {
       answerLabel: this.options.answerLabel
     });
 
+    // BUG-009 hardening: render() rebuilds this DOM node, so the locked
+    // appearance is re-applied from this.locked on every render. The JS
+    // state and the visuals can no longer diverge (a re-render while
+    // locked used to restore the clickable look while input stayed dead).
     this.container.innerHTML = `
-      <div class="keypad-container">
+      <div class="keypad-container${this.locked ? ' keypad-locked' : ''}">
         <!-- Display Section with Interactive Tabs -->
         <div class="keypad-display" id="keypad-display">
           <div class="display-field-row ${this.state.activeField === 'quotient' ? 'active' : ''}" data-field="quotient">
@@ -15189,8 +15193,13 @@ class MathLabApp {
     }
     this.arenaCanvasPad = null;
 
-    if (this.arenaKeypad && typeof this.arenaKeypad.destroy === 'function') {
-      this.arenaKeypad.destroy();
+    if (this.arenaKeypad) {
+      // BUG-009 hardening: release the lock before teardown so a locked
+      // state never outlives the arena that set it.
+      this.arenaKeypad.setLocked(false);
+      if (typeof this.arenaKeypad.destroy === 'function') {
+        this.arenaKeypad.destroy();
+      }
     }
     this.arenaKeypad = null;
 
@@ -15584,6 +15593,13 @@ class MathLabApp {
         }
         this.arenaAdvanceTimer = setTimeout(() => {
           this.arenaAdvanceTimer = null;
+          // BUG-009 hardening: the advance window always ends by releasing
+          // the keypad lock, even when the display update below is skipped
+          // (session replaced / route changed). Unlocking must not depend
+          // solely on updateArenaProblemDisplay() being reached.
+          if (this.arenaKeypad) {
+            this.arenaKeypad.setLocked(false);
+          }
           if (this.currentSession === session && this.currentRoute.view === '#stage') {
             this.updateArenaProblemDisplay();
           }
