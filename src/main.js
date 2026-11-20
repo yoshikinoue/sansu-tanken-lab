@@ -576,6 +576,8 @@ export class MathLabApp {
         operator: prob.operator || null,
         prompt: prob.prompt || ''
       });
+      // BUG-009: the new problem is on screen; accept input again.
+      this.arenaKeypad.setLocked(false);
     }
 
     // Clear canvas between problems
@@ -679,6 +681,13 @@ export class MathLabApp {
         this.handleArenaStageComplete();
       } else {
         session.isAdvancing = true;
+        // BUG-009: clear the just-submitted answer immediately and lock the
+        // keypad for the advance window, so input during the window is
+        // visibly refused instead of being silently discarded.
+        if (this.arenaKeypad) {
+          this.arenaKeypad.clear();
+          this.arenaKeypad.setLocked(true);
+        }
         if (this.arenaAdvanceTimer) {
           clearTimeout(this.arenaAdvanceTimer);
         }
