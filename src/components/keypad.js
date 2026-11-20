@@ -139,8 +139,12 @@ export class Keypad {
       answerLabel: this.options.answerLabel
     });
 
+    // BUG-009 hardening: render() rebuilds this DOM node, so the locked
+    // appearance is re-applied from this.locked on every render. The JS
+    // state and the visuals can no longer diverge (a re-render while
+    // locked used to restore the clickable look while input stayed dead).
     this.container.innerHTML = `
-      <div class="keypad-container">
+      <div class="keypad-container${this.locked ? ' keypad-locked' : ''}">
         <!-- Display Section with Interactive Tabs -->
         <div class="keypad-display" id="keypad-display">
           <div class="display-field-row ${this.state.activeField === 'quotient' ? 'active' : ''}" data-field="quotient">
