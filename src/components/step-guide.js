@@ -292,12 +292,11 @@ export class StepGuideModal {
       this.close();
     });
 
-    // Close on overlay backdrop click
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        this.close();
-      }
-    });
+    // BUG-009: the step guide must NOT close on backdrop clicks. A stray
+    // click right after the guide opens used to dismiss it instantly, which
+    // made a recorded wrong answer look like the app never reacted (the
+    // arena keypad was cleared on close, leaving display 0 and the same
+    // problem). Close only via the explicit close/finish controls.
   }
 
   submit(stepIndex, val) {
