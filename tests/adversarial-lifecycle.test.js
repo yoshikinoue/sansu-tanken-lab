@@ -946,6 +946,32 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(env.modalRoot.children.length, 0, 'modal-root must be completely cleared');
     });
 
+    it('BUG-009: step guide does not close on backdrop click, only via the close button', () => {
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+
+      const prob = app.currentSession.problems[0];
+      app.launchStepGuide(prob);
+      const guide = app.arenaStepGuide;
+      assert.ok(guide);
+      assert.equal(guide.isOpen, true);
+      const overlay = guide.modalEl;
+      assert.ok(overlay);
+
+      // A click on the backdrop itself must NOT dismiss the guide: a stray
+      // click right after opening used to erase every visible trace of the
+      // wrong answer (BUG-009 root cause).
+      overlay.click();
+      assert.equal(guide.isOpen, true, 'backdrop click must not close the step guide');
+      assert.equal(env.modalRoot.children.length, 1);
+
+      // The explicit close button still closes it.
+      const closeBtn = overlay.querySelector('.modal-close-btn');
+      assert.ok(closeBtn, 'step guide must keep an explicit close button');
+      closeBtn.click();
+      assert.equal(guide.isOpen, false);
+    });
+
     it('abruptly navigates away while StageCompleteModal is open, cleanly detaching the dialog', () => {
       global.window.location.hash = '#stage/stage-1';
       app.handleRoute();
@@ -1396,6 +1422,29 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       routeTo('#map');
       assert.equal(app.arenaAdvanceTimer, null);
       assert.equal(timers.has(firstTimerId), false);
+    });
+
+    it('BUG-009: correct submit clears the keypad and locks it until the next problem renders', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+
+      submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+      assert.equal(app.currentSession.correctCount, 1);
+      assert.equal(app.currentSession.isAdvancing, true);
+      // The just-submitted answer disappears immediately and the keypad
+      // refuses further input for the rest of the advance window.
+      assert.equal(app.arenaKeypad.locked, true);
+      assert.equal(app.arenaKeypad.state.quotientText, '');
+      app.arenaKeypad.pressKey('9');
+      assert.equal(app.arenaKeypad.state.quotientText, '', 'locked keypad must not register digits');
+
+      // When the advance timer renders the next problem, input works again.
+      timers.flushAdvance();
+      assert.equal(app.currentSession.isAdvancing, false);
+      assert.equal(app.arenaKeypad.locked, false);
+      app.arenaKeypad.pressKey('9');
+      assert.equal(app.arenaKeypad.state.quotientText, '9');
     });
 
     it('resets activeField from remainder back to quotient on Stage 7 division-with-remainder failure and self-correction', () => {
