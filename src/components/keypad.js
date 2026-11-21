@@ -13,10 +13,12 @@ export const keys = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', 'rem', 'd
 
 // --- PURE STATE MANAGEMENT FUNCTIONS (HEADLESS COMPATIBLE) ---
 
-export function createKeypadState(hasRemainder = false, hasDecimal = false) {
+export function createKeypadState(hasRemainder = false, hasDecimal = false, hasFraction = false) {
   return {
     hasRemainder: Boolean(hasRemainder),
     hasDecimal: Boolean(hasDecimal),
+    // 分数モードでは quotientText = 分子、remainderText = 分母 として2欄入力する
+    hasFraction: Boolean(hasFraction),
     activeField: 'quotient', // 'quotient' | 'remainder'
     quotientText: '',
     remainderText: ''
@@ -37,7 +39,7 @@ export function handleInput(state, key) {
     next.remainderText = '';
     next.activeField = 'quotient';
   } else if (key === 'rem') {
-    if (next.hasRemainder) {
+    if (next.hasRemainder || next.hasFraction) {
       next.activeField = (next.activeField === 'quotient') ? 'remainder' : 'quotient';
     }
   } else if (key === '.') {
@@ -57,6 +59,12 @@ export function handleInput(state, key) {
 }
 
 export function getValue(state) {
+  if (state.hasFraction) {
+    return {
+      numerator: state.quotientText === '' ? 0 : Number(state.quotientText),
+      denominator: state.remainderText === '' ? 0 : Number(state.remainderText)
+    };
+  }
   if (state.hasRemainder) {
     return {
       quotient: state.quotientText === '' ? 0 : Number(state.quotientText),
@@ -66,14 +74,30 @@ export function getValue(state) {
   return state.quotientText === '' ? 0 : Number(state.quotientText);
 }
 
+/**
+ * 2欄入力の切替ボタンの文言を決める。分数モードでは「押すとどちらの欄へ
+ * 移るか」が分かるよう、現在の入力対象に応じて行き先を表示する
+ * (分子の入力中は「分母へ」、分母の入力中は「分子へ」)。
+ */
+export function resolveToggleLabel(state) {
+  if (state?.hasFraction) {
+    return state.activeField === 'quotient' ? '分母へ' : '分子へ';
+  }
+  return 'あまり';
+}
+
 export function resolveAnswerLabel({
   operator = null,
   hasRemainder = false,
+  hasFraction = false,
   prompt = '',
   answerLabel = null
 } = {}) {
   if (answerLabel) {
     return String(answerLabel);
+  }
+  if (Boolean(hasFraction)) {
+    return '分子（ぶんし）';
   }
   if (Boolean(hasRemainder) || operator === '÷' || operator === '/') {
     return '商 (こたえ)';
@@ -103,6 +127,7 @@ export class Keypad {
     this.options = {
       hasRemainder: false,
       hasDecimal: false,
+      hasFraction: false,
       operator: null,
       prompt: '',
       answerLabel: null,
@@ -113,7 +138,11 @@ export class Keypad {
       ...options
     };
 
-    this.state = createKeypadState(this.options.hasRemainder, this.options.hasDecimal);
+    this.state = createKeypadState(
+      this.options.hasRemainder,
+      this.options.hasDecimal,
+      this.options.hasFraction
+    );
     this.locked = false;
     this.container = null;
     this.displayQuotientEl = null;
@@ -138,11 +167,15 @@ export class Keypad {
   }
 
   render() {
-    const hasRem = this.state.hasRemainder;
+    const hasFrac = Boolean(this.state.hasFraction);
+    const hasRem = this.state.hasRemainder || hasFrac;
     const hasDec = Boolean(this.state.hasDecimal) && !hasRem;
+    const secondFieldLabel = hasFrac ? '分母（ぶんぼ）' : 'あまり';
+    const toggleLabel = resolveToggleLabel(this.state);
     const answerLabel = resolveAnswerLabel({
       operator: this.options.operator,
       hasRemainder: hasRem,
+      hasFraction: hasFrac,
       prompt: this.options.prompt,
       answerLabel: this.options.answerLabel
     });
@@ -160,7 +193,7 @@ export class Keypad {
             <span class="display-value" data-bind="quotient">0</span>
           </div>
           <div class="display-field-row remainder-row ${this.state.activeField === 'remainder' ? 'active' : ''}" data-field="remainder" style="display: ${hasRem ? 'flex' : 'none'};">
-            <span class="display-label">あまり</span>
+            <span class="display-label">${secondFieldLabel}</span>
             <span class="display-value" data-bind="remainder">0</span>
           </div>
         </div>
@@ -184,7 +217,7 @@ export class Keypad {
 
           <!-- Row 4 -->
           ${hasRem ? `
-            <button type="button" class="key-btn action-btn rem-btn" data-key="rem">あまり</button>
+            <button type="button" class="key-btn action-btn rem-btn" data-key="rem">${toggleLabel}</button>
           ` : hasDec ? `
             <button type="button" class="key-btn action-btn decimal-btn" data-key=".">.</button>
           ` : `
@@ -263,7 +296,7 @@ export class Keypad {
           e.preventDefault();
           this.pressKey('enter');
         } else if (e.key === 'r' || e.key === 'R') {
-          if (this.state.hasRemainder) {
+          if (this.state.hasRemainder || this.state.hasFraction) {
             this.pressKey('rem');
           }
         }
@@ -314,7 +347,7 @@ export class Keypad {
   }
 
   setActiveField(field) {
-    if (field === 'remainder' && !this.state.hasRemainder) return;
+    if (field === 'remainder' && !this.state.hasRemainder && !this.state.hasFraction) return;
     this.state.activeField = field;
     this.updateDisplay();
   }
@@ -344,6 +377,10 @@ export class Keypad {
         this.options.hasDecimal = Boolean(meta.hasDecimal);
         this.state.hasDecimal = Boolean(meta.hasDecimal);
       }
+      if ('hasFraction' in meta) {
+        this.options.hasFraction = Boolean(meta.hasFraction);
+        this.state.hasFraction = Boolean(meta.hasFraction);
+      }
       if ('operator' in meta) this.options.operator = meta.operator;
       if ('prompt' in meta) this.options.prompt = meta.prompt;
       if ('answerLabel' in meta) this.options.answerLabel = meta.answerLabel;
@@ -371,10 +408,17 @@ export class Keypad {
     }
     if (this.remainderRowEl) {
       this.remainderRowEl.classList.toggle('active', this.state.activeField === 'remainder');
-      this.remainderRowEl.style.display = this.state.hasRemainder ? 'flex' : 'none';
+      this.remainderRowEl.style.display =
+        this.state.hasRemainder || this.state.hasFraction ? 'flex' : 'none';
     }
     if (this.displayBoxEl) {
       this.displayBoxEl.classList.toggle('active-field-focus', this.state.activeField === 'remainder');
+    }
+
+    // 分数モードの切替ボタンは、現在の入力対象に合わせて行き先表示に更新する
+    const remBtn = this.container?.querySelector?.('button[data-key="rem"]');
+    if (remBtn && this.state.hasFraction) {
+      remBtn.textContent = resolveToggleLabel(this.state);
     }
   }
 
@@ -383,7 +427,11 @@ export class Keypad {
   }
 
   setValue(val) {
-    if (typeof val === 'object' && val !== null) {
+    if (typeof val === 'object' && val !== null && val.numerator !== undefined) {
+      this.state.hasFraction = true;
+      this.state.quotientText = String(val.numerator || '');
+      this.state.remainderText = String(val.denominator || '');
+    } else if (typeof val === 'object' && val !== null) {
       this.state.hasRemainder = true;
       this.state.quotientText = String(val.quotient || '');
       this.state.remainderText = String(val.remainder || '');

@@ -177,6 +177,33 @@ const LESSON_VISUALS = {
       '    0 . 2  5   貸した0.1の位は 5 → 4 に減る'
     ],
     tip: '引けない時は上の位から10を借りる。貸した位は1減らそう！'
+  },
+  'stage-19': {
+    badge: '分数の仕組み：3/7 の読み方！',
+    diagramLines: [
+      '  1 を 7 等分 → 1つ分が 1/7',
+      '  3/7 = 1/7 が 3 こ分',
+      '  分母 7 = 等分した数、分子 3 = 何こ分'
+    ],
+    tip: '分母は「何等分したか」、分子は「何こ分」。単位分数の数で分数を読もう！'
+  },
+  'stage-20': {
+    badge: '同分母のたし算：2/7 + 3/7',
+    diagramLines: [
+      '  2/7 は 1/7 が 2 こ分',
+      '  3/7 は 1/7 が 3 こ分',
+      '  合わせて 5 こ分 → 5/7（分母は 7 のまま！）'
+    ],
+    tip: '分母はそのまま、分子だけを足す。分母同士は足さないよ！'
+  },
+  'stage-21': {
+    badge: '同分母のひき算：1と2/7 - 4/7',
+    diagramLines: [
+      '  1と2/7 を仮分数に直す → 9/7',
+      '  9/7 - 4/7 = 5/7',
+      '  引けない時は仮分数に変身させる！'
+    ],
+    tip: '分子が引けない時は、帯分数を仮分数に直してから分子だけ引こう！'
   }
 };
 
@@ -193,9 +220,18 @@ function getCurriculumLessonMeta(stageId) {
   return null;
 }
 
+/**
+ * ステージの図解データ (LESSON_VISUALS) を返す。未登録なら null
+ * @param {string|number} stageId 例: 'stage-19', 19
+ * @returns {object|null}
+ */
+export function getLessonVisual(stageId) {
+  const key = String(stageId || '').toLowerCase();
+  return LESSON_VISUALS[key] || null;
+}
+
 function renderLessonVisual(stageId) {
-  const key = String(stageId || 'stage-1').toLowerCase();
-  const data = LESSON_VISUALS[key] || LESSON_VISUALS['stage-1'];
+  const data = getLessonVisual(stageId) || LESSON_VISUALS['stage-1'];
   return `
     <div class="lesson-visual-diagram">
       <div class="lesson-visual-header">✏️ ${data.badge}</div>

@@ -427,9 +427,9 @@ describe('Milestone 5: Application Integration Test Suite', () => {
     });
 
     it('S4-3: unlocks Stage 2 on StageMap once Stage 1 is cleared', () => {
-      assert.equal(totalWorlds, 6);
+      assert.equal(totalWorlds, 7);
       assert.equal(stagesPerWorld, 3);
-      assert.equal(totalStages, 18);
+      assert.equal(totalStages, 21);
 
       // Stage 1 is always unlocked
       assert.equal(isStageUnlocked(1, {}), true);
@@ -444,7 +444,7 @@ describe('Milestone 5: Application Integration Test Suite', () => {
       assert.equal(isStageUnlocked(3, clearedProgress), false);
     });
 
-    it('S4-4: maps stage numbers to worlds accurately across all 18 stages', () => {
+    it('S4-4: maps stage numbers to worlds accurately across all 21 stages', () => {
       assert.equal(getWorldForStage(1), 1);
       assert.equal(getWorldForStage(3), 1);
       assert.equal(getWorldForStage(4), 2);
@@ -457,6 +457,8 @@ describe('Milestone 5: Application Integration Test Suite', () => {
       assert.equal(getWorldForStage(15), 5);
       assert.equal(getWorldForStage(16), 6);
       assert.equal(getWorldForStage(18), 6);
+      assert.equal(getWorldForStage(19), 7);
+      assert.equal(getWorldForStage(21), 7);
     });
 
     it('S4-5: persists stage progress into storage and verifies default schema normalization', () => {

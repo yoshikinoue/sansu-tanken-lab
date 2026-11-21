@@ -1,7 +1,7 @@
 /**
  * @file curriculum-engine.js
  * @description 小学4年生向け 四則演算ステップアップ学習Webアプリ (算数探検ラボ)
- * 全6ワールド・18ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
+ * 全7ワールド・21ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
  */
 
 let problemSequenceCounter = 1;
@@ -32,7 +32,7 @@ function pickRandom(arr, rng = Math.random) {
 }
 
 /**
- * 全6ワールド・18ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
+ * 全ワールド・全ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
  */
 export const WORLDS_METADATA = [
   {
@@ -878,6 +878,149 @@ export const WORLDS_METADATA = [
         }
       }
     ]
+  },
+  {
+    worldId: 7,
+    id: 'world-7',
+    title: '分数パーク',
+    subtitle: '分数の仕組み・同分母のたし算・ひき算',
+    themeColor: '#ff5722',
+    icon: '🍕',
+    description: 'ピザを等分すると分数の世界！分母と分子の意味をつかんで、同分母のたし算・ひき算を攻略しよう！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 7,
+        globalStageNumber: 19,
+        globalId: 'stage-19',
+        title: '分数の仕組み',
+        subtitle: '分母と分子・単位分数',
+        description: '1を等分したうちの何こ分か。分母は等分した数、分子は何こ分かを読み取ろう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '分数の仕組み（分母と分子）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】分母は「等分した数」、分子は「何こ分」！',
+              body: '1を7等分した1つ分が「1/7」。分数の下の数（分母）は1を何等分したか、上の数（分子）はその何こ分か表すよ。3/7 は 1/7 が3こ分という意味だね！',
+              ttsText: '分母は1を何等分したか、分子はその何こ分か表すよ。3/7は1/7が3こ分だね！',
+              visualType: 'fraction_structure'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】単位分数の数',
+              question: '5/9 は 1/9 が何こ分？',
+              choices: [
+                { id: 'A', label: '9', isCorrect: false, feedback: 'おしい！9は分母で「9等分した」という意味だよ。何こ分かは上の数を見てみよう！' },
+                { id: 'B', label: '5', isCorrect: true, feedback: 'ピンポン！大正解！分子の5が、1/9 が5こ分という意味だね！' }
+              ],
+              hint: '分子は「何こ分」、分母は「何等分したか」だね！',
+              ttsText: '5/9は1/9が何こ分かな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【分母＝等分した数、分子＝何こ分！】単位分数が何こ分かで分数を読む！',
+              ttsText: '今日の必殺技！分母は等分した数、分子は何こ分！単位分数で分数を読もう！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 7,
+        globalStageNumber: 20,
+        globalId: 'stage-20',
+        title: '同分母のたし算',
+        subtitle: '分母はそのまま・分子だけ足す',
+        description: '分母が同じ分数のたし算は、単位分数の数を合わせるだけ。分母同士を足さないのが最大のコツ！',
+        operator: '+',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '同分母のたし算（分母はそのまま）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】分母はそのまま、分子だけを足す！',
+              body: '2/7 + 3/7 は、1/7 が「2こ」と「3こ」で合わせて5こ分。だから答えは 5/7 だよ。分母の7は「7等分した」という意味だから変わらない。分母同士を足して14にしないのが一番のコツ！',
+              ttsText: '同分母のたし算は、分母はそのままで分子だけを足すよ。分母同士は足さないでね！',
+              visualType: 'fraction_add'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】答えの分母',
+              question: '3/8 + 2/8 の答えの分母はどっち？',
+              choices: [
+                { id: 'A', label: '16', isCorrect: false, feedback: 'おしい！分母同士を足してしまったね。分母は「8等分した」のままで変わらないよ！' },
+                { id: 'B', label: '8', isCorrect: true, feedback: 'ピンポン！大正解！分母は8のまま、分子は 3 + 2 = 5。答えは5/8だね！' }
+              ],
+              hint: '分母は「何等分したか」。たし算でも等分の数は変わらないね！',
+              ttsText: '3/8たす2/8の答えの分母はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【分母はそのまま、分子だけ足す！】分母同士は絶対に足さない！',
+              ttsText: '今日の必殺技！分母はそのまま、分子だけ足す！ミッションスタート！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 7,
+        globalStageNumber: 21,
+        globalId: 'stage-21',
+        title: '同分母のひき算',
+        subtitle: '帯分数と借りる計算',
+        description: '分母が同じ分数のひき算も分子だけを引くよ。引けない時は帯分数を仮分数に直してから計算しよう！',
+        operator: '-',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '同分母のひき算（仮分数に直す）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】引けない時は帯分数を仮分数に直す！',
+              body: '1と2/7 - 4/7 は、分子の 2 - 4 が引けないね。そんな時は 1と2/7 を仮分数の 9/7 に直してから引くと 5/7 になるよ。整数の1は「1/7 が7こ分」に変身できるのがポイント！',
+              ttsText: '引けない時は帯分数を仮分数に直してから引くよ。整数の1は分母の数こ分に変身できるよ！',
+              visualType: 'fraction_sub'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】仮分数の分子',
+              question: '1と1/5 を仮分数に直すと、分子はどっち？',
+              choices: [
+                { id: 'A', label: '5', isCorrect: false, feedback: 'おしい！5は「1を1/5が5こ分に変身させた数」。もとの分子の1を足すのを忘れていないかな？' },
+                { id: 'B', label: '6', isCorrect: true, feedback: 'ピンポン！大正解！1は1/5が5こ分、それに1こ分を足して6。答えは6/5だね！' }
+              ],
+              hint: '1 = 5/5 だから、1/5 が「5 + 1」こ分だね！',
+              ttsText: '1と1/5を仮分数に直すと、分子はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【引けない時は仮分数に直して、分子だけ引く！】分母はひき算でもそのまま！',
+              ttsText: '今日の必殺技！引けない時は仮分数に直す！分母はそのままで分子だけ引こう！'
+            }
+          ]
+        }
+      }
+    ]
   }
 ];
 
@@ -1080,6 +1223,7 @@ function buildMathProblem({
   operands,
   operator,
   hasRemainder = false,
+  hasFraction = false,
   quotient,
   remainder = 0,
   stepMode,
@@ -1139,6 +1283,7 @@ function buildMathProblem({
     num2: operands[1],
     operator,
     hasRemainder,
+    hasFraction: Boolean(hasFraction),
     expectedAnswer,
     correctAnswer,
     answer: quotient,
@@ -4071,6 +4216,884 @@ function generateStage6_3({ questionIndex, level, difficultyLevel, rng, variatio
   });
 }
 
+// ============================================================================
+// World 7: 分数 (Fraction) Helpers & Stage Generators
+// 分数の答えは { numerator, denominator } の整数ペアで厳密に扱う。
+// correctAnswer.value には表示・照合用の数値 (numerator / denominator) を入れるが、
+// 正解判定は evaluateAnswer が整数ペアの完全一致で行う (浮動小数点誤差の影響なし)
+// ============================================================================
+
+/**
+ * 問題が分数解答なら、その正解 { numerator, denominator } を返す。それ以外は null
+ */
+function getFractionAnswer(problem) {
+  const fa = problem?.trapMetadata?.fractionAnswer;
+  if (
+    fa &&
+    Number.isInteger(fa.numerator) &&
+    Number.isInteger(fa.denominator) &&
+    fa.denominator > 0
+  ) {
+    return { numerator: fa.numerator, denominator: fa.denominator };
+  }
+  return null;
+}
+
+/**
+ * 分数の誤答診断の予測値が、正解や他の予測値と重ならないかを整数の
+ * クロス乗算で判定する。予測値どうしが重なる組では、先に一致した診断が
+ * 常に選ばれて片方に到達できなくなり、誤答の原因を誤って説明してしまう
+ * ため、生成側では重なる被演算子の組を再抽選する。
+ * @param {[number, number]} answerPair 正解の [分子, 分母]
+ * @param {Array<[number, number]>} predictedPairs 予測値の [分子, 分母] 一覧
+ * @returns {boolean} 重なりがあれば true
+ */
+function fractionDiagnosticsCollide(answerPair, predictedPairs) {
+  const pairs = [answerPair, ...predictedPairs];
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      if (pairs[i][0] * pairs[j][1] === pairs[j][0] * pairs[i][1]) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Stage 7-1 (pattern A): 「n/d は 1/d が何こ分？」(答えは整数)
+ */
+function buildFractionUnitCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = 7;
+  let num = 3;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    den = difficultyLevel === 'challenge' ? randInt(6, 12, rng) : randInt(3, 9, rng);
+    num = randInt(2, den - 1, rng);
+    // 診断の予測値 (分母 den / 1こ分) が正解 (分子 num) と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, 1], [[den, 1], [1, 1]])) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracDen === den && t.fracNum === num)) break;
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'denominator',
+      title: '分母の意味',
+      actionName: 'よむ',
+      explanation: `分数の下の数（分母）は、1を何等分したかを表すよ。${num}/${den} では、1を何等分している？`,
+      blankPosition: 'denominator',
+      expectedStepValue: den,
+      hint: '分母は線の下の数だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'numerator',
+      title: '分子の意味',
+      actionName: 'よむ',
+      explanation: `分数の上の数（分子）は、1/${den} が何こ分か表すよ。${num}/${den} の分子はいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: num,
+      hint: '分子は線の上の数だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '単位分数の数',
+      actionName: 'かぞえる',
+      explanation: `${num}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'final',
+      expectedStepValue: num,
+      hint: '分子の数が、そのまま「何こ分」になるよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${num}/${den} は 1/${den} が何こ分？`,
+    expression: `${num}/${den} は 1/${den} が何こ分`,
+    displayFormat: 'horizontal',
+    operands: [num, den],
+    operator: 'mixed',
+    quotient: num,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: den,
+      reasonCategory: 'fraction_part_mixup',
+      diagnosis: '分母の数を答えてしまったかも！聞かれているのは「1つ分が何こ分か」だよ！',
+      hintMessage: '分子が「何こ分」、分母が「何等分したか」だよ。分子を見てみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: den,
+        reasonCategory: 'fraction_part_mixup',
+        adviceMessage: `それは分母の数だね。${num}/${den} は 1/${den} が「分子の数」こ分だよ！`
+      },
+      {
+        predictedErrorValue: 1,
+        reasonCategory: 'fraction_unit_miss',
+        adviceMessage: `${num}/${den} は 1/${den} が ${num} こ分だよ。1つ分だけではないよ！`
+      }
+    ],
+    patternType: 'frac_unit_count',
+    trapMetadata: { fracDen: den, fracNum: num }
+  });
+}
+
+/**
+ * Stage 7-1 (pattern B): 「1を d 等分したうちの n こ分」を分数で表す (答えは分数)
+ */
+function buildFractionPartsToFraction({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = 7;
+  let num = 3;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    den = difficultyLevel === 'challenge' ? randInt(4, 12, rng) : randInt(3, 9, rng);
+    num = randInt(1, den - 1, rng);
+    // 診断の予測値 (上下反転 den/num / 同じ数 1) が正解 num/den と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, den], [[den, num], [1, 1]])) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracDen === den && t.fracNum === num)) break;
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'denominator',
+      title: '分母を決める',
+      actionName: 'かぞえる',
+      explanation: `1を ${den} 等分したよ。答えの分母（何等分したか）はいくつ？`,
+      blankPosition: 'denominator',
+      expectedStepValue: den,
+      hint: '等分した数が分母になるよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'numerator',
+      title: '分子を決める',
+      actionName: 'かぞえる',
+      explanation: `そのうちの ${num} こ分だよ。答えの分子（何こ分か）はいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: num,
+      hint: '何こ分か、が分子になるよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '分数の完成',
+      actionName: 'かぞえる',
+      explanation: `答えは ${num}/${den} だよ。もう一度、分子はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: num,
+      hint: '上が分子、下が分母だよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `1を ${den} 等分したうちの ${num} こ分は、分数で表すといくつ？`,
+    expression: `1を${den}等分したうちの${num}こ分`,
+    displayFormat: 'horizontal',
+    operands: [num, den],
+    operator: 'mixed',
+    hasFraction: true,
+    quotient: num / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: den / num,
+      reasonCategory: 'fraction_inverted',
+      diagnosis: '分子と分母が反対になっているかも！分母は「何等分したか」だよ！',
+      hintMessage: '下が分母（等分した数）、上が分子（何こ分）だよ！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: den / num,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: `上下が反対かも！${den} 等分した数が分母で下、${num} こ分が分子で上だよ！`
+      },
+      {
+        predictedErrorValue: 1,
+        reasonCategory: 'fraction_same_numbers',
+        adviceMessage: `分母と分子を同じ数にしていないかな？分母は ${den}、分子は ${num} だよ！`
+      }
+    ],
+    patternType: 'frac_parts_to_fraction',
+    trapMetadata: {
+      fractionAnswer: { numerator: num, denominator: den },
+      fracDen: den,
+      fracNum: num
+    }
+  });
+}
+
+/**
+ * Stage 7-1 (pattern C): 帯分数を仮分数に直す (答えは分数)
+ */
+function buildFractionMixedToImproper({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let whole = 1;
+  let den = 5;
+  let num = 2;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    whole = difficultyLevel === 'challenge' ? randInt(2, 3, rng) : randInt(1, 2, rng);
+    den = randInt(3, 9, rng);
+    num = randInt(1, den - 1, rng);
+    // 診断の予測値 (整数部分 whole / 上下反転) が正解の仮分数と重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [whole * den + num, den],
+        [[whole, 1], [den, whole * den + num]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracWhole === whole && t.fracDen === den && t.fracNum === num)) break;
+  }
+  const improperNum = whole * den + num;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit',
+      title: '1の変身',
+      actionName: 'かぞえる',
+      explanation: `1 は 1/${den} が何こ分？`,
+      blankPosition: 'unit',
+      expectedStepValue: den,
+      hint: `1を ${den} 等分すると、1つ分は 1/${den} だね！`
+    },
+    {
+      stepNumber: 2,
+      id: 'whole',
+      title: '整数部分の変身',
+      actionName: 'かぞえる',
+      explanation: `${whole} は 1/${den} が何こ分？（${den} × ${whole}）`,
+      blankPosition: 'whole',
+      expectedStepValue: whole * den,
+      hint: '1が「分母の数」こ分だから、整数の分だけかけ算しよう！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子を合わせる',
+      actionName: 'たす',
+      explanation: `もとの ${num}/${den} と合わせると、分子は ${whole * den} + ${num} でいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: improperNum,
+      hint: '変身させた数に、もとの分子を足そう！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${improperNum}/${den} だよ。答えの分母はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '仮分数に直しても、分母は変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${whole}と${num}/${den} を仮分数で表すといくつ？`,
+    expression: `${whole}と${num}/${den} を仮分数に`,
+    displayFormat: 'horizontal',
+    operands: [whole, num, den],
+    operator: 'mixed',
+    hasFraction: true,
+    quotient: improperNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: whole,
+      reasonCategory: 'fraction_mixed_convert',
+      diagnosis: `整数の部分だけを直して、もとの分子 ${num} を足し忘れているかも！`,
+      hintMessage: '整数を変身させた数に、もとの分子を足すのを忘れずに！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: whole,
+        reasonCategory: 'fraction_mixed_convert',
+        adviceMessage: `${whole} は 1/${den} が ${whole * den} こ分。もとの分子 ${num} を足して ${improperNum} が答えの分子だよ！`
+      },
+      {
+        predictedErrorValue: den / improperNum,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！仮分数の分子は分母より大きくなるよ！'
+      }
+    ],
+    patternType: 'frac_mixed_to_improper',
+    trapMetadata: {
+      fractionAnswer: { numerator: improperNum, denominator: den },
+      fracDen: den,
+      fracNum: num,
+      fracWhole: whole
+    }
+  });
+}
+
+/**
+ * Stage 7-1: 分数の仕組み (分母・分子と単位分数)
+ */
+function generateStage7_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'frac_unit_count';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['frac_unit_count', 'frac_parts_to_fraction'], args.rng);
+    } else if (args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['frac_parts_to_fraction', 'frac_mixed_to_improper'], args.rng);
+    } else {
+      patternType = pickRandom(['frac_mixed_to_improper', 'frac_parts_to_fraction'], args.rng);
+    }
+  }
+
+  if (patternType === 'frac_parts_to_fraction') {
+    return buildFractionPartsToFraction(args);
+  }
+  if (patternType === 'frac_mixed_to_improper') {
+    return buildFractionMixedToImproper(args);
+  }
+  return buildFractionUnitCount(args);
+}
+
+/**
+ * Stage 7-2: 同分母のたし算 (分母はそのまま、分子だけ足す)
+ * challenge では和が1を超える仮分数の答えまで扱う
+ */
+function generateStage7_2({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const isChallenge = difficultyLevel === 'challenge';
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') den = randInt(4, 7, rng);
+    else if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let a = 2;
+  let b = 3;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = randInt(1, den - 1, rng);
+    b = randInt(1, den - 1, rng);
+    if (isChallenge ? a + b <= den : a + b >= den) continue;
+    // 診断の予測値どうしが重なる組は再抽選する。重なると先に一致した診断が
+    // 常に選ばれ、もう一方の原因を説明できなくなる
+    // (例: 1/6+3/6 では「分母も足した」4/12 と「引いてしまった」2/6 が同じ 1/3)
+    const predictedPairs = [[a + b, 2 * den], [den, a + b]];
+    if (a !== b) predictedPairs.push([Math.abs(a - b), den]);
+    if (fractionDiagnosticsCollide([a + b, den], predictedPairs)) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[2] === b)) break;
+  }
+  const sum = a + b;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit_a',
+      title: '1つ目の分数',
+      actionName: 'かぞえる',
+      explanation: `${a}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_a',
+      expectedStepValue: a,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '2つ目の分数',
+      actionName: 'かぞえる',
+      explanation: `${b}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: b,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を足す',
+      actionName: 'たす',
+      explanation: sum > den
+        ? `分子同士を足すと何こ分？ ${a} + ${b} = ?（分母より大きくなったら仮分数だね！）`
+        : `分子同士を足すと何こ分？ ${a} + ${b} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: sum,
+      hint: '単位分数の数を合わせるだけだよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${sum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。たし算でも変わらないよ！'
+    }
+  ];
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: sum / (2 * den),
+      reasonCategory: 'fraction_denominator_added',
+      adviceMessage: `分母同士を足していないかな？分母は ${den} のままだよ！`
+    },
+    {
+      predictedErrorValue: den / sum,
+      reasonCategory: 'fraction_inverted',
+      adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+    }
+  ];
+  if (a !== b) {
+    errorDiagnostics.push({
+      predictedErrorValue: Math.abs(a - b) / den,
+      reasonCategory: 'fraction_subtracted_instead',
+      adviceMessage: 'たし算なのに、分子を引いてしまっていないかな？'
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${a}/${den} + ${b}/${den} = ?`,
+    expression: `${a}/${den} + ${b}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [a, den, b, den],
+    operator: '+',
+    hasFraction: true,
+    quotient: sum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: sum / (2 * den),
+      reasonCategory: 'fraction_denominator_added',
+      diagnosis: '分母同士も足してしまったかも！分母は「何等分したか」だから変わらないよ！',
+      hintMessage: '分母はそのまま。分子だけを足してみよう！'
+    },
+    errorDiagnostics,
+    patternType: 'frac_add_same_den',
+    trapMetadata: {
+      fractionAnswer: { numerator: sum, denominator: den },
+      fracDen: den,
+      fracA: a,
+      fracB: b
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern A): 同分母のひき算 (真分数 − 真分数)
+ */
+function buildFractionSubSameDen({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') den = randInt(4, 7, rng);
+    else if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let a = 5;
+  let b = 2;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = randInt(2, den - 1, rng);
+    b = randInt(1, a - 1, rng);
+    // 診断の予測値どうし (足してしまう / 上下反転 / 分母も計算) が重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [a - b, den],
+        [[a + b, den], [den, a - b], [a - b, 2 * den]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[2] === b)) break;
+  }
+  const diff = a - b;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit_a',
+      title: 'はじめの分数',
+      actionName: 'かぞえる',
+      explanation: `${a}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_a',
+      expectedStepValue: a,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '引く分数',
+      actionName: 'かぞえる',
+      explanation: `${b}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: b,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${a} - ${b} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: diff,
+      hint: '単位分数の数だけを引くよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${diff}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${a}/${den} - ${b}/${den} = ?`,
+    expression: `${a}/${den} - ${b}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [a, den, b, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: diff / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: (a + b) / den,
+      reasonCategory: 'fraction_added_instead',
+      diagnosis: 'ひき算なのに、分子を足してしまったかも！',
+      hintMessage: '分子同士を引いてみよう。分母はそのままだよ！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: (a + b) / den,
+        reasonCategory: 'fraction_added_instead',
+        adviceMessage: 'ひき算なのに分子を足していないかな？分子同士を引いてみよう！'
+      },
+      {
+        predictedErrorValue: den / diff,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+      },
+      {
+        predictedErrorValue: diff / (2 * den),
+        reasonCategory: 'fraction_denominator_added',
+        adviceMessage: `分母まで計算してしまったかも！分母は ${den} のままだよ！`
+      }
+    ],
+    patternType: 'frac_sub_same_den',
+    trapMetadata: {
+      fractionAnswer: { numerator: diff, denominator: den },
+      fracDen: den,
+      fracA: a,
+      fracB: b
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern B): 帯分数 (1とn/d) − 真分数 (m/d)、分子が引けないので借りる
+ */
+function buildFractionSubMixedBorrow({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let n = 1;
+  let m = den - 1;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    n = randInt(1, den - 2, rng);
+    m = randInt(n + 1, den - 1, rng);
+    // 借り忘れトラップ (m - n) が正解 (den + n - m) と一致する組は避ける
+    if (den === 2 * (m - n)) continue;
+    // 診断の予測値どうしが重なる組も避ける (例: 1と2/4-3/4 では「借り忘れ」
+    // 1/4 と「整数部分の足し忘れ」1/4 が一致し、後者に到達できなくなる)
+    const borrowPredicted = [[m - n, den], [den, den + n - m]];
+    if (den - m > 0 && den - m !== den + n - m) borrowPredicted.push([den - m, den]);
+    if (fractionDiagnosticsCollide([den + n - m, den], borrowPredicted)) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracNum === n && t.fracSub === m)) break;
+  }
+  const improperNum = den + n;
+  const resultNum = improperNum - m;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'convert',
+      title: '仮分数に直す',
+      actionName: 'かぞえる',
+      explanation: `1と${n}/${den} を仮分数に直そう。1 は 1/${den} が ${den} こ分だから、分子は ${den} + ${n} でいくつ？`,
+      blankPosition: 'convert',
+      expectedStepValue: improperNum,
+      hint: '整数の1を「分母の数こ分」に変身させて、もとの分子と合わせよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '引く分数',
+      actionName: 'かぞえる',
+      explanation: `${m}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: m,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${improperNum} - ${m} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: resultNum,
+      hint: '仮分数に直したから、そのまま引けるよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${resultNum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: (m - n) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      adviceMessage: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！小さい方から引いてしまっているかも！'
+    },
+    {
+      predictedErrorValue: den / resultNum,
+      reasonCategory: 'fraction_inverted',
+      adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+    }
+  ];
+  if (den - m > 0 && den - m !== resultNum) {
+    errorDiagnostics.push({
+      predictedErrorValue: (den - m) / den,
+      reasonCategory: 'fraction_mixed_convert',
+      adviceMessage: `1を ${den} こ分に直したあと、もとの分子 ${n} を足し忘れているかも！`
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `1と${n}/${den} - ${m}/${den} = ?`,
+    expression: `1と${n}/${den} - ${m}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [improperNum, den, m, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: resultNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: (m - n) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      diagnosis: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！小さい方から引いてしまっているかも！',
+      hintMessage: '1と書かれた数を仮分数に直してから、分子同士を引いてみよう！'
+    },
+    errorDiagnostics,
+    patternType: 'frac_sub_mixed_borrow',
+    trapMetadata: {
+      fractionAnswer: { numerator: resultNum, denominator: den },
+      fracDen: den,
+      fracNum: n,
+      fracSub: m
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern C): 帯分数 − 帯分数 (借りが必要、答えは真分数)
+ */
+function buildFractionSubMixedMixed({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) den = randInt(6, 12, rng);
+
+  let wholeA = 2;
+  let n = 1;
+  let m = den - 1;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    wholeA = randInt(2, 3, rng);
+    n = randInt(1, den - 2, rng);
+    m = randInt(n + 1, den - 1, rng);
+    // 診断の予測値どうし (別々に引く den+m-n / 上下反転) が正解 (分子 den+n-m)
+    // や相互に重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [den + n - m, den],
+        [[den + m - n, den], [den, den + n - m]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracWhole === wholeA && t.fracNum === n && t.fracSub === m)) break;
+  }
+  const wholeB = wholeA - 1;
+  const improperA = wholeA * den + n;
+  const improperB = wholeB * den + m;
+  const resultNum = improperA - improperB;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'convert_a',
+      title: 'はじめの帯分数を直す',
+      actionName: 'かぞえる',
+      explanation: `${wholeA}と${n}/${den} を仮分数に直そう。分子は ${wholeA} × ${den} + ${n} でいくつ？`,
+      blankPosition: 'convert_a',
+      expectedStepValue: improperA,
+      hint: '整数の分は「分母の数こ分」に変身させるよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'convert_b',
+      title: '引く帯分数を直す',
+      actionName: 'かぞえる',
+      explanation: `${wholeB}と${m}/${den} を仮分数に直そう。分子は ${wholeB} × ${den} + ${m} でいくつ？`,
+      blankPosition: 'convert_b',
+      expectedStepValue: improperB,
+      hint: 'こちらも同じように変身させよう！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${improperA} - ${improperB} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: resultNum,
+      hint: '両方とも仮分数に直したから、そのまま引けるよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${resultNum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${wholeA}と${n}/${den} - ${wholeB}と${m}/${den} = ?`,
+    expression: `${wholeA}と${n}/${den} - ${wholeB}と${m}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [improperA, den, improperB, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: resultNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: ((wholeA - wholeB) * den + (m - n)) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      diagnosis: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！整数部分と分子を別々に引いてしまっているかも！',
+      hintMessage: '両方とも仮分数に直してから、分子同士を引いてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: ((wholeA - wholeB) * den + (m - n)) / den,
+        reasonCategory: 'fraction_borrow_forgotten',
+        adviceMessage: '整数部分と分子を別々に計算して、分子を小さい方から引いてしまっているかも！仮分数に直してから引こう！'
+      },
+      {
+        predictedErrorValue: den / resultNum,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+      }
+    ],
+    patternType: 'frac_sub_mixed_mixed',
+    trapMetadata: {
+      fractionAnswer: { numerator: resultNum, denominator: den },
+      fracDen: den,
+      fracNum: n,
+      fracSub: m,
+      fracWhole: wholeA
+    }
+  });
+}
+
+/**
+ * Stage 7-3: 同分母のひき算 (帯分数からの借りを含む)
+ */
+function generateStage7_3(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'frac_sub_same_den';
+    } else if (args.difficultyLevel === 'standard' || args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['frac_sub_same_den', 'frac_sub_mixed_borrow'], args.rng);
+    } else {
+      patternType = pickRandom(['frac_sub_mixed_borrow', 'frac_sub_mixed_mixed'], args.rng);
+    }
+  }
+
+  if (patternType === 'frac_sub_mixed_borrow') {
+    return buildFractionSubMixedBorrow(args);
+  }
+  if (patternType === 'frac_sub_mixed_mixed') {
+    return buildFractionSubMixedMixed(args);
+  }
+  return buildFractionSubSameDen(args);
+}
+
 const STAGE_GENERATORS = {
   '1-1': generateStage1_1,
   '1-2': generateStage1_2,
@@ -4089,7 +5112,10 @@ const STAGE_GENERATORS = {
   '5-3': generateStage5_3,
   '6-1': generateStage6_1,
   '6-2': generateStage6_2,
-  '6-3': generateStage6_3
+  '6-3': generateStage6_3,
+  '7-1': generateStage7_1,
+  '7-2': generateStage7_2,
+  '7-3': generateStage7_3
 };
 
 // ============================================================================
@@ -4489,6 +5515,23 @@ export function generateVariationProblem(originalProblem, options = {}) {
       (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9 && Math.abs(v * 10 - Math.round(v * 10)) > 1e-9
     );
     trapMetadata.decimalScale = hasHundredths ? 100 : 10;
+  } else if (norm.worldId === 7 && trapMetadata.fractionAnswer === undefined) {
+    // 分数問題 (compact 形式): operands は [分子1, 分母, 分子2, 分母] の同分母形式。
+    // 答えの分数と分母を operands から再構築し、類題でも同分母を維持する
+    const [o0, o1, o2, o3] = origOperands;
+    if (Number.isInteger(o0) && Number.isInteger(o1) && o1 > 0) {
+      trapMetadata.fracDen = o1;
+      if (norm.stageId === 1) {
+        // 仕組みステージの分数解答は operands [分子, 分母] そのもの
+        if (originalProblem.hasFraction) {
+          trapMetadata.fractionAnswer = { numerator: o0, denominator: o1 };
+          trapMetadata.fracNum = o0;
+        }
+      } else if (Number.isInteger(o2) && o3 === o1) {
+        const resultNum = originalProblem.operator === '-' ? o0 - o2 : o0 + o2;
+        trapMetadata.fractionAnswer = { numerator: resultNum, denominator: o1 };
+      }
+    }
   }
 
   const targetModel = {
@@ -4546,6 +5589,20 @@ export function normalizeUserAnswer(userAnswer) {
   }
 
   if (typeof userAnswer === 'object') {
+    // 分数形式 { numerator, denominator } (分数ステージの2欄入力)
+    if (userAnswer.numerator !== undefined || userAnswer.denominator !== undefined) {
+      const num = Number(userAnswer.numerator ?? NaN);
+      const den = Number(userAnswer.denominator ?? NaN);
+      const value =
+        Number.isFinite(num) && Number.isFinite(den) && den !== 0 ? num / den : NaN;
+      return {
+        value,
+        remainder: 0,
+        hasExplicitRemainder: false,
+        numerator: num,
+        denominator: den
+      };
+    }
     const val = Number(userAnswer.quotient ?? userAnswer.value ?? userAnswer.answer ?? NaN);
     const hasRem = userAnswer.remainder !== undefined && userAnswer.remainder !== null && userAnswer.remainder !== '';
     const rem = hasRem ? Number(userAnswer.remainder) : 0;
@@ -4562,6 +5619,19 @@ export function normalizeUserAnswer(userAnswer) {
         value: parseInt(remMatch[1], 10),
         remainder: parseInt(remMatch[2], 10),
         hasExplicitRemainder: true
+      };
+    }
+    // 分数形式 "分子/分母"
+    const fracMatch = trimmed.match(/^(-?\d+)\s*\/\s*(-?\d+)$/);
+    if (fracMatch) {
+      const num = parseInt(fracMatch[1], 10);
+      const den = parseInt(fracMatch[2], 10);
+      return {
+        value: den !== 0 ? num / den : NaN,
+        remainder: 0,
+        hasExplicitRemainder: false,
+        numerator: num,
+        denominator: den
       };
     }
     const num = Number(trimmed);
@@ -4621,6 +5691,72 @@ export function diagnoseError(problem, userAnswer) {
         feedbackTitle: 'ヒントを発見！おしい！もう一歩！',
         highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
         userAnswer: { value: norm.value, remainder: norm.remainder }
+      };
+    }
+  }
+
+  // Fraction dynamic rules (World 7): designed traps above are matched by
+  // value; these cover fraction-shaped answers the trap table did not foresee.
+  const fracAnswer = getFractionAnswer(problem);
+  if (
+    fracAnswer &&
+    Number.isFinite(norm.numerator) &&
+    Number.isFinite(norm.denominator) &&
+    norm.denominator !== 0
+  ) {
+    const fracUserAnswer = { value: norm.value, remainder: norm.remainder };
+    if (
+      norm.numerator === fracAnswer.denominator &&
+      norm.denominator === fracAnswer.numerator &&
+      fracAnswer.numerator !== fracAnswer.denominator
+    ) {
+      return {
+        matched: true,
+        reasonCategory: 'fraction_inverted',
+        diagnosis: '分子と分母が反対になっているかも！',
+        adviceMessage: `下の数が分母（何等分したか）、上の数が分子（何こ分）だよ。答えは ${fracAnswer.numerator}/${fracAnswer.denominator} の形になるよ！`,
+        hintMessage: '分母は「何等分したか」、分子は「何こ分か」を確かめよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
+      };
+    }
+    // 分母が正解と異なる誤答は、先に分母側の診断へ振り分ける。分子だけを
+    // 見る診断に落とすと「分母は合っているよ」と誤った助言になるため。
+    if (norm.denominator !== fracAnswer.denominator) {
+      if (norm.numerator === fracAnswer.numerator) {
+        return {
+          matched: true,
+          reasonCategory: 'fraction_denominator_changed',
+          diagnosis: '分子は合っているよ！分母は変わらないはずだよ！',
+          adviceMessage: `分母は ${fracAnswer.denominator} のままだよ。同分母の計算では、分母は変えないよ！`,
+          hintMessage: '分母は「何等分したか」。計算の途中でも変わらないよ！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: fracUserAnswer
+        };
+      }
+      return {
+        matched: true,
+        reasonCategory: 'fraction_denominator_mismatch',
+        diagnosis: '分母がちがっているみたい！',
+        adviceMessage: `この問題では、分母は ${fracAnswer.denominator} のままだよ。分母を ${fracAnswer.denominator} にそろえてから、分子を計算してみよう！`,
+        hintMessage: '同分母の計算では、分母は変わらないよ。まず分母を確かめよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
+      };
+    }
+    if (norm.numerator !== fracAnswer.numerator) {
+      return {
+        matched: true,
+        reasonCategory: 'fraction_numerator_slip',
+        diagnosis: '分母は合っているよ！分子の計算を確かめよう！',
+        adviceMessage: '分母はそのままで合っているよ。単位分数が何こ分になるか、分子だけを計算し直してみよう！',
+        hintMessage: 'ステップガイドで、分子の計算を1つずつ確かめてみよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
       };
     }
   }
@@ -4880,6 +6016,50 @@ function findDiffDigitIndex(expected, actual) {
  * @param {number|string|object} userAnswer
  */
 export function evaluateAnswer(problem, userAnswer) {
+  // 分数問題 (World 7) は { numerator, denominator } の整数ペアで厳密に判定する
+  const fracAnswer = getFractionAnswer(problem);
+  if (fracAnswer) {
+    const normF = normalizeUserAnswer(userAnswer);
+    const isCorrect =
+      normF.numerator === fracAnswer.numerator &&
+      normF.denominator === fracAnswer.denominator;
+
+    if (isCorrect) {
+      return {
+        isCorrect: true,
+        isQuotientCorrect: true,
+        isRemainderCorrect: true,
+        normalizedAnswer: {
+          value: normF.value,
+          remainder: 0,
+          numerator: normF.numerator,
+          denominator: normF.denominator
+        },
+        feedbackTone: 'exploratory',
+        feedbackTitle: '大正解！ラボデータ解明！',
+        feedbackMessage: 'バッチリ正解！見事な計算力だね！',
+        diagnosis: null
+      };
+    }
+
+    const diagnosis = diagnoseError(problem, userAnswer);
+    return {
+      isCorrect: false,
+      isQuotientCorrect: false,
+      isRemainderCorrect: true,
+      normalizedAnswer: {
+        value: normF.value,
+        remainder: normF.remainder ?? 0,
+        numerator: normF.numerator,
+        denominator: normF.denominator
+      },
+      feedbackTone: 'exploratory',
+      feedbackTitle: diagnosis.feedbackTitle || 'おしい！もう一歩！',
+      feedbackMessage: diagnosis.adviceMessage,
+      diagnosis
+    };
+  }
+
   const norm = normalizeUserAnswer(userAnswer);
   const trueVal = problem?.correctAnswer?.value ?? problem?.answer ?? 0;
   const trueRem = problem?.correctAnswer?.remainder ?? problem?.remainder ?? 0;
