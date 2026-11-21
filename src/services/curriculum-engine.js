@@ -5299,6 +5299,15 @@ function roundToPlace(n, place) {
   return Math.round(n / place) * place;
 }
 
+/**
+ * 切り上げで「残す位」の 9 が 0 に繰り上がってしまう組み合わせか
+ * (例: 19,643 を千の位まで → 20,000、9,668 を上から1桁 → 10,000)。
+ * この場合ステップ「残す位の数字」の期待値が 0 になり、答えと食い違う
+ */
+function roundingCarriesPastKeptDigit(n, place) {
+  return digitAtPlace(n, place) === 9 && digitAtPlace(n, place / 10) >= 5;
+}
+
 function countTrailingZeros(n) {
   let count = 0;
   let rest = Math.abs(Math.trunc(n));
@@ -5510,6 +5519,26 @@ function buildLargeUnitCount({ questionIndex, level, difficultyLevel, rng, varia
     }
   ];
 
+  // exp10 === 1 のとき count / 10 === lead となり、zero_count_slip と
+  // large_count_partial の予測値が重複して後者が到達不能になるため、重複を除く
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: count / 10,
+      reasonCategory: 'zero_count_slip',
+      adviceMessage: '0の数が1つ足りないかも！10倍の階段をもう一度数えてみよう！'
+    },
+    {
+      predictedErrorValue: count * 10,
+      reasonCategory: 'zero_count_slip',
+      adviceMessage: '0を1つ多く数えているかも！位の差を確かめよう！'
+    },
+    {
+      predictedErrorValue: lead,
+      reasonCategory: 'large_count_partial',
+      adviceMessage: `それは最初のまとまり（${lead}こ分）だけの数だね。10倍の分も合わせよう！`
+    }
+  ].filter((d, i, arr) => arr.findIndex((o) => o.predictedErrorValue === d.predictedErrorValue) === i);
+
   return buildMathProblem({
     worldId: 8,
     stageId: 1,
@@ -5530,23 +5559,7 @@ function buildLargeUnitCount({ questionIndex, level, difficultyLevel, rng, varia
       diagnosis: '0の数が1つ足りないかも！10倍の回数を数え直してみよう！',
       hintMessage: `${unitText} から ${targetText} まで、10倍が何回分か指で数えてみよう！`
     },
-    errorDiagnostics: [
-      {
-        predictedErrorValue: count / 10,
-        reasonCategory: 'zero_count_slip',
-        adviceMessage: '0の数が1つ足りないかも！10倍の階段をもう一度数えてみよう！'
-      },
-      {
-        predictedErrorValue: count * 10,
-        reasonCategory: 'zero_count_slip',
-        adviceMessage: '0を1つ多く数えているかも！位の差を確かめよう！'
-      },
-      {
-        predictedErrorValue: lead,
-        reasonCategory: 'large_count_partial',
-        adviceMessage: `それは最初のまとまり（${lead}こ分）だけの数だね。10倍の分も合わせよう！`
-      }
-    ],
+    errorDiagnostics,
     patternType: 'large_unit_count',
     trapMetadata: { unitBase, unitCount: count }
   });
@@ -5715,11 +5728,18 @@ function buildRoundToPlace({ questionIndex, level, difficultyLevel, rng, variati
   let n = 0;
   for (let attempt = 0; attempt < 200; attempt++) {
     n = randInt(11, 99, rng) * place + randInt(1, place - 1, rng);
+    // 切り上げで残す位の 9 が繰り上がる組み合わせは生成から除外する
+    if (roundingCarriesPastKeptDigit(n, place)) continue;
     if (!variationTarget) break;
     if (variationTarget.operands?.[0] !== n) break;
   }
 
-  const answer = roundToPlace(n, place);
+  let answer = roundToPlace(n, place);
+  // 乱数が偏って繰り上がりの候補しか引けなかった場合に備え、刻みを下げて確実に解消する
+  while (roundingCarriesPastKeptDigit(n, place)) {
+    n -= place;
+    answer = roundToPlace(n, place);
+  }
   const lookPlace = place / 10;
   const lookDigit = digitAtPlace(n, lookPlace);
   const roundsUp = lookDigit >= 5;
@@ -5831,11 +5851,18 @@ function buildRoundSignificant({ questionIndex, level, difficultyLevel, rng, var
     unit = Math.pow(10, digits - sig);
     n = randInt(Math.pow(10, digits - 1), Math.pow(10, digits) - 1, rng);
     if (n % unit === 0) continue;
+    // 切り上げで残す桁の 9 が繰り上がる組み合わせは生成から除外する
+    if (roundingCarriesPastKeptDigit(n, unit)) continue;
     if (!variationTarget) break;
     if (variationTarget.operands?.[0] !== n) break;
   }
 
-  const answer = roundToPlace(n, unit);
+  let answer = roundToPlace(n, unit);
+  // 乱数が偏って繰り上がりの候補しか引けなかった場合に備え、刻みを下げて確実に解消する
+  while (roundingCarriesPastKeptDigit(n, unit)) {
+    n -= unit;
+    answer = roundToPlace(n, unit);
+  }
   const lookDigit = digitAtPlace(n, unit / 10);
   const roundsUp = lookDigit >= 5;
   const nText = formatComma(n);
@@ -5967,7 +5994,7 @@ function buildRoundRange({ questionIndex, level, difficultyLevel, rng, variation
           id: 'boundary',
           title: '切り上がる境界',
           actionName: '四捨五入',
-          explanation: `${vText} になるのは、${lookName}が5以上で切り上がる数からだよ。${vText} からいくつ引いた数まで、切り上がって ${vText} になる？`,
+          explanation: `${vText} になるのは、${lookName}が5以上で切り上がる数からだよ。${vText} よりいくつ小さい数までなら、四捨五入して ${vText} になる？`,
           blankPosition: 'boundary',
           expectedStepValue: half,
           hint: `刻みの半分（${formatComma(place)}の半分）までだよ！`
@@ -5989,7 +6016,7 @@ function buildRoundRange({ questionIndex, level, difficultyLevel, rng, variation
           id: 'boundary',
           title: '切り捨ての境界',
           actionName: '四捨五入',
-          explanation: `${vText} より大きい数でも、${lookName}が4以下なら切り捨てで ${vText} になるよ。${vText} にいくつ足した数まで大丈夫？`,
+          explanation: `${vText} より大きい数でも、${lookName}が4以下なら切り捨てで ${vText} になるよ。${vText} よりいくつ大きい数までなら、四捨五入して ${vText} になる？`,
           blankPosition: 'boundary',
           expectedStepValue: half - 1,
           hint: `刻みの半分より1小さい数までだよ。${formatComma(half)} を足すと切り上がってしまうよ！`
@@ -6689,7 +6716,8 @@ export function generateVariationProblem(originalProblem, options = {}) {
         trapMetadata.placeValue = second;
       } else if (patternType === 'large_unit_count' && Number.isInteger(second)) {
         trapMetadata.unitBase = second;
-      } else if (patternType === 'large_times_ten' && (second === 10 || second === 100)) {
+      } else if (patternType === 'large_times_ten' && trapMetadata.timesMode === undefined && (second === 10 || second === 100)) {
+        // 元の問題が持つ timesMode ('tenth' = 1/10) を上書きしないよう、未設定のときだけ復元する
         trapMetadata.timesMode = 'times';
         trapMetadata.scaleFactor = second;
       }

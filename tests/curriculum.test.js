@@ -1314,10 +1314,29 @@ describe('Issue #18: World 8 大きな数とがい数ラボ (large numbers & rou
         const [o0] = p.operands;
         if (p.patternType === 'round_to_place') {
           assert.equal(p.correctAnswer.value, roundTo(o0, p.trapMetadata.roundPlace), p.expression);
+          // ステップの期待値は、文字列表現を右から数えた桁 (教科書定義) と一致する
+          const placeExp = String(p.trapMetadata.roundPlace).length - 1;
+          const digitFromRight = (num, exp) => Number(String(num)[String(num).length - 1 - exp]);
+          assert.equal(p.stepGuide[0].expectedStepValue, digitFromRight(o0, placeExp - 1), p.expression);
+          assert.equal(
+            p.stepGuide[1].expectedStepValue,
+            digitFromRight(p.correctAnswer.value, placeExp),
+            p.expression
+          );
         } else if (p.patternType === 'round_significant') {
-          const digits = String(o0).length;
-          const unit = Math.pow(10, digits - p.trapMetadata.sigDigits);
-          assert.equal(p.correctAnswer.value, roundTo(o0, unit), p.expression);
+          // 教科書定義で検証する: 上から sig+1 桁目の数字 (文字列表現から取る) を見て四捨五入し、
+          // 残す桁は元の数の先頭 sig 桁 (切り上げ時は +1) になる
+          const sig = p.trapMetadata.sigDigits;
+          const s = String(o0);
+          const lookDigit = Number(s[sig]);
+          const kept = Number(s.slice(0, sig)) + (lookDigit >= 5 ? 1 : 0);
+          assert.equal(p.correctAnswer.value, kept * Math.pow(10, s.length - sig), p.expression);
+          assert.equal(p.stepGuide[0].expectedStepValue, lookDigit, p.expression);
+          assert.equal(
+            p.stepGuide[1].expectedStepValue,
+            Number(String(p.correctAnswer.value)[sig - 1]),
+            p.expression
+          );
         } else if (p.patternType === 'round_range') {
           const place = p.trapMetadata.roundPlace;
           // the answer itself rounds to the target value...
@@ -1403,6 +1422,78 @@ describe('Issue #18: World 8 大きな数とがい数ラボ (large numbers & rou
     assert.equal(compactVar.worldId, 8);
     assert.equal(compactVar.stageId, 2);
     assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('keeps the 1/10 mode when varying a large_times_ten problem', () => {
+    const scripted = (values, fallback = 0.1) => {
+      let i = 0;
+      return () => (i < values.length ? values[i++] : fallback);
+    };
+    // rng 注入で「1/10」の元問題を狙って生成する
+    // (challenge: パターン選択→large_times_ten、モード選択→tenth)
+    const orig = generateProblem(8, 1, { difficultyLevel: 'challenge', rng: scripted([0.9, 0.9, 0.5, 0.5]) });
+    assert.equal(orig.patternType, 'large_times_ten');
+    assert.equal(orig.trapMetadata.timesMode, 'tenth');
+    // 類題でも timesMode が保持され、「×10」に化けない
+    const varied = generateVariationProblem(orig, { rng: scripted([0.5, 0.25]) });
+    assert.equal(varied.patternType, 'large_times_ten');
+    assert.equal(varied.trapMetadata.timesMode, 'tenth');
+    assert.equal(varied.correctAnswer.value, varied.operands[0] / 10);
+    assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+  });
+
+  it('excludes rounding cases where the kept digit 9 carries over (9,668 / 19,643)', () => {
+    const scripted = (values, fallback = 0.1) => {
+      let i = 0;
+      return () => (i < values.length ? values[i++] : fallback);
+    };
+    // 上から1桁のがい数: 最初の候補が 9,668 (→ 10,000、ステップ2の期待値が 0 に崩れる) になる rng
+    const sigCase = generateProblem(8, 2, {
+      difficultyLevel: 'standard',
+      rng: scripted([0.75, 0.25, 0.75, 0.96317])
+    });
+    assert.equal(sigCase.patternType, 'round_significant');
+    assert.notEqual(sigCase.operands[0], 9668, 'carry case must be re-rolled');
+    const sig = sigCase.trapMetadata.sigDigits;
+    // ステップ2の期待値は、答えの文字列表現から取った「上から sig 桁目」と一致する
+    assert.equal(
+      sigCase.stepGuide[1].expectedStepValue,
+      Number(String(sigCase.correctAnswer.value)[sig - 1]),
+      sigCase.expression
+    );
+    assert.equal(evaluateAnswer(sigCase, sigCase.correctAnswer.value).isCorrect, true);
+
+    // 千の位までのがい数: 最初の候補が 19,643 (→ 20,000) になる rng
+    const placeCase = generateProblem(8, 2, {
+      difficultyLevel: 'standard',
+      rng: scripted([0.25, 0.25, 0.0955, 0.6431])
+    });
+    assert.equal(placeCase.patternType, 'round_to_place');
+    assert.notEqual(placeCase.operands[0], 19643, 'carry case must be re-rolled');
+    const placeExp = String(placeCase.trapMetadata.roundPlace).length - 1;
+    const ansStr = String(placeCase.correctAnswer.value);
+    assert.equal(
+      placeCase.stepGuide[1].expectedStepValue,
+      Number(ansStr[ansStr.length - 1 - placeExp]),
+      placeCase.expression
+    );
+    assert.equal(evaluateAnswer(placeCase, placeCase.correctAnswer.value).isCorrect, true);
+  });
+
+  it('never emits duplicate error-diagnosis values for unit-count problems', () => {
+    let exp1Seen = 0;
+    for (const diff of ['warmup', 'remedial', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 120; i++) {
+        const p = generateProblem(8, 1, { difficultyLevel: diff });
+        if (p.patternType !== 'large_unit_count') continue;
+        const values = p.errorDiagnostics.map((d) => d.predictedErrorValue);
+        assert.equal(new Set(values).size, values.length, p.expression);
+        // exp10 === 1 のケース (count = lead × 10 で 20..90) が実際に生成されることも確認する
+        const count = p.correctAnswer.value;
+        if (count >= 20 && count <= 90 && count % 10 === 0) exp1Seen++;
+      }
+    }
+    assert.ok(exp1Seen > 0, 'expected some exp10=1 unit-count problems in the sample');
   });
 
   it('serves full 5-problem World 8 stage sets', () => {
