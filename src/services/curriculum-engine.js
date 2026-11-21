@@ -752,9 +752,10 @@ export const WORLDS_METADATA = [
         title: '小数の仕組み',
         subtitle: '0.1が何こ分？ 位の数字を読もう',
         description: '0.1が10こ集まると1になるよ。数を位に分けて、小数の正体をつかもう！',
-        operator: '+',
+        operator: 'mixed',
         displayFormat: 'horizontal',
         usesDecimal: true,
+        answerLabel: 'こたえ',
         miniLesson: {
           title: '小数の仕組み（0.1と0.01）',
           cards: [
@@ -946,6 +947,23 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
  */
 export function getWorldsMetadata() {
   return WORLDS_METADATA;
+}
+
+/**
+ * グローバルステージ番号 (1..総ステージ数) から所属ワールドIDを引く
+ * ワールドごとのステージ数は WORLDS_METADATA から導出する (ワールド追加に追随)
+ * @param {number} globalStageNumber
+ * @returns {number} ワールドID (1未満は先頭ワールド、超過分は最終ワールド)
+ */
+export function getWorldIdByGlobalStage(globalStageNumber) {
+  const n = Number(globalStageNumber);
+  if (!Number.isInteger(n) || n < 1) return WORLDS_METADATA[0]?.worldId ?? 1;
+  let acc = 0;
+  for (const world of WORLDS_METADATA) {
+    acc += world.stages.length;
+    if (n <= acc) return world.worldId;
+  }
+  return WORLDS_METADATA[WORLDS_METADATA.length - 1]?.worldId ?? 1;
 }
 
 /**
@@ -3397,12 +3415,22 @@ function getDecimalScale(problem) {
 }
 
 /**
- * 小数スケールで丸めてから比較する (浮動小数点誤差の影響を受けない等値判定)
+ * 小数の等値判定 (浮動小数点誤差の影響を受けない厳密比較)
+ * 両値をスケールした結果が「整数 (誤差の範囲内)」であり、かつ一致する場合のみ true。
+ * Math.round 同士の比較だけだと、スケールより細かい入力 (例: 答え 7.3 への 7.301) が
+ * 丸めで一致して正解扱いになってしまうため、整数性もあわせて要求する。
  */
 function scaledValueEquals(a, b, scale) {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
   if (!scale) return a === b;
-  return Math.round(a * scale) === Math.round(b * scale);
+  const scaledA = a * scale;
+  const scaledB = b * scale;
+  const roundedA = Math.round(scaledA);
+  const roundedB = Math.round(scaledB);
+  const tolerance = 1e-6;
+  if (Math.abs(scaledA - roundedA) > tolerance) return false;
+  if (Math.abs(scaledB - roundedB) > tolerance) return false;
+  return roundedA === roundedB;
 }
 
 /**
@@ -3655,12 +3683,12 @@ function buildDecimalPlaceDigit({ questionIndex, level, difficultyLevel, rng, va
   steps.push({
     stepNumber: steps.length + 1,
     id: 'final',
-    title: '位の数字の確認',
+    title: '小数を組み立てる',
     actionName: 'よむ',
-    explanation: `${valueText} の ${isTenths ? '0.1' : '0.01'} の位の数字をもう一度答えよう！`,
+    explanation: `一の位が ${o}、0.1の位が ${t}、0.01の位が ${h}。位を組み立てた小数はいくつ？`,
     blankPosition: 'final',
-    expectedStepValue: targetDigit,
-    hint: '小数点からの順番を指でたどってみよう！'
+    expectedStepValue: m / 100,
+    hint: '一の位と 0.1の位の間に小数点を書いて、位の順に数字を並べよう！'
   });
 
   return buildMathProblem({
@@ -3957,7 +3985,11 @@ function generateStage6_3({ questionIndex, level, difficultyLevel, rng, variatio
     const effA = aDigit - borrowIn;
     const bDigit = db[i];
     let explanation;
-    if (effA < bDigit) {
+    if (effA < 0) {
+      // この位が 0 で下の位に 1 貸したケース: 負の数を出さず、借りてきた 10 から
+      // 貸した 1 を引いた数 (effA + 10) で計算する形で説明する (期待値は変えない)
+      explanation = `${placeNames[i]}を計算しよう: 0 しかないので、上の位から 10 を借りてこよう。下の位に貸した 1 を引くと ${effA + 10} になるよ。${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (effA < bDigit) {
       explanation = borrowIn > 0
         ? `${placeNames[i]}を計算しよう: 貸した分を引くと ${effA}。${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`
         : `${placeNames[i]}を計算しよう: ${effA} から ${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`;
@@ -4899,6 +4931,7 @@ export const CurriculumEngine = {
   TRAINING_CATEGORY_LABELS,
   getTrainingCategoryLabel,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,

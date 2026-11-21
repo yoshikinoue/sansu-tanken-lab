@@ -432,7 +432,7 @@ export class MathLabApp {
     if (match) {
       stageNum = Math.max(1, Math.min(totalStages, Number(match[0])));
     }
-    const worldId = Math.ceil(stageNum / 3);
+    const worldId = CurriculumEngine.getWorldIdByGlobalStage(stageNum);
     const stageId = `stage-${stageNum}`;
 
     // Generate 5 adaptive problems
@@ -620,10 +620,9 @@ export class MathLabApp {
     const keypadContainer = container.querySelector('#arena-keypad-container');
     const currentProblem = problems[0];
     const hasRemainder = Boolean(currentProblem?.hasRemainder);
+    const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, stageNum);
     // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
-    const hasDecimal = Boolean(
-      CurriculumEngine.getStageMetadata(session.worldId, stageNum)?.usesDecimal
-    );
+    const hasDecimal = Boolean(stageMeta?.usesDecimal);
 
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
@@ -631,6 +630,7 @@ export class MathLabApp {
         hasDecimal,
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null,
         onSound: (snd) => SoundEffects.playSound(snd),
         onSubmit: (value) => this.handleArenaSubmit(value)
       }).mount(keypadContainer);
@@ -673,12 +673,12 @@ export class MathLabApp {
 
     // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
+      const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, session.stageNum);
       this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
-        hasDecimal: Boolean(
-          CurriculumEngine.getStageMetadata(session.worldId, session.stageNum)?.usesDecimal
-        ),
+        hasDecimal: Boolean(stageMeta?.usesDecimal),
         operator: prob.operator || null,
-        prompt: prob.prompt || ''
+        prompt: prob.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null
       });
       // BUG-009: the new problem is on screen; accept input again.
       this.arenaKeypad.setLocked(false);

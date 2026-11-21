@@ -483,7 +483,7 @@ describe('Milestone 6: Comprehensive Challenger E2E Journey Stress Test', () => 
       assert.equal(w4Scores.world4, 100);
     });
 
-    it('CJ-1.8: Clears World 5 (Stage 13..15: Order of Operations) & achieves full curriculum mastery', () => {
+    it('CJ-1.8: Clears World 5 (Stage 13..15: Order of Operations), completing Worlds 1-5', () => {
       assert.equal(isStageUnlocked(13, studentProgress.stageProgress), true);
 
       // Clear Stages 13, 14, 15
@@ -500,7 +500,7 @@ describe('Milestone 6: Comprehensive Challenger E2E Journey Stress Test', () => 
         studentProgress.gamification.labExp += 150;
       }
 
-      // Verify all 15 stages cleared
+      // Verify all Stages 1-15 (Worlds 1-5) cleared
       for (let s = 1; s <= 15; s++) {
         assert.equal(studentProgress.stageProgress[`stage-${s}`].cleared, true);
       }

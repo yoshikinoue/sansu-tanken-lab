@@ -10,6 +10,27 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { WORLDS_METADATA } from '../../src/services/curriculum-engine.js';
+
+export { WORLDS_METADATA };
+
+// Reference contracts derive the world/stage structure from the curriculum
+// metadata (instead of hardcoding 5 worlds / 15 stages) so they stay correct
+// when new worlds are added.
+const REFERENCE_TOTAL_WORLDS = WORLDS_METADATA.length;
+const REFERENCE_STAGES_PER_WORLD = WORLDS_METADATA[0]?.stages.length || 3;
+const REFERENCE_TOTAL_STAGES = WORLDS_METADATA.reduce((n, w) => n + w.stages.length, 0);
+
+function referenceWorldForStage(stageNumber) {
+  const n = Number(stageNumber);
+  if (!Number.isInteger(n) || n < 1) return 1;
+  let acc = 0;
+  for (const world of WORLDS_METADATA) {
+    acc += world.stages.length;
+    if (n <= acc) return world.worldId;
+  }
+  return WORLDS_METADATA[WORLDS_METADATA.length - 1]?.worldId ?? 1;
+}
 
 // --- MOCK BROWSER PRIMITIVES FOR NODE ENVIRONMENT ---
 
@@ -136,14 +157,12 @@ export class MockSpeechSynthesisUtterance {
  * F1 - F8: Curriculum & Problem Engine Reference
  */
 export const CurriculumEngineReference = {
-  // World metadata
-  worlds: [
-    { id: 1, name: 'たし算・ひき算ラボ', stages: [1, 2, 3] },
-    { id: 2, name: 'かけ算パワーラボ', stages: [4, 5, 6] },
-    { id: 3, name: 'わり算とあまりラボ', stages: [7, 8, 9] },
-    { id: 4, name: '2桁わり算・見積もりラボ', stages: [10, 11, 12] },
-    { id: 5, name: '計算のきまり・四則混合ラボ', stages: [13, 14, 15] }
-  ],
+  // World metadata (derived from WORLDS_METADATA)
+  worlds: WORLDS_METADATA.map((world) => ({
+    id: world.worldId,
+    name: world.title,
+    stages: world.stages.map((s) => s.globalStageNumber)
+  })),
 
   generateStageProblems(worldId, stageId, history = []) {
     const problems = [];
@@ -1238,9 +1257,9 @@ export const MiniLessonReference = {
  * F20: Stage Map & World Navigator Reference
  */
 export const StageMapReference = {
-  totalWorlds: 5,
-  stagesPerWorld: 3,
-  totalStages: 15,
+  totalWorlds: REFERENCE_TOTAL_WORLDS,
+  stagesPerWorld: REFERENCE_STAGES_PER_WORLD,
+  totalStages: REFERENCE_TOTAL_STAGES,
 
   isStageUnlocked(stageNumber, clearedStagesMap) {
     if (stageNumber === 1) return true;
@@ -1249,7 +1268,7 @@ export const StageMapReference = {
   },
 
   getWorldForStage(stageNumber) {
-    return Math.ceil(stageNumber / 3);
+    return referenceWorldForStage(stageNumber);
   }
 };
 
@@ -1304,17 +1323,17 @@ export const ParentBoardReference = {
   },
 
   calculateRadarScores(progress) {
-    const scores = { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0 };
+    const scores = {};
     const stageProg = (progress && progress.stageProgress) || {};
-    for (let w = 1; w <= 5; w++) {
+    for (const world of WORLDS_METADATA) {
       let clearedInWorld = 0;
-      for (let s = 1; s <= 3; s++) {
-        const sKey = `stage-${(w - 1) * 3 + s}`;
+      for (const stage of world.stages) {
+        const sKey = `stage-${stage.globalStageNumber}`;
         if (stageProg[sKey] && stageProg[sKey].cleared) {
           clearedInWorld++;
         }
       }
-      scores[`world${w}`] = Math.round((clearedInWorld / 3) * 100);
+      scores[`world${world.worldId}`] = Math.round((clearedInWorld / world.stages.length) * 100);
     }
     return scores;
   },

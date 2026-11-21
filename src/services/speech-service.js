@@ -3,6 +3,8 @@
  * 算数探検ラボ (Smart Math Discovery Lab)
  */
 
+import { WORLDS_METADATA } from './curriculum-engine.js';
+
 export const MINI_LESSON_SCRIPTS = {
   'stage-1': {
     stageId: 'stage-1',
@@ -807,8 +809,8 @@ export function speakText(text, options = {}) {
  */
 export function getMiniLessonData(stageIdentifier) {
   let key = 'stage-1';
-  // 総ステージ数は登録済みスクリプト数から導出する (ワールド追加に追随)
-  const totalStages = Object.keys(MINI_LESSON_SCRIPTS).length;
+  // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 
   if (typeof stageIdentifier === 'number') {
     const clamped = Math.max(1, Math.min(totalStages, Math.floor(stageIdentifier)));

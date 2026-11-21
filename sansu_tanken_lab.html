@@ -2895,9 +2895,10 @@ const WORLDS_METADATA = [
         title: '小数の仕組み',
         subtitle: '0.1が何こ分？ 位の数字を読もう',
         description: '0.1が10こ集まると1になるよ。数を位に分けて、小数の正体をつかもう！',
-        operator: '+',
+        operator: 'mixed',
         displayFormat: 'horizontal',
         usesDecimal: true,
+        answerLabel: 'こたえ',
         miniLesson: {
           title: '小数の仕組み（0.1と0.01）',
           cards: [
@@ -3089,6 +3090,23 @@ function normalizeWorldAndStage(worldIdInput, stageIdInput) {
  */
 function getWorldsMetadata() {
   return WORLDS_METADATA;
+}
+
+/**
+ * グローバルステージ番号 (1..総ステージ数) から所属ワールドIDを引く
+ * ワールドごとのステージ数は WORLDS_METADATA から導出する (ワールド追加に追随)
+ * @param {number} globalStageNumber
+ * @returns {number} ワールドID (1未満は先頭ワールド、超過分は最終ワールド)
+ */
+function getWorldIdByGlobalStage(globalStageNumber) {
+  const n = Number(globalStageNumber);
+  if (!Number.isInteger(n) || n < 1) return WORLDS_METADATA[0]?.worldId ?? 1;
+  let acc = 0;
+  for (const world of WORLDS_METADATA) {
+    acc += world.stages.length;
+    if (n <= acc) return world.worldId;
+  }
+  return WORLDS_METADATA[WORLDS_METADATA.length - 1]?.worldId ?? 1;
 }
 
 /**
@@ -5540,12 +5558,22 @@ function getDecimalScale(problem) {
 }
 
 /**
- * 小数スケールで丸めてから比較する (浮動小数点誤差の影響を受けない等値判定)
+ * 小数の等値判定 (浮動小数点誤差の影響を受けない厳密比較)
+ * 両値をスケールした結果が「整数 (誤差の範囲内)」であり、かつ一致する場合のみ true。
+ * Math.round 同士の比較だけだと、スケールより細かい入力 (例: 答え 7.3 への 7.301) が
+ * 丸めで一致して正解扱いになってしまうため、整数性もあわせて要求する。
  */
 function scaledValueEquals(a, b, scale) {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
   if (!scale) return a === b;
-  return Math.round(a * scale) === Math.round(b * scale);
+  const scaledA = a * scale;
+  const scaledB = b * scale;
+  const roundedA = Math.round(scaledA);
+  const roundedB = Math.round(scaledB);
+  const tolerance = 1e-6;
+  if (Math.abs(scaledA - roundedA) > tolerance) return false;
+  if (Math.abs(scaledB - roundedB) > tolerance) return false;
+  return roundedA === roundedB;
 }
 
 /**
@@ -5798,12 +5826,12 @@ function buildDecimalPlaceDigit({ questionIndex, level, difficultyLevel, rng, va
   steps.push({
     stepNumber: steps.length + 1,
     id: 'final',
-    title: '位の数字の確認',
+    title: '小数を組み立てる',
     actionName: 'よむ',
-    explanation: `${valueText} の ${isTenths ? '0.1' : '0.01'} の位の数字をもう一度答えよう！`,
+    explanation: `一の位が ${o}、0.1の位が ${t}、0.01の位が ${h}。位を組み立てた小数はいくつ？`,
     blankPosition: 'final',
-    expectedStepValue: targetDigit,
-    hint: '小数点からの順番を指でたどってみよう！'
+    expectedStepValue: m / 100,
+    hint: '一の位と 0.1の位の間に小数点を書いて、位の順に数字を並べよう！'
   });
 
   return buildMathProblem({
@@ -6100,7 +6128,11 @@ function generateStage6_3({ questionIndex, level, difficultyLevel, rng, variatio
     const effA = aDigit - borrowIn;
     const bDigit = db[i];
     let explanation;
-    if (effA < bDigit) {
+    if (effA < 0) {
+      // この位が 0 で下の位に 1 貸したケース: 負の数を出さず、借りてきた 10 から
+      // 貸した 1 を引いた数 (effA + 10) で計算する形で説明する (期待値は変えない)
+      explanation = `${placeNames[i]}を計算しよう: 0 しかないので、上の位から 10 を借りてこよう。下の位に貸した 1 を引くと ${effA + 10} になるよ。${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (effA < bDigit) {
       explanation = borrowIn > 0
         ? `${placeNames[i]}を計算しよう: 貸した分を引くと ${effA}。${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`
         : `${placeNames[i]}を計算しよう: ${effA} から ${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`;
@@ -7042,6 +7074,7 @@ const CurriculumEngine = {
   TRAINING_CATEGORY_LABELS,
   getTrainingCategoryLabel,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,
@@ -7063,7 +7096,7 @@ const CurriculumEngine = {
 
 const __default_export = CurriculumEngine;
 
-    return { WORLDS_METADATA, TRAINING_CATEGORY_LABELS, getTrainingCategoryLabel, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, evaluateStageAdaptation, generateChallengeProblems, selectTrainingProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, REASON_CATEGORY_LABELS, getReasonCategoryLabel, summarizeDiagnosisLog, CurriculumEngine, default: __default_export };
+    return { WORLDS_METADATA, TRAINING_CATEGORY_LABELS, getTrainingCategoryLabel, normalizeWorldAndStage, getWorldsMetadata, getWorldIdByGlobalStage, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, evaluateStageAdaptation, generateChallengeProblems, selectTrainingProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, REASON_CATEGORY_LABELS, getReasonCategoryLabel, summarizeDiagnosisLog, CurriculumEngine, default: __default_export };
   })();
 
   // === services/storage-service.js ===
@@ -8702,6 +8735,8 @@ function playCuteVoice(characterId = 'momonga', options = {}) {
  * 算数探検ラボ (Smart Math Discovery Lab)
  */
 
+const { WORLDS_METADATA } = __mods['services/curriculum-engine.js'];
+
 const MINI_LESSON_SCRIPTS = {
   'stage-1': {
     stageId: 'stage-1',
@@ -9506,8 +9541,8 @@ function speakText(text, options = {}) {
  */
 function getMiniLessonData(stageIdentifier) {
   let key = 'stage-1';
-  // 総ステージ数は登録済みスクリプト数から導出する (ワールド追加に追随)
-  const totalStages = Object.keys(MINI_LESSON_SCRIPTS).length;
+  // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 
   if (typeof stageIdentifier === 'number') {
     const clamped = Math.max(1, Math.min(totalStages, Math.floor(stageIdentifier)));
@@ -12317,7 +12352,12 @@ class Keypad {
 
   setHasRemainder(hasRemainder) {
     this.state.hasRemainder = Boolean(hasRemainder);
-    if (!this.state.hasRemainder) {
+    if (this.state.hasRemainder) {
+      // あまり入力と小数点入力は排他: あまりを有効化したら小数点を落とし、
+      // 状態と表示 (render 側の小数キー抑制) が食い違わないようにする
+      this.state.hasDecimal = false;
+      this.options.hasDecimal = false;
+    } else {
       this.state.activeField = 'quotient';
       this.state.remainderText = '';
     }
@@ -12338,6 +12378,11 @@ class Keypad {
       if ('operator' in meta) this.options.operator = meta.operator;
       if ('prompt' in meta) this.options.prompt = meta.prompt;
       if ('answerLabel' in meta) this.options.answerLabel = meta.answerLabel;
+    }
+    // setHasRemainder と対称に、あまり入力が有効な間は小数点入力を落とす
+    if (this.state.hasRemainder) {
+      this.state.hasDecimal = false;
+      this.options.hasDecimal = false;
     }
     this.render();
     this.updateDisplay();
@@ -12612,8 +12657,8 @@ class StepGuideModal {
         <div class="step-input-row">
           <input type="text"
             class="step-input"
-            inputmode="numeric"
-            pattern="[0-9]*"
+            inputmode="decimal"
+            pattern="[0-9.]*"
             data-step-index="${idx}"
             value="${answeredVal}"
             placeholder="?"
@@ -14795,11 +14840,11 @@ const __default_export = {
   __mods['components/stage-map.js'] = (function() {
 /**
  * src/components/stage-map.js
- * 算数探検ラボ - 5ワールド15ステージマップ＆ナビゲーター (StageMap)
+ * 算数探検ラボ - 全ワールド・ステージのマップ＆ナビゲーター (StageMap)
  *
  * Dual capability:
  * 1. Pure helper functions and constants matching StageMapReference for headless Node.js
- * 2. Interactive DOM StageMap class for tablet browser rendering all 5 worlds,
+ * 2. Interactive DOM StageMap class for tablet browser rendering all worlds,
  *    star ratings, stage lock/unlock states, and mini-lesson review triggers.
  */
 
@@ -15169,7 +15214,9 @@ function addItem(box, problem) {
 
   _itemCounter += 1;
   const rawStage = problem?.stageId ?? 1;
-  const rawWorld = problem?.worldId ?? Math.ceil(Number(rawStage) / 3);
+  const globalStageNum =
+    Number(String(problem?.globalStageId ?? '').match(/\d+/)?.[0]) || Number(rawStage);
+  const rawWorld = problem?.worldId ?? CurriculumEngine.getWorldIdByGlobalStage(globalStageNum);
 
   const stageId = String(rawStage).startsWith('stage-') ? rawStage : `stage-${rawStage}`;
   const worldId = String(rawWorld).startsWith('world-') ? rawWorld : `world-${rawWorld}`;
@@ -15435,11 +15482,11 @@ class TreasureBox {
         <div style="margin:20px 0;">
           ${variation.hasRemainder
             ? `<div style="display:flex; gap:12px; justify-content:center;">
-                 <input type="number" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <input type="number" inputmode="decimal" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
                  <span style="font-size:1.3rem; align-self:center;">あまり</span>
-                 <input type="number" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <input type="number" inputmode="decimal" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
                </div>`
-            : `<input type="number" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
+            : `<input type="number" inputmode="decimal" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
           }
         </div>
 
@@ -15563,6 +15610,7 @@ class TreasureBox {
           feedbackBox.innerHTML = `💡 ${diag?.adviceMessage || 'おしい！もう一度落ち着いて解いてみよう！'}`;
         }
 
+        // Clear wrong inputs so the student can re-enter cleanly
         if (singleInput) {
           singleInput.value = '';
           singleInput.focus?.();
@@ -15830,7 +15878,7 @@ const __default_export = TreasureBox;
  * Dual capability:
  * 1. Pure helper functions matching ParentBoardReference for headless Node.js
  * 2. Interactive DOM ParentBoard class for tablet browser featuring 4-digit PIN authentication,
- *    5-dimension radar progress chart, self-correction highlights, cheer stamp sender,
+ *    per-world radar progress chart, self-correction highlights, cheer stamp sender,
  *    and 3-tier backup/device transfer controls.
  */
 
@@ -16358,18 +16406,15 @@ class ParentBoard {
     `;
     dashboard.appendChild(highlightCard);
 
-    // 5-Dimension Radar Chart
+    // Radar Chart (one row per world)
     const radarCard = document.createElement('div');
     radarCard.className = 'radar-chart-container';
 
-    const worldLabels = [
-      { key: 'world1', label: 'W1: たし算・ひき算ラボ' },
-      { key: 'world2', label: 'W2: かけ算パワーラボ' },
-      { key: 'world3', label: 'W3: わり算とあまりラボ' },
-      { key: 'world4', label: 'W4: 2桁わり算・見積もり' },
-      { key: 'world5', label: 'W5: 計算のきまり・四則混合' },
-      { key: 'world6', label: 'W6: 小数ラボ' }
-    ];
+    // レーダーの行ラベルは WORLD_DEFINITIONS から生成する (ワールド追加に追随)
+    const worldLabels = (GamificationEngine.WORLD_DEFINITIONS || []).map((w) => ({
+      key: `world${w.worldId}`,
+      label: `W${w.worldId}: ${w.fullName}`
+    }));
 
     let radarRowsHtml = '';
     worldLabels.forEach(w => {
@@ -16388,7 +16433,7 @@ class ParentBoard {
     radarCard.innerHTML = `
       <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
         <span>📊</span>
-        <span>6ワールド成長チャート（習熟進捗）</span>
+        <span>${worldLabels.length}ワールド成長チャート（習熟進捗）</span>
       </h3>
       ${radarRowsHtml}
     `;
@@ -17275,7 +17320,7 @@ class MathLabApp {
     if (match) {
       stageNum = Math.max(1, Math.min(totalStages, Number(match[0])));
     }
-    const worldId = Math.ceil(stageNum / 3);
+    const worldId = CurriculumEngine.getWorldIdByGlobalStage(stageNum);
     const stageId = `stage-${stageNum}`;
 
     // Generate 5 adaptive problems
@@ -17463,10 +17508,9 @@ class MathLabApp {
     const keypadContainer = container.querySelector('#arena-keypad-container');
     const currentProblem = problems[0];
     const hasRemainder = Boolean(currentProblem?.hasRemainder);
+    const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, stageNum);
     // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
-    const hasDecimal = Boolean(
-      CurriculumEngine.getStageMetadata(session.worldId, stageNum)?.usesDecimal
-    );
+    const hasDecimal = Boolean(stageMeta?.usesDecimal);
 
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
@@ -17474,6 +17518,7 @@ class MathLabApp {
         hasDecimal,
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null,
         onSound: (snd) => SoundEffects.playSound(snd),
         onSubmit: (value) => this.handleArenaSubmit(value)
       }).mount(keypadContainer);
@@ -17516,12 +17561,12 @@ class MathLabApp {
 
     // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
+      const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, session.stageNum);
       this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
-        hasDecimal: Boolean(
-          CurriculumEngine.getStageMetadata(session.worldId, session.stageNum)?.usesDecimal
-        ),
+        hasDecimal: Boolean(stageMeta?.usesDecimal),
         operator: prob.operator || null,
-        prompt: prob.prompt || ''
+        prompt: prob.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null
       });
       // BUG-009: the new problem is on screen; accept input again.
       this.arenaKeypad.setLocked(false);

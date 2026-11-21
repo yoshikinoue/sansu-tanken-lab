@@ -1,10 +1,10 @@
 /**
  * src/components/stage-map.js
- * 算数探検ラボ - 5ワールド15ステージマップ＆ナビゲーター (StageMap)
+ * 算数探検ラボ - 全ワールド・ステージのマップ＆ナビゲーター (StageMap)
  *
  * Dual capability:
  * 1. Pure helper functions and constants matching StageMapReference for headless Node.js
- * 2. Interactive DOM StageMap class for tablet browser rendering all 5 worlds,
+ * 2. Interactive DOM StageMap class for tablet browser rendering all worlds,
  *    star ratings, stage lock/unlock states, and mini-lesson review triggers.
  */
 
