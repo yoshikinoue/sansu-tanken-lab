@@ -18,14 +18,14 @@ import CurriculumEngine, {
 import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
-  describe('1. Worlds & Stages Metadata (6 Worlds, 18 Stages, Mini-Lessons)', () => {
-    it('exports all 6 worlds and 18 stages with complete metadata and 3-card mini-lessons', () => {
+  describe('1. Worlds & Stages Metadata (7 Worlds, 21 Stages, Mini-Lessons)', () => {
+    it('exports all 7 worlds and 21 stages with complete metadata and 3-card mini-lessons', () => {
       const worlds = getWorldsMetadata();
-      assert.equal(worlds.length, 6);
-      assert.equal(WORLDS_METADATA.length, 6);
+      assert.equal(worlds.length, 7);
+      assert.equal(WORLDS_METADATA.length, 7);
 
       let totalStages = 0;
-      for (let w = 1; w <= 6; w++) {
+      for (let w = 1; w <= 7; w++) {
         const world = worlds[w - 1];
         assert.equal(world.worldId, w);
         assert.ok(world.title.length > 0);
@@ -51,7 +51,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.equal(stage.miniLesson.cards[2].type, 'summary');
         }
       }
-      assert.equal(totalStages, 18);
+      assert.equal(totalStages, 21);
     });
 
     it('falls back safely to World 1 Stage 1 for out-of-range worldId or stageId', () => {
@@ -87,9 +87,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
   });
 
-  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 18 Stages', () => {
-    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 18 stages', () => {
-      for (let w = 1; w <= 6; w++) {
+  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 21 Stages', () => {
+    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 21 stages', () => {
+      for (let w = 1; w <= 7; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, {
             questionIndex: 3,
@@ -347,8 +347,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
   });
 
   describe('5. Review Variation Generator (Power-Up Treasure Box)', () => {
-    it('generates number-varied problems preserving cognitive traps across all 18 stages', () => {
-      for (let w = 1; w <= 6; w++) {
+    it('generates number-varied problems preserving cognitive traps across all 21 stages', () => {
+      for (let w = 1; w <= 7; w++) {
         for (let s = 1; s <= 3; s++) {
           const orig = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const varied = generateVariationProblem(orig);
@@ -406,7 +406,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     it('detects specific buggy rules and never emits forbidden negative or X symbols', () => {
       const forbiddenPattern = /[×✕❌✖]|バツ|不正解|ダメ|失敗/;
 
-      for (let w = 1; w <= 6; w++) {
+      for (let w = 1; w <= 7; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const trapInput =
@@ -706,12 +706,13 @@ describe('Issue #16: World 6 小数ラボ (decimals)', () => {
       globalStageNumber: 17
     });
     // Out-of-range values still fall back to World 1 Stage 1
-    assert.deepEqual(normalizeWorldAndStage(7, 1), {
+    // (World 7 / stage-19..21 became valid with Issue #17, so use 8 / stage-22)
+    assert.deepEqual(normalizeWorldAndStage(8, 1), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
     });
-    assert.deepEqual(normalizeWorldAndStage(null, 'stage-19'), {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-22'), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
@@ -953,5 +954,234 @@ describe('Issue #16: World 6 小数ラボ (decimals)', () => {
     const meta = getStageMetadata(6, 1);
     assert.equal(meta.answerLabel, 'こたえ');
     assert.equal(meta.operator, 'mixed');
+  });
+});
+
+describe('Issue #17: World 7 分数パーク (fractions)', () => {
+  it('normalizes World 7 stages and keeps stage-1..18 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-19'), {
+      worldId: 7,
+      stageId: 1,
+      globalStageNumber: 19
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-20'), {
+      worldId: 7,
+      stageId: 2,
+      globalStageNumber: 20
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-21'), {
+      worldId: 7,
+      stageId: 3,
+      globalStageNumber: 21
+    });
+    assert.deepEqual(normalizeWorldAndStage(7, 2), {
+      worldId: 7,
+      stageId: 2,
+      globalStageNumber: 20
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 18; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 7 metadata with fraction stages and 3-card mini-lessons', () => {
+    const meta = getStageMetadata(7, 1);
+    assert.equal(meta.globalId, 'stage-19');
+    assert.equal(meta.usesFraction, true);
+    assert.equal(getStageMetadata(7, 2).globalId, 'stage-20');
+    assert.equal(getStageMetadata(7, 3).globalId, 'stage-21');
+    const world7 = getWorldsMetadata()[6];
+    assert.equal(world7.title, '分数パーク');
+    assert.equal(world7.stages.length, 3);
+  });
+
+  it('generates arithmetically exact same-denominator addition/subtraction across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 40; i++) {
+        const add = generateProblem(7, 2, { difficultyLevel: diff });
+        const fa = add.trapMetadata.fractionAnswer;
+        const [aNum, aDen, bNum, bDen] = add.operands;
+        assert.equal(aDen, bDen);
+        assert.equal(fa.denominator, aDen);
+        assert.equal(fa.numerator, aNum + bNum);
+        assert.equal(add.hasFraction, true);
+        if (diff === 'challenge') {
+          assert.ok(fa.numerator > fa.denominator, 'challenge addition must exceed 1 (improper fraction)');
+        } else {
+          assert.ok(fa.numerator < fa.denominator, 'non-challenge addition must stay a proper fraction');
+        }
+        assert.equal(
+          evaluateAnswer(add, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+          true
+        );
+        assert.equal(evaluateAnswer(add, `${fa.numerator}/${fa.denominator}`).isCorrect, true);
+
+        const sub = generateProblem(7, 3, { difficultyLevel: diff });
+        const fs = sub.trapMetadata.fractionAnswer;
+        const [sNum, sDen, tNum, tDen] = sub.operands;
+        assert.equal(sDen, tDen);
+        assert.equal(fs.denominator, sDen);
+        assert.equal(fs.numerator, sNum - tNum);
+        assert.ok(fs.numerator > 0, 'subtraction result must stay positive');
+        assert.equal(sub.hasFraction, true);
+        assert.equal(
+          evaluateAnswer(sub, { numerator: fs.numerator, denominator: fs.denominator }).isCorrect,
+          true
+        );
+      }
+    }
+  });
+
+  it('generates fraction-structure problems whose answers are consistent', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 40; i++) {
+        const p = generateProblem(7, 1, { difficultyLevel: diff });
+        if (p.patternType === 'frac_unit_count') {
+          // 「n/d は 1/d が何こ分？」の答えは分子 n (整数)
+          assert.equal(p.trapMetadata.fractionAnswer, undefined);
+          assert.equal(p.hasFraction, false);
+          assert.equal(p.correctAnswer.value, p.operands[0]);
+          assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        } else if (p.patternType === 'frac_parts_to_fraction') {
+          const fa = p.trapMetadata.fractionAnswer;
+          assert.equal(fa.numerator, p.operands[0]);
+          assert.equal(fa.denominator, p.operands[1]);
+          assert.equal(p.hasFraction, true);
+          assert.equal(
+            evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+            true
+          );
+        } else if (p.patternType === 'frac_mixed_to_improper') {
+          const [whole, num, den] = p.operands;
+          const fa = p.trapMetadata.fractionAnswer;
+          assert.equal(fa.numerator, whole * den + num);
+          assert.equal(fa.denominator, den);
+          assert.equal(p.hasFraction, true);
+          assert.equal(
+            evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+            true
+          );
+        } else {
+          assert.fail(`unknown stage 7-1 pattern: ${p.patternType}`);
+        }
+      }
+    }
+  });
+
+  it('diagnoses the denominator-added trap and inverted fractions', () => {
+    for (let i = 0; i < 40; i++) {
+      const add = generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const fa = add.trapMetadata.fractionAnswer;
+      const diag = diagnoseError(add, add.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true);
+      assert.equal(diag.reasonCategory, 'fraction_denominator_added');
+
+      const keypadDiag = evaluateAnswer(add, {
+        numerator: fa.numerator,
+        denominator: fa.denominator * 2
+      });
+      assert.equal(keypadDiag.isCorrect, false);
+      assert.equal(keypadDiag.diagnosis.reasonCategory, 'fraction_denominator_added');
+
+      const inverted = evaluateAnswer(add, {
+        numerator: fa.denominator,
+        denominator: fa.numerator
+      });
+      assert.equal(inverted.isCorrect, false);
+      assert.equal(inverted.diagnosis.reasonCategory, 'fraction_inverted');
+    }
+  });
+
+  it('diagnoses the borrow-forgotten trap in mixed-number subtraction', () => {
+    let sampled = 0;
+    for (let i = 0; i < 200 && sampled < 20; i++) {
+      const sub = generateProblem(7, 3, { difficultyLevel: 'hurdle' });
+      if (sub.patternType !== 'frac_sub_mixed_borrow') continue;
+      const { fracNum, fracSub, fracDen } = sub.trapMetadata;
+      const res = evaluateAnswer(sub, { numerator: fracSub - fracNum, denominator: fracDen });
+      assert.equal(res.isCorrect, false);
+      assert.equal(res.diagnosis.reasonCategory, 'fraction_borrow_forgotten');
+      sampled++;
+    }
+    assert.ok(sampled > 0, 'expected at least one borrow-pattern problem');
+  });
+
+  it('rejects fraction answers whose numerator or denominator is wrong', () => {
+    const p = generateProblem(7, 2, { difficultyLevel: 'standard' });
+    const fa = p.trapMetadata.fractionAnswer;
+    const wrongNum = evaluateAnswer(p, { numerator: fa.numerator + 1, denominator: fa.denominator });
+    assert.equal(wrongNum.isCorrect, false);
+    assert.equal(wrongNum.diagnosis.reasonCategory, 'fraction_numerator_slip');
+    const wrongDen = evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator + 1 });
+    assert.equal(wrongDen.isCorrect, false);
+    assert.equal(wrongDen.diagnosis.reasonCategory, 'fraction_denominator_changed');
+    // A bare number (even the equivalent decimal value) is not a fraction answer
+    assert.equal(evaluateAnswer(p, fa.numerator / fa.denominator).isCorrect, false);
+    // normalizeUserAnswer understands fraction objects and "n/d" strings
+    assert.deepEqual(normalizeUserAnswer({ numerator: 3, denominator: 7 }), {
+      value: 3 / 7,
+      remainder: 0,
+      hasExplicitRemainder: false,
+      numerator: 3,
+      denominator: 7
+    });
+    assert.deepEqual(normalizeUserAnswer('3/7'), {
+      value: 3 / 7,
+      remainder: 0,
+      hasExplicitRemainder: false,
+      numerator: 3,
+      denominator: 7
+    });
+  });
+
+  it('generates World 7 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(7, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 7);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      const fa = varied.trapMetadata.fractionAnswer;
+      if (fa) {
+        assert.equal(
+          evaluateAnswer(varied, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+          true
+        );
+      } else {
+        assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+      }
+    }
+    // Compact format without trapMetadata still yields a World 7 variation
+    // that preserves the shared denominator
+    const compact = { worldId: 7, stageId: 2, operands: [2, 7, 3, 7], operator: '+', answer: 5 / 7 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 7);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(compactVar.trapMetadata.fractionAnswer.denominator, 7);
+    const cfa = compactVar.trapMetadata.fractionAnswer;
+    assert.equal(
+      evaluateAnswer(compactVar, { numerator: cfa.numerator, denominator: cfa.denominator }).isCorrect,
+      true
+    );
+  });
+
+  it('serves a full 5-problem fraction stage set', () => {
+    const problems = generateStageProblems(7, 20, []);
+    assert.equal(problems.length, 5);
+    const expressions = new Set(problems.map((p) => p.expression));
+    assert.equal(expressions.size, 5);
+    for (const p of problems) {
+      assert.equal(p.worldId, 7);
+      const fa = p.trapMetadata.fractionAnswer;
+      assert.equal(
+        evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+        true
+      );
+    }
   });
 });
