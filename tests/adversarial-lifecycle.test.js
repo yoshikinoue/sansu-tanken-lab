@@ -956,6 +956,65 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.ok(dashHtml.includes('くり下がり忘れ'), 'resolved pattern label must render');
     });
 
+    it('Issue #21: empty keypad submissions do not add diagnosis log entries', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+      const session = app.currentSession;
+      const prob = session.problems[session.currentIndex];
+      const wrongValue = prob.correctAnswer.value + 999;
+
+      // 決定 pressed with an untouched keypad (both text fields empty):
+      // not a real mistake, so nothing is recorded.
+      app.handleArenaSubmit(wrongValue, { quotientText: '', remainderText: '', hasRemainder: false });
+      assert.equal(app.progress.diagnosisLog.length, 0);
+      if (app.arenaStepGuide) {
+        app.arenaStepGuide.destroy();
+        app.arenaStepGuide = null;
+      }
+
+      // The same wrong value with actual keypad input is recorded.
+      app.handleArenaSubmit(wrongValue, { quotientText: String(wrongValue), remainderText: '', hasRemainder: false });
+      assert.equal(app.progress.diagnosisLog.length, 1);
+      if (app.arenaStepGuide) {
+        app.arenaStepGuide.destroy();
+        app.arenaStepGuide = null;
+      }
+    });
+
+    it('Issue #21: diagnosis log is persisted on wrong answers even without a treasure box', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+      const session = app.currentSession;
+      const prob = session.problems[session.currentIndex];
+
+      // Legacy-style progress with no treasure box: the wrong-answer save
+      // used to be skipped entirely for this shape, losing the log entry.
+      delete app.progress.treasureBox;
+      app.handleArenaSubmit(prob.correctAnswer.value + 999);
+      assert.equal(app.progress.diagnosisLog.length, 1);
+
+      // The Tier 1 write is synchronous, so the entry must already be
+      // persisted by the time handleArenaSubmit returns.
+      const persisted = StorageService.readLocalProgress();
+      assert.ok(persisted, 'progress must be persisted after a wrong answer');
+      assert.equal(persisted.diagnosisLog.length, 1);
+      assert.equal(persisted.diagnosisLog[0].category, app.progress.diagnosisLog[0].category);
+      if (app.arenaStepGuide) {
+        app.arenaStepGuide.destroy();
+        app.arenaStepGuide = null;
+      }
+    });
+
     it('Issue #21: parent board shows an empty state when no diagnosis log exists', async () => {
       StorageService.resetStorageState();
       GamificationEngine.resetGamificationState();

@@ -7310,6 +7310,13 @@ export function getReasonCategoryLabel(category) {
 const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * 未知の reasonCategory を集計時に合算するバケットのキー。
+ * 未知カテゴリが複数あっても「その他のつまずき」行が重複表示されないよう、
+ * 表示名を持つ既知カテゴリ以外はすべてこの1バケットにまとめる。
+ */
+export const UNKNOWN_CATEGORY_BUCKET = 'unknown';
+
+/**
  * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
  * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
  * @param {Array} log 診断ログ（不正な項目は無視される）
@@ -7320,7 +7327,12 @@ const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
  *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
  *   resolvedPatterns: Array<{category: string, label: string, total: number}>
  * }} focusPatterns は直近30日で多い順に最大2件、
- *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ *    resolvedPatterns は累計3回以上かつ直近30日0回のカテゴリ。
+ *    focus と resolved は直近30日の有無で排他的に決まるため、
+ *    同じカテゴリが両方に現れることはない。
+ *    未来のタイムスタンプ（時計のずれ等）は経過時間が負になるが、
+ *    窓の外ではなく「直近」として扱う（解消済みへの誤分類を防ぐ）。
+ *    未知のカテゴリは UNKNOWN_CATEGORY_BUCKET に合算される。
  */
 export function summarizeDiagnosisLog(log, nowInput = new Date()) {
   const nowMs = nowInput instanceof Date
@@ -7339,15 +7351,19 @@ export function summarizeDiagnosisLog(log, nowInput = new Date()) {
       const atMs = Date.parse(entry.at);
       if (!Number.isFinite(atMs)) continue;
       totalEntries++;
-      let s = stats.get(entry.category);
+      const bucketKey = Object.hasOwn(REASON_CATEGORY_LABELS, entry.category)
+        ? entry.category
+        : UNKNOWN_CATEGORY_BUCKET;
+      let s = stats.get(bucketKey);
       if (!s) {
-        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
-        stats.set(entry.category, s);
+        s = { category: bucketKey, total: 0, recent30: 0, recent14: 0 };
+        stats.set(bucketKey, s);
       }
       s.total++;
       const ageMs = safeNow - atMs;
-      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
-      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+      // Negative age (future timestamp) counts as inside the window.
+      if (ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
     }
   }
 
@@ -7370,7 +7386,7 @@ export function summarizeDiagnosisLog(log, nowInput = new Date()) {
     .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
 
   const resolvedPatterns = byCategory
-    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .filter((s) => s.total >= 3 && s.recent30 === 0)
     .map(({ category, label, total }) => ({ category, label, total }));
 
   return { totalEntries, byCategory, focusPatterns, resolvedPatterns };

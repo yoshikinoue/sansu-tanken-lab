@@ -622,7 +622,7 @@ export class MathLabApp {
         prompt: currentProblem?.prompt || '',
         answerLabel: stageMeta?.answerLabel || null,
         onSound: (snd) => SoundEffects.playSound(snd),
-        onSubmit: (value) => this.handleArenaSubmit(value)
+        onSubmit: (value, state) => this.handleArenaSubmit(value, state)
       }).mount(keypadContainer);
     }
 
@@ -726,7 +726,7 @@ export class MathLabApp {
     }
   }
 
-  handleArenaSubmit(answerValue) {
+  handleArenaSubmit(answerValue, keypadState = null) {
     const session = this.currentSession;
     if (!session || session.isAdvancing) return;
 
@@ -738,13 +738,13 @@ export class MathLabApp {
     // 宝箱への隔離が起きる。宝箱レビューと同じく、両欄がそろうまで提出を止め、
     // 試行回数にも数えない。
     if (prob.hasFraction) {
-      const keypadState = this.arenaKeypad?.state;
+      const activeKeypadState = this.arenaKeypad?.state;
       const answerObj = answerValue && typeof answerValue === 'object' ? answerValue : null;
-      const numeratorMissing = keypadState
-        ? keypadState.quotientText === ''
+      const numeratorMissing = activeKeypadState
+        ? activeKeypadState.quotientText === ''
         : !(answerObj && Number.isFinite(Number(answerObj.numerator)));
-      const denominatorMissing = keypadState
-        ? keypadState.remainderText === ''
+      const denominatorMissing = activeKeypadState
+        ? activeKeypadState.remainderText === ''
         : !(answerObj && Number.isFinite(Number(answerObj.denominator)));
       if (numeratorMissing || denominatorMissing) {
         showToast(null, 'encourage', '💡 分子と分母の両方を入力してから「決定！」をおしてね！');
@@ -756,6 +756,16 @@ export class MathLabApp {
         return;
       }
     }
+
+    // Issue #21: the keypad submits 0 for an untouched input, which the
+    // value alone cannot distinguish from an entered "0". The keypad state
+    // can: both text fields empty means 決定 was pressed with no input.
+    // Such empty submissions must not pile up general_recheck entries in
+    // the diagnosis log. Programmatic calls without keypad state are
+    // treated as real submissions.
+    const isEmptySubmission = Boolean(keypadState)
+      && (keypadState.quotientText ?? '') === ''
+      && (keypadState.remainderText ?? '') === '';
 
     const result = CurriculumEngine.evaluateAnswer(prob, answerValue);
 
@@ -871,11 +881,13 @@ export class MathLabApp {
 
         // Issue #21: record the diagnosis pattern so the parent board can
         // aggregate つまずきパターン later. Persisted by the save below.
-        if (this.progress) {
+        // Empty submissions (no keypad input) are not real mistakes, so
+        // they are not recorded.
+        if (this.progress && !isEmptySubmission) {
           StorageService.appendDiagnosisLogEntry(this.progress, {
             category: diagnosis?.reasonCategory || 'general_recheck',
-            worldId: prob.worldId || session.worldId || null,
-            stageId: session.stageId || null,
+            worldId: prob.worldId ?? session.worldId ?? null,
+            stageId: session.stageId ?? null,
             at: new Date().toISOString()
           });
         }
@@ -887,6 +899,12 @@ export class MathLabApp {
           // This is separate from the treasure-box mastery (その場の卒業):
           // the entry only advances when answered after its due date.
           ReviewQueue.enqueueFromTreasureItem(this.progress, addedItem, new Date());
+        }
+
+        // Issue #21: persist on every wrong answer, not only when a
+        // treasure box exists — otherwise the diagnosis log entry above is
+        // silently lost for saves without one.
+        if (this.progress) {
           StorageService.saveProgress(this.progress).catch(() => {});
         }
       }
