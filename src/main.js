@@ -622,7 +622,7 @@ export class MathLabApp {
     const hasRemainder = Boolean(currentProblem?.hasRemainder);
     // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
     const hasDecimal = Boolean(
-      CurriculumEngine.getStageMetadata(worldId, stageNum)?.usesDecimal
+      CurriculumEngine.getStageMetadata(session.worldId, stageNum)?.usesDecimal
     );
 
     if (keypadContainer) {
