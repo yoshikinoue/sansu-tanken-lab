@@ -9,6 +9,10 @@ import CurriculumEngine, {
   generateStageProblems,
   selectNextProblem,
   determineAdaptiveDifficulty,
+  evaluateStageAdaptation,
+  generateChallengeProblems,
+  selectTrainingProblems,
+  getTrainingCategoryLabel,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
@@ -430,6 +434,135 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.ok(!forbiddenPattern.test(evalRes.diagnosis.hintMessage));
         }
       }
+    });
+  });
+
+  describe('7. Stage-Level Adaptation Offers (Issue #23)', () => {
+    it('offers the challenge only when every question was answered correctly on the first try', () => {
+      const perfect = evaluateStageAdaptation({ firstTryCount: 5, totalQuestions: 5, errorRecords: [] });
+      assert.equal(perfect.showChallenge, true);
+      assert.equal(perfect.trainingCategory, null);
+
+      const almost = evaluateStageAdaptation({
+        firstTryCount: 4,
+        totalQuestions: 5,
+        errorRecords: [{ reasonCategory: 'carry_forgotten' }]
+      });
+      assert.equal(almost.showChallenge, false);
+
+      // Missing / malformed inputs never offer the challenge
+      assert.equal(evaluateStageAdaptation().showChallenge, false);
+      assert.equal(evaluateStageAdaptation({ firstTryCount: 5, totalQuestions: 0 }).showChallenge, false);
+    });
+
+    it('selects a training category only when the same category was missed at least twice', () => {
+      const single = evaluateStageAdaptation({
+        firstTryCount: 4,
+        errorRecords: [{ reasonCategory: 'carry_forgotten' }]
+      });
+      assert.equal(single.trainingCategory, null);
+      assert.equal(single.trainingErrorCount, 0);
+
+      const twice = evaluateStageAdaptation({
+        firstTryCount: 3,
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'carry_forgotten' }
+        ]
+      });
+      assert.equal(twice.trainingCategory, 'carry_forgotten');
+      assert.equal(twice.trainingErrorCount, 2);
+    });
+
+    it('prefers the most frequent category, then specific categories over general_recheck', () => {
+      const frequent = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' }
+        ]
+      });
+      assert.equal(frequent.trainingCategory, 'borrow_forgotten');
+      assert.equal(frequent.trainingErrorCount, 3);
+
+      // Tie on count: a specific category beats the catch-all general_recheck
+      const tie = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'general_recheck' },
+          { reasonCategory: 'general_recheck' },
+          { reasonCategory: 'shift_forgotten' },
+          { reasonCategory: 'shift_forgotten' }
+        ]
+      });
+      assert.equal(tie.trainingCategory, 'shift_forgotten');
+
+      // general_recheck alone still qualifies as a fallback
+      const fallback = evaluateStageAdaptation({
+        errorRecords: [{ reasonCategory: 'general_recheck' }, { reasonCategory: 'general_recheck' }]
+      });
+      assert.equal(fallback.trainingCategory, 'general_recheck');
+
+      // Records without a category are ignored
+      const ignored = evaluateStageAdaptation({ errorRecords: [{}, { reasonCategory: '' }, null] });
+      assert.equal(ignored.trainingCategory, null);
+    });
+
+    it('generates 3 distinct challenge-level problems from the same stage generator', () => {
+      for (const [w, s] of [[1, 1], [2, 2], [4, 3]]) {
+        const problems = generateChallengeProblems(w, s);
+        assert.equal(problems.length, 3);
+        const expressions = new Set(problems.map((p) => p.expression));
+        assert.equal(expressions.size, 3, `Challenge problems for W${w}-S${s} must be distinct`);
+        for (const p of problems) {
+          assert.equal(p.worldId, w);
+          assert.equal(p.stageId, s);
+          assert.equal(p.difficultyLevel, 'challenge');
+          assert.equal(p.level, 3);
+        }
+      }
+    });
+
+    it('builds 3 training variations from the problems missed in the target category', () => {
+      const sourceA = generateProblem(1, 1, { difficultyLevel: 'hurdle' });
+      const sourceB = generateProblem(1, 1, { difficultyLevel: 'standard' });
+      const otherCategory = generateProblem(1, 2, { difficultyLevel: 'hurdle' });
+      const records = [
+        { reasonCategory: 'carry_forgotten', problem: sourceA },
+        { reasonCategory: 'borrow_forgotten', problem: otherCategory },
+        { reasonCategory: 'carry_forgotten', problem: sourceB }
+      ];
+
+      const training = selectTrainingProblems(records, 'carry_forgotten', 3);
+      assert.equal(training.length, 3);
+      for (const p of training) {
+        assert.equal(p.worldId, 1);
+        assert.equal(p.stageId, 1);
+        assert.ok(p.variationOf, 'training problems must be variations of a missed problem');
+        assert.notEqual(p.expression, sourceA.expression);
+        assert.notEqual(p.expression, sourceB.expression);
+      }
+
+      // A single missed problem is cycled to still produce 3 distinct variations
+      const singleSource = selectTrainingProblems(
+        [{ reasonCategory: 'carry_forgotten', problem: sourceA }],
+        'carry_forgotten',
+        3
+      );
+      assert.equal(singleSource.length, 3);
+      assert.equal(new Set(singleSource.map((p) => p.expression)).size, 3);
+
+      // No matching records -> no training set
+      assert.deepEqual(selectTrainingProblems(records, 'quotient_too_small', 3), []);
+      assert.deepEqual(selectTrainingProblems([], 'carry_forgotten', 3), []);
+    });
+
+    it('provides Japanese labels for diagnosis categories', () => {
+      assert.equal(getTrainingCategoryLabel('carry_forgotten'), 'くり上がり');
+      assert.equal(getTrainingCategoryLabel('general_recheck'), '計算ミス');
+      assert.equal(getTrainingCategoryLabel('unknown_category'), 'にがて');
     });
   });
 });
