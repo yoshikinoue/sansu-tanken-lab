@@ -34,14 +34,52 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // --- INTERNAL HELPERS ---
 
+/**
+ * 呼び出し側が渡す `now` をミリ秒に変換する。
+ * アプリ内の呼び出しはすべて有効な Date / 有効な number / ISO文字列を渡す
+ * 前提であり、解釈できない値が来た場合は無言で現在時刻にフォールバック
+ * せず TypeError を投げて、呼び出し側のバグを顕在化させる。
+ * @param {Date|number|string} now
+ * @returns {number}
+ */
 function toMs(now) {
-  if (now instanceof Date) return now.getTime();
-  if (typeof now === 'number' && Number.isFinite(now)) return now;
-  if (typeof now === 'string') {
+  if (now instanceof Date) {
+    const ms = now.getTime();
+    if (!Number.isNaN(ms)) return ms;
+  } else if (typeof now === 'number' && Number.isFinite(now)) {
+    return now;
+  } else if (typeof now === 'string') {
     const parsed = Date.parse(now);
     if (!Number.isNaN(parsed)) return parsed;
   }
-  return Date.now();
+  throw new TypeError(`review-queue: "now" として解釈できない値です: ${String(now)}`);
+}
+
+/**
+ * 保存済みデータ側の日時（dueAt 等）をミリ秒に変換する。
+ * 保存データは壊れている可能性があるため、解釈できない場合は例外にせず
+ * NaN を返し、due 判定から外れるようにする（期限到来とは扱わない）。
+ * @param {any} value
+ * @returns {number} ミリ秒。解釈できない場合は NaN
+ */
+function parseStoredMs(value) {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') return Date.parse(value);
+  return NaN;
+}
+
+/**
+ * stepIndex を有効範囲 0..REVIEW_INTERVAL_DAYS.length-1 に収める。
+ * 範囲外の値（例: 9）が保存データから入っても、間隔テーブルの参照で
+ * undefined が混入して例外（RangeError）になるのを防ぐための正規化。
+ * @param {any} stepIndex
+ * @returns {number}
+ */
+function clampStepIndex(stepIndex) {
+  const max = REVIEW_INTERVAL_DAYS.length - 1;
+  if (typeof stepIndex !== 'number' || !Number.isFinite(stepIndex)) return 0;
+  return Math.min(Math.max(Math.trunc(stepIndex), 0), max);
 }
 
 function toIso(ms) {
@@ -67,7 +105,10 @@ function stageKeyOf(source, problem) {
   const world = (typeof rawWorld === 'string'
     ? parseInt(rawWorld.replace('world-', ''), 10)
     : Number(rawWorld)) || 1;
-  const stageInWorld = Number(problem?.stageId ?? 1) || 1;
+  const rawStage = problem?.stageId ?? 1;
+  const stageInWorld = (typeof rawStage === 'string'
+    ? parseInt(rawStage.replace('stage-', ''), 10)
+    : Number(rawStage)) || 1;
   return `stage-${(world - 1) * 3 + stageInWorld}`;
 }
 
@@ -100,6 +141,13 @@ export function ensureReviewQueue(progress) {
   if (!queue || typeof queue !== 'object' || !Array.isArray(queue.entries)) {
     progress.reviewQueue = createReviewQueue();
     return progress.reviewQueue;
+  }
+  // 保存データ由来の範囲外 stepIndex をここで正規化しておき、
+  // recordReviewResult 等の間隔テーブル参照が例外にならないようにする。
+  for (const entry of queue.entries) {
+    if (entry && typeof entry === 'object') {
+      entry.stepIndex = clampStepIndex(entry.stepIndex);
+    }
   }
   return queue;
 }
@@ -140,10 +188,14 @@ export function enqueueFromTreasureItem(progress, item, now) {
   const existing = queue.entries.find(e => e && e.key === key);
   if (existing) {
     if (existing.status === 'mastered') {
+      // 定着済みの問題を再び間違えたら、ステップ0から数え直す。
+      // attempts / correctCount もリセットし、新規エントリと同じ状態にする。
       existing.status = 'active';
       existing.stepIndex = 0;
       existing.dueAt = toIso(nowMs + REVIEW_INTERVAL_DAYS[0] * DAY_MS);
       existing.masteredAt = null;
+      existing.attempts = 0;
+      existing.correctCount = 0;
       existing.originalProblem = deepCopy(problem);
       existing.treasureItemId = item.id || existing.treasureItemId || null;
       existing.updatedAt = toIso(nowMs);
@@ -180,7 +232,10 @@ export function enqueueFromTreasureItem(progress, item, now) {
  */
 export function isDue(entry, now) {
   if (!entry || entry.status !== 'active' || !entry.dueAt) return false;
-  return toMs(entry.dueAt) <= toMs(now);
+  const dueMs = parseStoredMs(entry.dueAt);
+  // dueAt が解釈できない壊れたデータは「期限到来」とは扱わない
+  if (Number.isNaN(dueMs)) return false;
+  return dueMs <= toMs(now);
 }
 
 /**
@@ -193,8 +248,13 @@ export function getDueEntries(progress, now) {
   const queue = ensureReviewQueue(progress);
   const nowMs = toMs(now);
   return queue.entries
-    .filter(e => e && e.status === 'active' && e.dueAt && toMs(e.dueAt) <= nowMs)
-    .sort((a, b) => toMs(a.dueAt) - toMs(b.dueAt));
+    .filter(e => {
+      if (!e || e.status !== 'active' || !e.dueAt) return false;
+      const dueMs = parseStoredMs(e.dueAt);
+      // dueAt が解釈できない壊れたデータは due 判定から外す
+      return !Number.isNaN(dueMs) && dueMs <= nowMs;
+    })
+    .sort((a, b) => parseStoredMs(a.dueAt) - parseStoredMs(b.dueAt));
 }
 
 /**
@@ -212,6 +272,9 @@ export function countDueReviews(progress, now) {
  * - 期限到来後の正解: 次のステップへ進む。最終ステップ正解で mastered（定着）
  * - 期限到来後の誤答: ステップを1つ戻し（最小0）、そのステップの間隔で再スケジュール
  * - 期限前の解答: ステップは進めない（attempts のみ記録し outcome は 'early'）
+ *
+ * 次回期限は「解答した時刻 + そのステップの間隔」で決まる（解答時刻起点）。
+ * 前回の期限からの繰り越しはしないため、遅れて答えるほど次の出題も後ろへずれる。
  * @param {object} progress
  * @param {string} key エントリのキー
  * @param {boolean} isCorrect
@@ -224,12 +287,19 @@ export function recordReviewResult(progress, key, isCorrect, now) {
   if (!entry) return { entry: null, outcome: 'notFound' };
   if (entry.status !== 'active') return { entry, outcome: 'notFound' };
 
+  // ensureReviewQueue でも正規化するが、直接壊れた値が残っていても
+  // 間隔テーブル参照が例外にならないよう、ここでも範囲内に収める。
+  entry.stepIndex = clampStepIndex(entry.stepIndex);
+
   const nowMs = toMs(now);
   entry.attempts = (entry.attempts || 0) + 1;
   entry.lastAttemptAt = toIso(nowMs);
   entry.updatedAt = toIso(nowMs);
 
   if (!isDue(entry, nowMs)) {
+    // 'early' 分岐: アプリの通常フローではセッションは due なエントリだけを
+    // 対象に始まるため到達不能。到達不能だが、直接呼び出しや状態の競合に
+    // 対する安全網として残している（ステップを進めず attempts のみ記録）。
     return { entry, outcome: 'early' };
   }
 

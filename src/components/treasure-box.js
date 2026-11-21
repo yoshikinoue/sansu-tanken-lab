@@ -354,6 +354,10 @@ export class TreasureBox {
         clearTimeout(this.reviewTimer);
         this.reviewTimer = null;
       }
+      if (this.reviewSessionTimer) {
+        clearTimeout(this.reviewSessionTimer);
+        this.reviewSessionTimer = null;
+      }
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       if (this.reviewModalEl === overlay) {
         this.reviewModalEl = null;
@@ -513,7 +517,8 @@ export class TreasureBox {
     });
 
     overlay.appendChild(card);
-    document.body.appendChild(overlay);
+    // 他のモーダルと同様に #modal-root を優先し、無ければ body に付ける
+    (document.getElementById('modal-root') || document.body).appendChild(overlay);
     (numeratorInput || quotientInput || singleInput)?.focus?.();
   }
 
@@ -594,6 +599,10 @@ export class TreasureBox {
     const closeModal = () => {
       if (closed) return;
       closed = true;
+      if (this.reviewTimer) {
+        clearTimeout(this.reviewTimer);
+        this.reviewTimer = null;
+      }
       if (this.reviewSessionTimer) {
         clearTimeout(this.reviewSessionTimer);
         this.reviewSessionTimer = null;
@@ -643,7 +652,15 @@ export class TreasureBox {
 
       answered = true;
       const evalResult = CurriculumEngine.evaluateAnswer(variation, answerVal);
-      const result = onResult ? onResult(evalResult.isCorrect) : null;
+      let result = null;
+      try {
+        result = onResult ? onResult(evalResult.isCorrect) : null;
+      } catch {
+        // 結果の記録側で例外が発生しても、フィードバック表示と自動クローズ
+        // （タイマー設定）は必ずこの後の処理で実行し、モーダルが無反応の
+        // まま残らないようにする。answered は既に true のため再送もできない。
+        result = null;
+      }
       const outcome = result?.outcome;
 
       if (evalResult.isCorrect) {
@@ -702,7 +719,8 @@ export class TreasureBox {
     });
 
     overlay.appendChild(card);
-    document.body.appendChild(overlay);
+    // 他のモーダルと同様に #modal-root を優先し、無ければ body に付ける
+    (document.getElementById('modal-root') || document.body).appendChild(overlay);
     (quotientInput || singleInput)?.focus?.();
   }
 

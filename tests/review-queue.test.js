@@ -266,5 +266,126 @@ describe('Issue #20: Review Queue (spaced repetition)', () => {
       assert.ok(html.includes('launchScheduledReviewModal'), 'bundle must include the scheduled review modal');
       assert.ok(html.includes('定着'), 'bundle must include the mastered (定着) messaging');
     });
+
+    it('bundle review-queue module body matches src modulo import/export transforms', () => {
+      const srcText = fs.readFileSync(path.join(ROOT_DIR, 'src/services/review-queue.js'), 'utf8');
+      const html = fs.readFileSync(path.join(ROOT_DIR, 'sansu_tanken_lab.html'), 'utf8');
+
+      // src 側: export 構文だけを取り除く（バンドル化の変換に相当）
+      const normalizeSrc = (text) => text
+        .replace(/^export default .*;$/gm, '')
+        .replace(/^export \{[^}]*\};?$/gm, '')
+        .replace(/^export (?=(async )?(function|const|let|var|class) )/gm, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      // バンドル側: __mods ブロックを取り出し、末尾に付く return 文だけ除く
+      const marker = "__mods['services/review-queue.js'] = (function() {";
+      const start = html.indexOf(marker);
+      assert.ok(start !== -1, 'bundle must register the review-queue module');
+      const bodyStart = start + marker.length;
+      const end = html.indexOf('\n  })();', bodyStart);
+      assert.ok(end !== -1, 'bundle review-queue module block must be closed');
+      const bundleBody = html.slice(bodyStart, end)
+        .replace(/\n\s*return \{[^}]*\};?\s*$/, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      assert.equal(bundleBody, normalizeSrc(srcText),
+        'bundle copy of review-queue.js must stay in sync with src');
+    });
+  });
+
+  describe('Pi review hardening (regressions)', () => {
+    it('clamps out-of-range stepIndex when normalizing saved data', () => {
+      const data = createDefaultProgress();
+      data.reviewQueue = {
+        entries: [
+          { key: 'stage-4|p|a', stepIndex: 9, status: 'active', dueAt: '2026-11-20T09:00:00.000Z' },
+          { key: 'stage-5|p|b', stepIndex: -3, status: 'active', dueAt: '2026-11-20T09:00:00.000Z' },
+          { key: 'stage-6|p|c', stepIndex: 'oops', status: 'active', dueAt: '2026-11-20T09:00:00.000Z' }
+        ]
+      };
+      const normalized = normalizeProgressData(data);
+      assert.equal(normalized.reviewQueue.entries[0].stepIndex, REVIEW_INTERVAL_DAYS.length - 1);
+      assert.equal(normalized.reviewQueue.entries[1].stepIndex, 0);
+      assert.equal(normalized.reviewQueue.entries[2].stepIndex, 0);
+    });
+
+    it('recordReviewResult survives a raw out-of-range stepIndex (9) without RangeError', () => {
+      const progress = createDefaultProgress();
+      progress.reviewQueue.entries.push({
+        key: 'k9',
+        treasureItemId: null,
+        stageId: 'stage-4',
+        worldId: 'world-2',
+        patternType: 'p',
+        originalProblem: makeProblem(),
+        stepIndex: 9,
+        status: 'active',
+        dueAt: new Date(T0 - DAY_MS).toISOString(),
+        createdAt: new Date(T0).toISOString(),
+        updatedAt: new Date(T0).toISOString(),
+        lastAttemptAt: null,
+        masteredAt: null,
+        attempts: 0,
+        correctCount: 0
+      });
+
+      let res;
+      assert.doesNotThrow(() => { res = recordReviewResult(progress, 'k9', true, T0); });
+      // クランプされて最終ステップ扱いになるため、正解で mastered になる
+      assert.equal(res.outcome, 'mastered');
+      assert.equal(res.entry.stepIndex, REVIEW_INTERVAL_DAYS.length - 1);
+      assert.equal(res.entry.status, 'mastered');
+    });
+
+    it('ensureReviewQueue clamps stepIndex in place', () => {
+      const progress = { reviewQueue: { entries: [{ key: 'k', stepIndex: 42, status: 'active' }] } };
+      ensureReviewQueue(progress);
+      assert.equal(progress.reviewQueue.entries[0].stepIndex, REVIEW_INTERVAL_DAYS.length - 1);
+    });
+
+    it('treats an unparseable dueAt as not due', () => {
+      const { progress, item } = makeProgressWithItem();
+      const entry = enqueueFromTreasureItem(progress, item, T0);
+      entry.dueAt = 'not-a-date';
+
+      assert.equal(isDue(entry, T0 + 365 * DAY_MS), false);
+      assert.equal(countDueReviews(progress, T0 + 365 * DAY_MS), 0);
+      assert.deepEqual(getDueEntries(progress, T0 + 365 * DAY_MS), []);
+    });
+
+    it('throws TypeError when "now" cannot be interpreted', () => {
+      const { progress, item } = makeProgressWithItem();
+      const entry = enqueueFromTreasureItem(progress, item, T0);
+
+      assert.throws(() => recordReviewResult(progress, entry.key, true, 'garbage'), TypeError);
+      assert.throws(() => getDueEntries(progress, 'garbage'), TypeError);
+      assert.throws(() => countDueReviews(progress, {}), TypeError);
+      assert.throws(() => enqueueFromTreasureItem(progress, item, undefined), TypeError);
+      assert.throws(() => isDue(entry, null), TypeError);
+    });
+
+    it('resets attempts/correctCount when a mastered entry is reactivated', () => {
+      const { progress, item } = makeProgressWithItem();
+      const entry = enqueueFromTreasureItem(progress, item, T0);
+      entry.status = 'mastered';
+      entry.stepIndex = 2;
+      entry.dueAt = null;
+      entry.masteredAt = new Date(T0).toISOString();
+      entry.attempts = 7;
+      entry.correctCount = 3;
+
+      const reactivated = enqueueFromTreasureItem(progress, item, T0 + 30 * DAY_MS);
+      assert.equal(reactivated.status, 'active');
+      assert.equal(reactivated.attempts, 0);
+      assert.equal(reactivated.correctCount, 0);
+    });
+
+    it('strips a "stage-" prefix from stageId when building the fallback stage key', () => {
+      const key = buildReviewKey({ worldId: 2, stageId: 'stage-3', patternType: 'p', prompt: 'x' });
+      assert.ok(key.startsWith('stage-6|p|x'), `unexpected key: ${key}`);
+    });
   });
 });

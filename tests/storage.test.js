@@ -176,6 +176,54 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
       assert.ok(saved.treasureBox.items.every((item) => !item.mastered));
     });
 
+    it('prunes mastered review-queue entries on QuotaExceededError, keeping active entries and the newest 30 mastered', async () => {
+      const bloated = createDefaultProgress();
+      const activeEntries = Array.from({ length: 3 }, (_, idx) => ({
+        key: `active-${idx}`,
+        status: 'active',
+        stepIndex: 0,
+        dueAt: '2026-11-22T09:00:00.000Z',
+        masteredAt: null,
+        updatedAt: '2026-11-21T09:00:00.000Z',
+        originalProblem: { prompt: 'x'.repeat(100) }
+      }));
+      const masteredEntries = Array.from({ length: 40 }, (_, idx) => ({
+        key: `mastered-${idx}`,
+        status: 'mastered',
+        stepIndex: 2,
+        dueAt: null,
+        // idx が大きいほど masteredAt が新しい
+        masteredAt: new Date(Date.parse('2026-10-01T09:00:00.000Z') + idx * 60 * 1000).toISOString(),
+        updatedAt: '2026-11-21T09:00:00.000Z',
+        originalProblem: { prompt: 'y'.repeat(100) }
+      }));
+      bloated.reviewQueue = { entries: [...activeEntries, ...masteredEntries] };
+
+      const keptMastered = masteredEntries.slice(-30);
+      const prunedEstimate = JSON.stringify({
+        ...bloated,
+        reviewQueue: { entries: [...activeEntries, ...keptMastered] }
+      }).length;
+
+      const mockStorage = createMockLocalStorage({ maxBytes: prunedEstimate + 500 });
+      const ok = await saveProgress(bloated, { storage: mockStorage, skipServer: true });
+      assert.equal(ok, true);
+
+      const saved = readLocalProgress({ storage: mockStorage });
+      assert.ok(saved);
+      assert.equal(saved.reviewQueue.entries.length, 33, 'active 3 + newest mastered 30 must remain');
+      const keys = saved.reviewQueue.entries.map(e => e.key);
+      for (const e of activeEntries) {
+        assert.ok(keys.includes(e.key), `active entry ${e.key} must be kept`);
+      }
+      for (const e of keptMastered) {
+        assert.ok(keys.includes(e.key), `newest mastered entry ${e.key} must be kept`);
+      }
+      for (const e of masteredEntries.slice(0, 10)) {
+        assert.ok(!keys.includes(e.key), `oldest mastered entry ${e.key} must be pruned`);
+      }
+    });
+
     it('rejects saving invalid progress payload with descriptive error', async () => {
       await assert.rejects(
         () => saveProgress({ schemaVersion: '9.9.9' }, { skipServer: true }),
