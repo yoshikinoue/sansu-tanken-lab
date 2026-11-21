@@ -108,7 +108,11 @@ export function createDefaultProgress() {
       firstTryCorrectCount: 0,
       totalAttempts: 0,
       miniLessonSeen: false,
-      lastPlayedAt: null
+      lastPlayedAt: null,
+      // Issue #23: extra-session results (challenge / training records are
+      // stored here once played; null until then)
+      challenge: null,
+      training: null
     };
   }
 
@@ -262,7 +266,9 @@ export function normalizeProgressData(data) {
             firstTryCorrectCount: 0,
             totalAttempts: 0,
             miniLessonSeen: false,
-            lastPlayedAt: null
+            lastPlayedAt: null,
+            challenge: null,
+            training: null
           }),
           ...val,
           stageId: val.stageId || key

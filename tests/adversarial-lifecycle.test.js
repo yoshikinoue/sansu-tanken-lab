@@ -1606,13 +1606,20 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       }
 
       // The normal clear record is already finalized when the offer appears
-      assert.equal(app.currentSession.firstTryCount, 5);
+      assert.equal(app.currentSession.firstTryCount, total);
       assert.equal(app.progress.stageProgress['stage-1'].stars, 3);
       assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
 
       const challengeBtn = app.stageCompleteModal.querySelector('.btn-stage-challenge');
       assert.ok(challengeBtn, 'challenge button must be offered on a perfect first-try clear');
       assert.equal(app.stageCompleteModal.querySelector('.btn-stage-training'), null);
+
+      // Snapshot every side-effect channel the extra session must not touch
+      const scoreBefore = app.progress.gamification.totalScore;
+      const expBefore = app.progress.gamification.labExp;
+      const selfCorrBefore = app.progress.gamification.selfCorrectionCount;
+      const ticketsBefore = app.progress.bonusGame.tickets;
+      const treasureBefore = app.progress.treasureBox.items.length;
 
       domClick(challengeBtn);
       assert.equal(app.stageCompleteModal, null);
@@ -1622,6 +1629,14 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
 
       for (let i = 0; i < 3; i++) {
         const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i === 0) {
+          // Miss once and self-correct: extra sessions record first-try
+          // performance, so this must lower the recorded first-try count
+          // (a plain correct count would stay a meaningless perfect 3).
+          submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
         submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
         if (i < 2) timers.flushAdvance();
       }
@@ -1629,9 +1644,17 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       const sp = app.progress.stageProgress['stage-1'];
       assert.equal(sp.challenge.played, true);
       assert.equal(sp.challenge.attempts, 1);
-      assert.equal(sp.challenge.lastCorrectCount, 3);
-      assert.equal(sp.challenge.bestCorrectCount, 3);
+      assert.equal(sp.challenge.lastFirstTryCount, 2);
+      assert.equal(sp.challenge.bestFirstTryCount, 2);
+      assert.equal(sp.challenge.lastSelfCorrectedCount, 1);
       assert.equal(sp.stars, 3, 'challenge results must not change stars');
+      // No side effects: misses in extra sessions never enter the treasure
+      // box, and no score / EXP / self-correction / ticket counters move.
+      assert.equal(app.progress.treasureBox.items.length, treasureBefore, 'extra-session misses must not enter the treasure box');
+      assert.equal(app.progress.gamification.totalScore, scoreBefore, 'extra sessions must not award score');
+      assert.equal(app.progress.gamification.labExp, expBefore, 'extra sessions must not award EXP');
+      assert.equal(app.progress.gamification.selfCorrectionCount, selfCorrBefore, 'extra sessions must not count self-corrections');
+      assert.equal(app.progress.bonusGame.tickets, ticketsBefore, 'extra sessions must not award tickets');
       assert.ok(app.stageCompleteModal, 'extra-session result modal must be open');
       assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
     });
@@ -1663,6 +1686,13 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.ok(trainingBtn, 'training button must be offered when a category was missed twice');
       assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
 
+      // Snapshot every side-effect channel the extra session must not touch
+      // (the 2 normal-session misses already added 2 treasure items).
+      const scoreBefore = app.progress.gamification.totalScore;
+      const expBefore = app.progress.gamification.labExp;
+      const ticketsBefore = app.progress.bonusGame.tickets;
+      const treasureBefore = app.progress.treasureBox.items.length;
+
       domClick(trainingBtn);
       assert.equal(app.currentSession.mode, 'training');
       assert.equal(app.currentSession.trainingCategory, category);
@@ -1678,9 +1708,97 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       const sp = app.progress.stageProgress['stage-1'];
       assert.equal(sp.training.sessions, 1);
       assert.equal(sp.training.lastCategory, category);
-      assert.equal(sp.training.lastCorrectCount, 3);
+      assert.equal(sp.training.lastFirstTryCount, 3);
+      assert.equal(sp.training.bestFirstTryCount, 3);
+      assert.equal(sp.training.lastSelfCorrectedCount, 0);
       assert.equal(sp.cleared, true);
+      // No side effects from the extra session itself
+      assert.equal(app.progress.treasureBox.items.length, treasureBefore, 'extra sessions must not add treasure items');
+      assert.equal(app.progress.gamification.totalScore, scoreBefore, 'extra sessions must not award score');
+      assert.equal(app.progress.gamification.labExp, expBefore, 'extra sessions must not award EXP');
+      assert.equal(app.progress.bonusGame.tickets, ticketsBefore, 'extra sessions must not award tickets');
       assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
+    });
+
+    it('Issue #23: designed trap values on two different problems offer training for that specific category', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i < 2) {
+          // Answer with the problem's designed trap value so the diagnosis
+          // lands on the specific trap category (stage 1-1 addition traps
+          // are carry_forgotten), not the general_recheck fallback.
+          const trap = prob.commonTrap;
+          assert.ok(trap && trap.mistakeValue !== undefined, 'problem must carry a designed trap');
+          assert.equal(trap.reasonCategory, 'carry_forgotten');
+          submitKeypadAnswer(env.viewContainer, trap.mistakeValue);
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      const records = app.currentSession.errorRecords;
+      assert.equal(records.length, 2);
+      assert.notEqual(records[0].problem.id, records[1].problem.id, 'misses must be on two different problems');
+      assert.equal(records[0].reasonCategory, 'carry_forgotten', 'trap value must diagnose as the specific category');
+      assert.equal(records[1].reasonCategory, 'carry_forgotten');
+
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      const trainingBtn = app.stageCompleteModal.querySelector('.btn-stage-training');
+      assert.ok(trainingBtn, 'training button must be offered for the specific trap category');
+      assert.ok(
+        getAllText(trainingBtn).includes('くり上がり'),
+        'training button must name the specific category'
+      );
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
+
+      domClick(trainingBtn);
+      assert.equal(app.currentSession.mode, 'training');
+      assert.equal(app.currentSession.trainingCategory, 'carry_forgotten');
+      assert.equal(app.currentSession.problems.length, 3);
+    });
+
+    it('Issue #23: missing the same problem twice does not offer training (distinct-problem rule)', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i === 0) {
+          // Miss the SAME problem twice (two error records, one problem)
+          for (let miss = 0; miss < 2; miss++) {
+            submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+            solveStepGuideModal(app.arenaStepGuide);
+            domClick(env.modalRoot.querySelector('.step-finish-btn'));
+          }
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      assert.equal(app.currentSession.errorRecords.length, 2, 'both misses are recorded');
+      assert.equal(
+        app.currentSession.errorRecords[0].problem.id,
+        app.currentSession.errorRecords[1].problem.id,
+        'both misses belong to the same problem'
+      );
+      assert.equal(
+        app.currentSession.errorRecords[0].reasonCategory,
+        app.currentSession.errorRecords[1].reasonCategory
+      );
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      assert.equal(
+        app.stageCompleteModal.querySelector('.btn-stage-training'),
+        null,
+        'one problem missed twice must not qualify for targeted training'
+      );
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
     });
 
     it('Issue #23: no adaptation offers appear without a perfect clear or a repeated category', () => {
