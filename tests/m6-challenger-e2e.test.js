@@ -605,7 +605,7 @@ describe('Milestone 6: Comprehensive Challenger E2E Journey Stress Test', () => 
 
     before(() => {
       progress = StorageService.createDefaultProgress();
-      for (let s = 1; s <= 15; s++) {
+      for (let s = 1; s <= 18; s++) {
         progress.stageProgress[`stage-${s}`].cleared = true;
         progress.stageProgress[`stage-${s}`].stars = 3;
       }
@@ -626,14 +626,15 @@ describe('Milestone 6: Comprehensive Challenger E2E Journey Stress Test', () => 
       assert.equal(verifyPin(1234, '1234'), true);
     });
 
-    it('CJ-3.2: calculates 100% radar chart scores across all 5 worlds upon full completion', () => {
+    it('CJ-3.2: calculates 100% radar chart scores across all 6 worlds upon full completion', () => {
       const scores = calculateRadarScores(progress);
       assert.deepEqual(scores, {
         world1: 100,
         world2: 100,
         world3: 100,
         world4: 100,
-        world5: 100
+        world5: 100,
+        world6: 100
       });
     });
 
