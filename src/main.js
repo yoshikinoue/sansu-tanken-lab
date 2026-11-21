@@ -745,6 +745,17 @@ export class MathLabApp {
       });
       this.syncGamificationProgress();
 
+      // Issue #21: record the diagnosis pattern so the parent board can
+      // aggregate つまずきパターン later. Persisted by the save below.
+      if (this.progress) {
+        StorageService.appendDiagnosisLogEntry(this.progress, {
+          category: diagnosis?.reasonCategory || 'general_recheck',
+          worldId: prob.worldId || session.worldId || null,
+          stageId: session.stageId || null,
+          at: new Date().toISOString()
+        });
+      }
+
       // Quarantine problem in Power-Up Treasure Box
       if (this.progress?.treasureBox) {
         const addedItem = addTreasureItem(this.progress.treasureBox, prob);

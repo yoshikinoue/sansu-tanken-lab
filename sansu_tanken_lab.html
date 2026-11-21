@@ -5833,6 +5833,105 @@ function diagnoseError(problem, userAnswer) {
 }
 
 /**
+ * 誤答診断カテゴリ（reasonCategory）の保護者向け表示名。
+ * diagnoseError が返す診断文の用語に合わせている。
+ * Issue #21: 保護者ボードの「つまずきパターンの記録」で使用する。
+ */
+const REASON_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり忘れ',
+  borrow_forgotten: 'くり下がり忘れ',
+  place_value_slip: '位の計算のずれ',
+  shift_forgotten: '位のずれ・0の立て忘れ',
+  order_mistake: '計算の順序のまちがい',
+  quotient_too_small: '商が小さすぎる',
+  quotient_too_big: '商が大きすぎる',
+  trial_quotient_too_small: '仮の商が小さすぎる',
+  trial_quotient_too_big: '仮の商が大きすぎる',
+  remainder_scale: 'あまりの位の戻し忘れ',
+  trap_detected: 'ひっかけパターン',
+  calculation_slip: '計算ミス',
+  general_recheck: '見直しが必要な計算'
+};
+
+/**
+ * reasonCategory の表示名を返す。未知のカテゴリは汎用名にフォールバックする。
+ * @param {string} category
+ * @returns {string}
+ */
+function getReasonCategoryLabel(category) {
+  return REASON_CATEGORY_LABELS[category] || 'その他のつまずき';
+}
+
+const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
+ * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
+ * @param {Array} log 診断ログ（不正な項目は無視される）
+ * @param {Date|number|string} [nowInput=new Date()] 集計基準時刻
+ * @returns {{
+ *   totalEntries: number,
+ *   byCategory: Array<{category: string, label: string, total: number, recent30: number, recent14: number}>,
+ *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
+ *   resolvedPatterns: Array<{category: string, label: string, total: number}>
+ * }} focusPatterns は直近30日で多い順に最大2件、
+ *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ */
+function summarizeDiagnosisLog(log, nowInput = new Date()) {
+  const nowMs = nowInput instanceof Date
+    ? nowInput.getTime()
+    : typeof nowInput === 'number'
+      ? nowInput
+      : Date.parse(nowInput);
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+
+  const stats = new Map();
+  let totalEntries = 0;
+
+  if (Array.isArray(log)) {
+    for (const entry of log) {
+      if (!entry || typeof entry.category !== 'string' || entry.category === '') continue;
+      const atMs = Date.parse(entry.at);
+      if (!Number.isFinite(atMs)) continue;
+      totalEntries++;
+      let s = stats.get(entry.category);
+      if (!s) {
+        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
+        stats.set(entry.category, s);
+      }
+      s.total++;
+      const ageMs = safeNow - atMs;
+      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+    }
+  }
+
+  const byCategory = [...stats.values()]
+    .map((s) => ({ ...s, label: getReasonCategoryLabel(s.category) }))
+    .sort((a, b) =>
+      (b.total - a.total) ||
+      (b.recent30 - a.recent30) ||
+      a.category.localeCompare(b.category)
+    );
+
+  const focusPatterns = byCategory
+    .filter((s) => s.recent30 > 0)
+    .sort((a, b) =>
+      (b.recent30 - a.recent30) ||
+      (b.total - a.total) ||
+      a.category.localeCompare(b.category)
+    )
+    .slice(0, 2)
+    .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
+
+  const resolvedPatterns = byCategory
+    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .map(({ category, label, total }) => ({ category, label, total }));
+
+  return { totalEntries, byCategory, focusPatterns, resolvedPatterns };
+}
+
+/**
  * 正解と誤答で最初に異なる桁インデックス（一の位=0, 十の位=1, ...）を返す
  * @param {number} expected
  * @param {number} actual
@@ -5912,12 +6011,15 @@ const CurriculumEngine = {
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog,
   normalizeUserAnswer
 };
 
 const __default_export = CurriculumEngine;
 
-    return { WORLDS_METADATA, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, CurriculumEngine, default: __default_export };
+    return { WORLDS_METADATA, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, REASON_CATEGORY_LABELS, getReasonCategoryLabel, summarizeDiagnosisLog, CurriculumEngine, default: __default_export };
   })();
 
   // === services/storage-service.js ===
@@ -5938,6 +6040,7 @@ const TRANSFER_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTVWXYZ';
 const TRANSFER_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 const DEFAULT_DEBOUNCE_MS = 1000;
 const TOTAL_STAGES = 15;
+const DIAGNOSIS_LOG_LIMIT = 500;
 
 // In-memory storage fallback for Node.js or restricted browser environments
 const memoryStore = new Map();
@@ -6060,6 +6163,7 @@ function createDefaultProgress() {
     reviewQueue: {
       entries: []
     },
+    diagnosisLog: [],
     parentCheer: {
       parentPinHash: '1234',
       pinConfigured: false,
@@ -6108,6 +6212,58 @@ function validateProgressData(data) {
     return { valid: false, error: 'stageProgress形式が不正です' };
   }
   return { valid: true };
+}
+
+/**
+ * Sanitize a raw diagnosis log: keep only well-formed entries
+ * ({ category: string, at: parseable date string }) and cap to the latest
+ * DIAGNOSIS_LOG_LIMIT entries. Issue #21.
+ * @param {any} rawLog
+ * @returns {Array<{category: string, worldId: any, stageId: any, at: string}>}
+ */
+function sanitizeDiagnosisLog(rawLog) {
+  if (!Array.isArray(rawLog)) return [];
+  const cleaned = [];
+  for (const entry of rawLog) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (typeof entry.category !== 'string' || entry.category === '') continue;
+    if (typeof entry.at !== 'string' || !Number.isFinite(Date.parse(entry.at))) continue;
+    cleaned.push({
+      category: entry.category,
+      worldId: entry.worldId ?? null,
+      stageId: entry.stageId ?? null,
+      at: entry.at
+    });
+  }
+  return cleaned.slice(-DIAGNOSIS_LOG_LIMIT);
+}
+
+/**
+ * Append one diagnosis entry to progress.diagnosisLog, creating the log when
+ * missing (legacy saves) and capping it to the latest DIAGNOSIS_LOG_LIMIT
+ * entries. Mutates and returns the progress object. Issue #21.
+ * @param {object} progress
+ * @param {{category: string, worldId?: any, stageId?: any, at?: string}} entry
+ * @returns {object} progress
+ */
+function appendDiagnosisLogEntry(progress, entry) {
+  if (!progress || typeof progress !== 'object') return progress;
+  if (!entry || typeof entry.category !== 'string' || entry.category === '') return progress;
+  if (!Array.isArray(progress.diagnosisLog)) {
+    progress.diagnosisLog = [];
+  }
+  progress.diagnosisLog.push({
+    category: entry.category,
+    worldId: entry.worldId ?? null,
+    stageId: entry.stageId ?? null,
+    at: typeof entry.at === 'string' && Number.isFinite(Date.parse(entry.at))
+      ? entry.at
+      : new Date().toISOString()
+  });
+  if (progress.diagnosisLog.length > DIAGNOSIS_LOG_LIMIT) {
+    progress.diagnosisLog = progress.diagnosisLog.slice(-DIAGNOSIS_LOG_LIMIT);
+  }
+  return progress;
 }
 
 /**
@@ -6181,6 +6337,7 @@ function normalizeProgressData(data) {
             .map(e => ({ ...e }))
         : []
     },
+    diagnosisLog: sanitizeDiagnosisLog(cloned.diagnosisLog),
     parentCheer: {
       ...base.parentCheer,
       ...rawParentCheer,
@@ -6229,6 +6386,9 @@ function pruneProgressForQuota(userData) {
   }
   if (pruned.parentCheer && Array.isArray(pruned.parentCheer.cheerMessages)) {
     pruned.parentCheer.cheerMessages = pruned.parentCheer.cheerMessages.slice(-10);
+  }
+  if (Array.isArray(pruned.diagnosisLog)) {
+    pruned.diagnosisLog = pruned.diagnosisLog.slice(-100);
   }
   return pruned;
 }
@@ -6957,9 +7117,12 @@ const StorageService = {
   TRANSFER_TTL_MS,
   DEFAULT_DEBOUNCE_MS,
   TOTAL_STAGES,
+  DIAGNOSIS_LOG_LIMIT,
   createDefaultProgress,
   validateProgressData,
   normalizeProgressData,
+  sanitizeDiagnosisLog,
+  appendDiagnosisLogEntry,
   readLocalProgress,
   resolveProgressConflict,
   loadProgress,
@@ -6979,7 +7142,7 @@ const StorageService = {
 
 const __default_export = StorageService;
 
-    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, readLocalProgress, isSyncPending, isStaticHostingEnvironment, getOfflineBannerText, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
+    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, DIAGNOSIS_LOG_LIMIT, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, sanitizeDiagnosisLog, appendDiagnosisLogEntry, readLocalProgress, isSyncPending, isStaticHostingEnvironment, getOfflineBannerText, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
   })();
 
   // === services/sound-effects.js ===
@@ -14488,6 +14651,7 @@ const StorageService = __mods['services/storage-service.js'];
 const SoundEffects = __mods['services/sound-effects.js'];
 const GamificationEngine = __mods['services/gamification-engine.js'];
 const { showToast } = __mods['components/toast-feedback.js'];
+const { summarizeDiagnosisLog } = __mods['services/curriculum-engine.js'];
 
 // --- PURE HELPER FUNCTIONS (HEADLESS COMPATIBLE) ---
 
@@ -15035,6 +15199,89 @@ class ParentBoard {
       ${radarRowsHtml}
     `;
     dashboard.appendChild(radarCard);
+
+    // Diagnosis Pattern Stats Card (Issue #21)
+    const diagnosisCard = document.createElement('div');
+    diagnosisCard.className = 'card-dark diagnosis-stats-card';
+    diagnosisCard.style.padding = '24px';
+    diagnosisCard.style.borderRadius = 'var(--radius-xl)';
+    diagnosisCard.style.border = '1px solid var(--color-card-border)';
+
+    const diagnosisSummary = summarizeDiagnosisLog(this.progress?.diagnosisLog, new Date());
+    let diagnosisBodyHtml = '';
+    if (diagnosisSummary.totalEntries === 0) {
+      diagnosisBodyHtml = `
+        <p style="font-size:0.9rem; color:var(--color-text-muted); margin:0;">
+          まだ記録がありません。まちがえた問題のつまずきパターンが、ここに自動で記録されます。
+        </p>
+      `;
+    } else {
+      const patternRow = (label, detail) => `
+        <div class="diagnosis-pattern-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 12px; background:rgba(0,0,0,0.25); border-radius:var(--radius-md); margin-top:8px;">
+          <span style="font-weight:700; font-size:0.95rem;">${label}</span>
+          <span style="font-size:0.85rem; color:var(--color-text-muted);">${detail}</span>
+        </div>
+      `;
+      const focusHtml = diagnosisSummary.focusPatterns.length > 0
+        ? diagnosisSummary.focusPatterns
+          .map((p) => patternRow(p.label, `直近30日で ${p.recent30} 回（これまで ${p.total} 回）`))
+          .join('')
+        : `
+          <p style="font-size:0.9rem; color:var(--color-text-muted); margin:8px 0 0;">
+            直近30日につまずいた記録はありません。
+          </p>
+        `;
+      const resolvedHtml = diagnosisSummary.resolvedPatterns.length > 0
+        ? `
+          <div style="font-size:0.9rem; font-weight:700; color:var(--color-emerald-success); margin-top:20px;">
+            ✅ 解消したパターン
+          </div>
+          ${diagnosisSummary.resolvedPatterns
+            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近14日は出ていません）`))
+            .join('')}
+        `
+        : '';
+      diagnosisBodyHtml = `
+        <div style="font-size:0.9rem; font-weight:700; color:var(--color-amber-warm);">
+          🎯 今の重点パターン
+        </div>
+        ${focusHtml}
+        ${resolvedHtml}
+      `;
+    }
+
+    diagnosisCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <span>🧩</span>
+        <span>つまずきパターンの記録</span>
+      </h3>
+      ${diagnosisBodyHtml}
+    `;
+    dashboard.appendChild(diagnosisCard);
+
+    // Learning Scope Notice Card (Issue #22): calculation-only scope
+    const scopeCard = document.createElement('div');
+    scopeCard.className = 'card-dark learning-scope-card';
+    scopeCard.style.padding = '24px';
+    scopeCard.style.borderRadius = 'var(--radius-xl)';
+    scopeCard.style.border = '1px solid var(--color-card-border)';
+
+    scopeCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <span>📘</span>
+        <span>このアプリの対象範囲</span>
+      </h3>
+      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+        このアプリは、小学4年生の算数のうち<strong>「計算」の練習に特化</strong>したアプリです。
+      </p>
+      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+        <strong>対象：</strong>たし算・ひき算・かけ算・わり算の筆算、計算の順序と工夫、虫食い算（□の式）です。小学3年生の計算の復習も含みます。
+      </p>
+      <p style="font-size:0.9rem; line-height:1.7; color:var(--color-text-muted);">
+        <strong>対象外：</strong>小数・分数・大きな数と概数・文章題・図形・面積・折れ線グラフなどは扱っていません。学校の授業の全範囲をカバーするものではありませんので、計算以外の単元は教科書などとあわせてご活用ください。
+      </p>
+    `;
+    dashboard.appendChild(scopeCard);
 
     // Cheer Stamp Sender Section
     const cheerCard = document.createElement('div');
@@ -16146,6 +16393,17 @@ class MathLabApp {
         isStageComplete: false
       });
       this.syncGamificationProgress();
+
+      // Issue #21: record the diagnosis pattern so the parent board can
+      // aggregate つまずきパターン later. Persisted by the save below.
+      if (this.progress) {
+        StorageService.appendDiagnosisLogEntry(this.progress, {
+          category: diagnosis?.reasonCategory || 'general_recheck',
+          worldId: prob.worldId || session.worldId || null,
+          stageId: session.stageId || null,
+          at: new Date().toISOString()
+        });
+      }
 
       // Quarantine problem in Power-Up Treasure Box
       if (this.progress?.treasureBox) {
