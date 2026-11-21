@@ -3403,7 +3403,7 @@ export function generateStageProblems(worldId, stageId, history = [], options = 
 /**
  * 診断カテゴリ（reasonCategory）の表示名マップ（Issue #23: にがて特訓の対象表示用）
  */
-export const REASON_CATEGORY_LABELS = {
+export const TRAINING_CATEGORY_LABELS = {
   carry_forgotten: 'くり上がり',
   borrow_forgotten: 'くり下がり',
   shift_forgotten: '位のずれ',
@@ -3416,12 +3416,12 @@ export const REASON_CATEGORY_LABELS = {
 };
 
 /**
- * 診断カテゴリの表示名を返す
+ * 診断カテゴリの表示名を返す（にがて特訓用）
  * @param {string} category reasonCategory
  * @returns {string}
  */
-export function getReasonCategoryLabel(category) {
-  return REASON_CATEGORY_LABELS[category] || 'にがて';
+export function getTrainingCategoryLabel(category) {
+  return TRAINING_CATEGORY_LABELS[category] || 'にがて';
 }
 
 /**
@@ -3851,6 +3851,105 @@ export function diagnoseError(problem, userAnswer) {
 }
 
 /**
+ * 誤答診断カテゴリ（reasonCategory）の保護者向け表示名。
+ * diagnoseError が返す診断文の用語に合わせている。
+ * Issue #21: 保護者ボードの「つまずきパターンの記録」で使用する。
+ */
+export const REASON_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり忘れ',
+  borrow_forgotten: 'くり下がり忘れ',
+  place_value_slip: '位の計算のずれ',
+  shift_forgotten: '位のずれ・0の立て忘れ',
+  order_mistake: '計算の順序のまちがい',
+  quotient_too_small: '商が小さすぎる',
+  quotient_too_big: '商が大きすぎる',
+  trial_quotient_too_small: '仮の商が小さすぎる',
+  trial_quotient_too_big: '仮の商が大きすぎる',
+  remainder_scale: 'あまりの位の戻し忘れ',
+  trap_detected: 'ひっかけパターン',
+  calculation_slip: '計算ミス',
+  general_recheck: '見直しが必要な計算'
+};
+
+/**
+ * reasonCategory の表示名を返す。未知のカテゴリは汎用名にフォールバックする。
+ * @param {string} category
+ * @returns {string}
+ */
+export function getReasonCategoryLabel(category) {
+  return REASON_CATEGORY_LABELS[category] || 'その他のつまずき';
+}
+
+const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
+ * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
+ * @param {Array} log 診断ログ（不正な項目は無視される）
+ * @param {Date|number|string} [nowInput=new Date()] 集計基準時刻
+ * @returns {{
+ *   totalEntries: number,
+ *   byCategory: Array<{category: string, label: string, total: number, recent30: number, recent14: number}>,
+ *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
+ *   resolvedPatterns: Array<{category: string, label: string, total: number}>
+ * }} focusPatterns は直近30日で多い順に最大2件、
+ *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ */
+export function summarizeDiagnosisLog(log, nowInput = new Date()) {
+  const nowMs = nowInput instanceof Date
+    ? nowInput.getTime()
+    : typeof nowInput === 'number'
+      ? nowInput
+      : Date.parse(nowInput);
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+
+  const stats = new Map();
+  let totalEntries = 0;
+
+  if (Array.isArray(log)) {
+    for (const entry of log) {
+      if (!entry || typeof entry.category !== 'string' || entry.category === '') continue;
+      const atMs = Date.parse(entry.at);
+      if (!Number.isFinite(atMs)) continue;
+      totalEntries++;
+      let s = stats.get(entry.category);
+      if (!s) {
+        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
+        stats.set(entry.category, s);
+      }
+      s.total++;
+      const ageMs = safeNow - atMs;
+      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+    }
+  }
+
+  const byCategory = [...stats.values()]
+    .map((s) => ({ ...s, label: getReasonCategoryLabel(s.category) }))
+    .sort((a, b) =>
+      (b.total - a.total) ||
+      (b.recent30 - a.recent30) ||
+      a.category.localeCompare(b.category)
+    );
+
+  const focusPatterns = byCategory
+    .filter((s) => s.recent30 > 0)
+    .sort((a, b) =>
+      (b.recent30 - a.recent30) ||
+      (b.total - a.total) ||
+      a.category.localeCompare(b.category)
+    )
+    .slice(0, 2)
+    .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
+
+  const resolvedPatterns = byCategory
+    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .map(({ category, label, total }) => ({ category, label, total }));
+
+  return { totalEntries, byCategory, focusPatterns, resolvedPatterns };
+}
+
+/**
  * 正解と誤答で最初に異なる桁インデックス（一の位=0, 十の位=1, ...）を返す
  * @param {number} expected
  * @param {number} actual
@@ -3919,8 +4018,8 @@ export function generateSingleProblem(worldId, stageId, questionIndex = 1, level
 
 export const CurriculumEngine = {
   WORLDS_METADATA,
-  REASON_CATEGORY_LABELS,
-  getReasonCategoryLabel,
+  TRAINING_CATEGORY_LABELS,
+  getTrainingCategoryLabel,
   getWorldsMetadata,
   getStageMetadata,
   normalizeWorldAndStage,
@@ -3935,6 +4034,9 @@ export const CurriculumEngine = {
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog,
   normalizeUserAnswer
 };
 

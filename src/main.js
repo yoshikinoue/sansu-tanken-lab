@@ -13,6 +13,7 @@ import * as StorageService from './services/storage-service.js';
 import * as SoundEffects from './services/sound-effects.js';
 import * as SpeechService from './services/speech-service.js';
 import * as GamificationEngine from './services/gamification-engine.js';
+import * as ReviewQueue from './services/review-queue.js';
 
 import CanvasPad, { clear as clearPad } from './components/canvas-pad.js';
 import Keypad, { getValue as getKeypadValue } from './components/keypad.js';
@@ -72,6 +73,7 @@ export class MathLabApp {
     this.stageCompleteModal = null;
     this.bonusModal = null;
     this.characterBookModal = null;
+    this.reviewSessionBox = null;
   }
 
   syncGamificationProgress() {
@@ -328,6 +330,11 @@ export class MathLabApp {
     }
     this.bonusModal = null;
 
+    if (this.reviewSessionBox && typeof this.reviewSessionBox.destroy === 'function') {
+      this.reviewSessionBox.destroy();
+    }
+    this.reviewSessionBox = null;
+
     if (this.characterBookModal && typeof this.characterBookModal.destroy === 'function') {
       this.characterBookModal.destroy();
     }
@@ -378,6 +385,10 @@ export class MathLabApp {
     this.activeViewComponent = new StageMap({
       container,
       progress: this.progress,
+      reviewDueCount: this.progress ? ReviewQueue.countDueReviews(this.progress, new Date()) : 0,
+      onStartReviewQueue: () => {
+        this.startReviewSession();
+      },
       onSelectStage: (stageId) => {
         window.location.hash = `#stage/${stageId}`;
       },
@@ -834,9 +845,24 @@ export class MathLabApp {
         });
         this.syncGamificationProgress();
 
+        // Issue #21: record the diagnosis pattern so the parent board can
+        // aggregate つまずきパターン later. Persisted by the save below.
+        if (this.progress) {
+          StorageService.appendDiagnosisLogEntry(this.progress, {
+            category: diagnosis?.reasonCategory || 'general_recheck',
+            worldId: prob.worldId || session.worldId || null,
+            stageId: session.stageId || null,
+            at: new Date().toISOString()
+          });
+        }
+
         // Quarantine problem in Power-Up Treasure Box
         if (this.progress?.treasureBox) {
-          addTreasureItem(this.progress.treasureBox, prob);
+          const addedItem = addTreasureItem(this.progress.treasureBox, prob);
+          // Issue #20: schedule a spaced review for this missed problem.
+          // This is separate from the treasure-box mastery (その場の卒業):
+          // the entry only advances when answered after its due date.
+          ReviewQueue.enqueueFromTreasureItem(this.progress, addedItem, new Date());
           StorageService.saveProgress(this.progress).catch(() => {});
         }
       }
@@ -988,7 +1014,7 @@ export class MathLabApp {
       errorRecords: session.errorRecords || []
     });
     const trainingLabel = adaptation.trainingCategory
-      ? CurriculumEngine.getReasonCategoryLabel(adaptation.trainingCategory)
+      ? CurriculumEngine.getTrainingCategoryLabel(adaptation.trainingCategory)
       : '';
 
     card.innerHTML = `
@@ -1266,6 +1292,73 @@ export class MathLabApp {
         }
       }
     }).open(modalRoot);
+  }
+
+  /**
+   * Issue #20: 復習セッションを開始する。
+   * 期限到来エントリの類題を宝箱チャレンジと同じモーダルで順に出題し、
+   * 結果を復習スケジュールにだけ反映する（宝箱の卒業条件には影響しない）。
+   */
+  startReviewSession() {
+    if (!this.progress) return;
+
+    const dueEntries = ReviewQueue.getDueEntries(this.progress, new Date());
+    if (dueEntries.length === 0) {
+      showToast(null, 'encourage', '今日の復習はありません！');
+      return;
+    }
+
+    if (!this.reviewSessionBox) {
+      this.reviewSessionBox = new TreasureBox({
+        progress: this.progress,
+        onSave: (p) => StorageService.saveProgress(p),
+        onUpdateHeader: () => {
+          this.syncGamificationProgress();
+          this.updateHeaderStats();
+        }
+      });
+    } else {
+      this.reviewSessionBox.progress = this.progress;
+    }
+
+    const queue = [...dueEntries];
+    let answeredCount = 0;
+
+    const finishSession = () => {
+      if (answeredCount > 0) {
+        showToast(null, 'success', `今日の復習が終わったよ！${answeredCount}件チャレンジしました！`);
+      }
+      // Refresh the map so the due-count banner reflects the new schedule.
+      if (this.currentRoute.view === '#map') {
+        this.handleRoute();
+      }
+    };
+
+    const step = () => {
+      const entry = queue.shift();
+      if (!entry) {
+        finishSession();
+        return;
+      }
+      this.reviewSessionBox.launchScheduledReviewModal(entry, {
+        onResult: (isCorrect) => {
+          answeredCount++;
+          const result = ReviewQueue.recordReviewResult(this.progress, entry.key, isCorrect, new Date());
+          StorageService.saveProgress(this.progress).catch(() => {});
+          return result;
+        },
+        onClose: (answered) => {
+          if (answered) {
+            step();
+          } else {
+            // Aborted mid-session: remaining entries stay scheduled.
+            finishSession();
+          }
+        }
+      });
+    };
+
+    step();
   }
 
   renderTreasureBox(container) {

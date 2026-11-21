@@ -12,11 +12,14 @@ import CurriculumEngine, {
   evaluateStageAdaptation,
   generateChallengeProblems,
   selectTrainingProblems,
-  getReasonCategoryLabel,
+  getTrainingCategoryLabel,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
-  normalizeUserAnswer
+  normalizeUserAnswer,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog
 } from '../src/services/curriculum-engine.js';
 import { StepGuideModal } from '../src/components/step-guide.js';
 
@@ -557,9 +560,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
 
     it('provides Japanese labels for diagnosis categories', () => {
-      assert.equal(getReasonCategoryLabel('carry_forgotten'), 'くり上がり');
-      assert.equal(getReasonCategoryLabel('general_recheck'), '計算ミス');
-      assert.equal(getReasonCategoryLabel('unknown_category'), 'にがて');
+      assert.equal(getTrainingCategoryLabel('carry_forgotten'), 'くり上がり');
+      assert.equal(getTrainingCategoryLabel('general_recheck'), '計算ミス');
+      assert.equal(getTrainingCategoryLabel('unknown_category'), 'にがて');
     });
   });
 });
@@ -812,5 +815,84 @@ describe('BUG-008: hint and step-guide wording must match the actual problem and
     };
     const modal = new StepGuideModal({ problem, diagnosis });
     assert.equal(modal.session.steps[0].explanation, 'original too-small explanation');
+  });
+});
+
+describe('Issue #21: diagnosis log summary for the parent board', () => {
+  const NOW = new Date('2026-11-21T12:00:00.000Z');
+  const daysAgo = (n) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
+  const entry = (category, n) => ({ category, worldId: 1, stageId: 'stage-1', at: daysAgo(n) });
+
+  it('labels every built-in reason category in Japanese with a safe fallback', () => {
+    assert.equal(getReasonCategoryLabel('carry_forgotten'), 'くり上がり忘れ');
+    assert.equal(getReasonCategoryLabel('borrow_forgotten'), 'くり下がり忘れ');
+    assert.equal(getReasonCategoryLabel('remainder_scale'), 'あまりの位の戻し忘れ');
+    assert.equal(getReasonCategoryLabel('totally_unknown'), 'その他のつまずき');
+    assert.equal(getReasonCategoryLabel(undefined), 'その他のつまずき');
+    for (const cat of ['shift_forgotten', 'order_mistake', 'quotient_too_small', 'quotient_too_big',
+      'trial_quotient_too_small', 'trial_quotient_too_big', 'place_value_slip', 'trap_detected',
+      'calculation_slip', 'general_recheck']) {
+      assert.ok(REASON_CATEGORY_LABELS[cat], `label missing for ${cat}`);
+    }
+  });
+
+  it('aggregates totals, recent windows, focus patterns and resolved patterns', () => {
+    const log = [
+      entry('shift_forgotten', 1), entry('shift_forgotten', 1), entry('shift_forgotten', 2),
+      entry('shift_forgotten', 3), entry('shift_forgotten', 5),
+      entry('carry_forgotten', 2), entry('carry_forgotten', 2), entry('carry_forgotten', 10),
+      entry('quotient_too_small', 3), entry('quotient_too_small', 3),
+      entry('borrow_forgotten', 40), entry('borrow_forgotten', 41), entry('borrow_forgotten', 42),
+      entry('mystery_cat', 1),
+      // invalid entries are ignored
+      { category: '', worldId: 1, stageId: 'stage-1', at: daysAgo(1) },
+      { category: 'carry_forgotten', worldId: 1, stageId: 'stage-1', at: 'not-a-date' },
+      { worldId: 1, stageId: 'stage-1', at: daysAgo(1) },
+      null
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.equal(summary.totalEntries, 14);
+
+    const byCat = Object.fromEntries(summary.byCategory.map((s) => [s.category, s]));
+    assert.equal(byCat.shift_forgotten.total, 5);
+    assert.equal(byCat.shift_forgotten.recent30, 5);
+    assert.equal(byCat.carry_forgotten.total, 3);
+    assert.equal(byCat.carry_forgotten.recent30, 3);
+    assert.equal(byCat.carry_forgotten.recent14, 3);
+    assert.equal(byCat.borrow_forgotten.total, 3);
+    assert.equal(byCat.borrow_forgotten.recent30, 0);
+    assert.equal(byCat.mystery_cat.label, 'その他のつまずき');
+
+    // Focus: top 2 by last-30-days count
+    assert.deepEqual(
+      summary.focusPatterns.map((p) => [p.category, p.recent30]),
+      [['shift_forgotten', 5], ['carry_forgotten', 3]]
+    );
+    assert.equal(summary.focusPatterns[0].label, '位のずれ・0の立て忘れ');
+
+    // Resolved: >=3 total and none in the last 14 days
+    assert.deepEqual(summary.resolvedPatterns.map((p) => p.category), ['borrow_forgotten']);
+    assert.equal(summary.resolvedPatterns[0].total, 3);
+  });
+
+  it('a pattern seen recently is not resolved even with a high total', () => {
+    const log = [
+      entry('carry_forgotten', 60), entry('carry_forgotten', 55), entry('carry_forgotten', 50),
+      entry('carry_forgotten', 13)
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.equal(summary.resolvedPatterns.length, 0);
+    assert.equal(summary.focusPatterns.length, 1);
+    assert.equal(summary.focusPatterns[0].recent30, 1);
+  });
+
+  it('handles empty and malformed logs', () => {
+    for (const bad of [[], null, undefined, 'nope', 42]) {
+      const summary = summarizeDiagnosisLog(bad, NOW);
+      assert.equal(summary.totalEntries, 0);
+      assert.deepEqual(summary.byCategory, []);
+      assert.deepEqual(summary.focusPatterns, []);
+      assert.deepEqual(summary.resolvedPatterns, []);
+    }
   });
 });

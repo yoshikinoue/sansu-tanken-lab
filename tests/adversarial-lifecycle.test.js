@@ -891,6 +891,68 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       }
     });
 
+    it('Issue #21: wrong arena answers are recorded in the diagnosis log and shown on the parent board', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      global.window.location.hash = '#stage/stage-1';
+      app.handleRoute();
+      const session = app.currentSession;
+      const prob = session.problems[session.currentIndex];
+
+      assert.deepEqual(app.progress.diagnosisLog, []);
+      app.handleArenaSubmit(prob.correctAnswer.value + 999);
+
+      // The diagnosed pattern is appended with context and a timestamp.
+      assert.equal(app.progress.diagnosisLog.length, 1);
+      const logged = app.progress.diagnosisLog[0];
+      assert.equal(logged.category, session.lastDiagnosis.reasonCategory);
+      assert.equal(logged.worldId, session.worldId);
+      assert.equal(logged.stageId, session.stageId);
+      assert.ok(Number.isFinite(Date.parse(logged.at)), 'log entry must carry an ISO timestamp');
+
+      // Correct answers do not add log entries.
+      if (app.arenaStepGuide) {
+        app.arenaStepGuide.destroy();
+        app.arenaStepGuide = null;
+      }
+      app.handleArenaSubmit(prob.correctAnswer.value);
+      assert.equal(app.progress.diagnosisLog.length, 1);
+      if (app.arenaAdvanceTimer) {
+        clearTimeout(app.arenaAdvanceTimer);
+        app.arenaAdvanceTimer = null;
+      }
+
+      // Seed a resolved pattern (3 occurrences, all over 14 days old) and
+      // verify the parent board renders focus + resolved sections.
+      const old = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      for (let i = 0; i < 3; i++) {
+        app.progress.diagnosisLog.push({ category: 'borrow_forgotten', worldId: 1, stageId: 'stage-2', at: old });
+      }
+      const board = new ParentBoard({ progress: app.progress, pin: '4321' });
+      const dashboard = board.renderDashboardView();
+      const dashHtml = dashboard.children.map((c) => c.innerHTML || '').join('\n');
+      assert.ok(dashHtml.includes('つまずきパターンの記録'), 'diagnosis card title must render');
+      assert.ok(dashHtml.includes('今の重点パターン'), 'focus section must render');
+      assert.ok(dashHtml.includes('解消したパターン'), 'resolved section must render');
+      assert.ok(dashHtml.includes('くり下がり忘れ'), 'resolved pattern label must render');
+    });
+
+    it('Issue #21: parent board shows an empty state when no diagnosis log exists', async () => {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+
+      const board = new ParentBoard({ progress: app.progress, pin: '4321' });
+      const dashboard = board.renderDashboardView();
+      const dashHtml = dashboard.children.map((c) => c.innerHTML || '').join('\n');
+      assert.ok(dashHtml.includes('つまずきパターンの記録'));
+      assert.ok(dashHtml.includes('まだ記録がありません'), 'empty state must render');
+    });
+
     it('abruptly navigates away while MiniLessonModal TTS speech is active, stopping audio immediately', () => {
       let speechCanceled = false;
       const origCancel = global.window.speechSynthesis.cancel;
@@ -1707,6 +1769,62 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(item.masteryLevel, 1);
 
       tb.destroy();
+    });
+
+    it('Issue #20: wrong answer enqueues a spaced review; due banner starts a session that advances the schedule', () => {
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+      const itemsBefore = app.progress.treasureBox.items.length;
+      const entriesBefore = app.progress.reviewQueue.entries.length;
+      submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+
+      // Existing treasure quarantine plus the new review-queue entry
+      assert.equal(app.progress.treasureBox.items.length, itemsBefore + 1);
+      assert.equal(app.progress.reviewQueue.entries.length, entriesBefore + 1);
+      const entry = app.progress.reviewQueue.entries[entriesBefore];
+      const item = app.progress.treasureBox.items[itemsBefore];
+      assert.equal(entry.status, 'active');
+      assert.equal(entry.stepIndex, 0);
+      assert.ok(Date.parse(entry.dueAt) > Date.now(), 'first review must be scheduled in the future');
+      // Treasure mastery is untouched by enqueueing
+      assert.equal(item.masteryLevel, 0);
+      assert.equal(item.consecutiveCorrect, 0);
+
+      // Before the due date the map shows no review banner
+      routeTo('#map');
+      assert.ok(!getAllText(env.viewContainer).includes('今日の復習'), 'banner must be hidden before the due date');
+
+      // Make the entry due and re-render the map
+      entry.dueAt = new Date(Date.now() - 1000).toISOString();
+      routeTo('#map');
+      const mapText = getAllText(env.viewContainer);
+      assert.ok(mapText.includes('今日の復習'), 'banner must appear once due');
+      assert.ok(mapText.includes('1件'), 'banner must show the due count');
+
+      // Start the session from the banner and answer the variation correctly
+      const startBtn = env.viewContainer.querySelector('.btn-start-review-queue');
+      assert.ok(startBtn, 'review start button must exist');
+      domClick(startBtn);
+      const box = app.reviewSessionBox;
+      assert.ok(box?.reviewModalEl, 'scheduled review modal must open');
+      const variation = box.currentVariation;
+      const right = getExpectedInput(variation);
+      if (variation.hasRemainder) {
+        box.reviewModalEl.querySelector('.review-quotient-input').value = String(right.quotient);
+        box.reviewModalEl.querySelector('.review-remainder-input').value = String(right.remainder);
+      } else {
+        box.reviewModalEl.querySelector('.review-answer-input').value = String(right);
+      }
+      box.reviewModalEl.querySelector('.review-submit-btn')?.click();
+
+      // Due correct answer advances the schedule to step 1 (+3 days), without
+      // touching the treasure-box mastery counters (separate concepts)
+      assert.equal(entry.stepIndex, 1);
+      assert.equal(entry.status, 'active');
+      assert.ok(Date.parse(entry.dueAt) > Date.now() + 2 * 24 * 60 * 60 * 1000, 'next due is about 3 days later');
+      assert.equal(item.consecutiveCorrect, 0, 'treasure progression must not change');
+
+      box.destroy();
     });
   });
 
