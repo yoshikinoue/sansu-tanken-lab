@@ -279,6 +279,24 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       keypad.destroy();
     });
 
+    it('Keypad lock blocks digits and submit until unlocked (BUG-009)', () => {
+      let submitCount = 0;
+      const keypad = new Keypad({ onSubmit: () => { submitCount++; } });
+      keypad.pressKey('4');
+      keypad.pressKey('2');
+      assert.equal(keypad.state.quotientText, '42');
+      keypad.setLocked(true);
+      assert.equal(keypad.locked, true);
+      keypad.pressKey('9');
+      keypad.pressKey('enter');
+      assert.equal(keypad.state.quotientText, '42', 'locked keypad must not accept digits');
+      assert.equal(submitCount, 0, 'locked keypad must not submit');
+      keypad.setLocked(false);
+      keypad.pressKey('enter');
+      assert.equal(submitCount, 1, 'unlocked keypad submits again');
+      keypad.destroy();
+    });
+
     it('resolves operator-specific answer labels (和/差/積/商/こたえ) accurately (BUG-003)', () => {
       assert.equal(resolveAnswerLabel({ operator: '+', hasRemainder: false, prompt: '555 + 219 = ?' }), '和 (こたえ)');
       assert.equal(resolveAnswerLabel({ operator: '-', hasRemainder: false, prompt: '673 - 148 = ?' }), '差 (こたえ)');

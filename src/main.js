@@ -298,8 +298,13 @@ export class MathLabApp {
     }
     this.arenaCanvasPad = null;
 
-    if (this.arenaKeypad && typeof this.arenaKeypad.destroy === 'function') {
-      this.arenaKeypad.destroy();
+    if (this.arenaKeypad) {
+      // BUG-009 hardening: release the lock before teardown so a locked
+      // state never outlives the arena that set it.
+      this.arenaKeypad.setLocked(false);
+      if (typeof this.arenaKeypad.destroy === 'function') {
+        this.arenaKeypad.destroy();
+      }
     }
     this.arenaKeypad = null;
 
@@ -576,6 +581,8 @@ export class MathLabApp {
         operator: prob.operator || null,
         prompt: prob.prompt || ''
       });
+      // BUG-009: the new problem is on screen; accept input again.
+      this.arenaKeypad.setLocked(false);
     }
 
     // Clear canvas between problems
@@ -679,11 +686,25 @@ export class MathLabApp {
         this.handleArenaStageComplete();
       } else {
         session.isAdvancing = true;
+        // BUG-009: clear the just-submitted answer immediately and lock the
+        // keypad for the advance window, so input during the window is
+        // visibly refused instead of being silently discarded.
+        if (this.arenaKeypad) {
+          this.arenaKeypad.clear();
+          this.arenaKeypad.setLocked(true);
+        }
         if (this.arenaAdvanceTimer) {
           clearTimeout(this.arenaAdvanceTimer);
         }
         this.arenaAdvanceTimer = setTimeout(() => {
           this.arenaAdvanceTimer = null;
+          // BUG-009 hardening: the advance window always ends by releasing
+          // the keypad lock, even when the display update below is skipped
+          // (session replaced / route changed). Unlocking must not depend
+          // solely on updateArenaProblemDisplay() being reached.
+          if (this.arenaKeypad) {
+            this.arenaKeypad.setLocked(false);
+          }
           if (this.currentSession === session && this.currentRoute.view === '#stage') {
             this.updateArenaProblemDisplay();
           }

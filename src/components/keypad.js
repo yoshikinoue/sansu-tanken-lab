@@ -107,6 +107,7 @@ export class Keypad {
     };
 
     this.state = createKeypadState(this.options.hasRemainder);
+    this.locked = false;
     this.container = null;
     this.displayQuotientEl = null;
     this.displayRemainderEl = null;
@@ -138,8 +139,12 @@ export class Keypad {
       answerLabel: this.options.answerLabel
     });
 
+    // BUG-009 hardening: render() rebuilds this DOM node, so the locked
+    // appearance is re-applied from this.locked on every render. The JS
+    // state and the visuals can no longer diverge (a re-render while
+    // locked used to restore the clickable look while input stayed dead).
     this.container.innerHTML = `
-      <div class="keypad-container">
+      <div class="keypad-container${this.locked ? ' keypad-locked' : ''}">
         <!-- Display Section with Interactive Tabs -->
         <div class="keypad-display" id="keypad-display">
           <div class="display-field-row ${this.state.activeField === 'quotient' ? 'active' : ''}" data-field="quotient">
@@ -256,7 +261,20 @@ export class Keypad {
     }
   }
 
+  // BUG-009: while locked (e.g. during the arena's advance window), all
+  // input and submits are ignored visibly instead of being silently
+  // discarded after registering on the display.
+  setLocked(locked) {
+    this.locked = Boolean(locked);
+    const root = this.container?.querySelector?.('.keypad-container');
+    if (root) {
+      root.classList.toggle('keypad-locked', this.locked);
+    }
+    return this;
+  }
+
   pressKey(key) {
+    if (this.locked) return;
     if (key === 'enter') {
       if (typeof this.options.onSound === 'function') {
         this.options.onSound('tap');
