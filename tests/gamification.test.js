@@ -390,9 +390,9 @@ describe('Milestone 3: Web Speech API TTS & Mini-Lessons (speech-service.js)', (
     assert.equal(isSpeechEnabled(), true);
   });
 
-  it('provides all 21 stages of 1-minute mini-lesson scripts (3 cards + 2-choice quiz + TTS)', () => {
-    assert.equal(Object.keys(MINI_LESSON_SCRIPTS).length, 21);
-    for (let i = 1; i <= 21; i++) {
+  it('provides all 24 stages of 1-minute mini-lesson scripts (3 cards + 2-choice quiz + TTS)', () => {
+    assert.equal(Object.keys(MINI_LESSON_SCRIPTS).length, 24);
+    for (let i = 1; i <= 24; i++) {
       const lesson = getMiniLessonData(`stage-${i}`);
       assert.equal(lesson.stageId, `stage-${i}`);
       assert.ok(lesson.title.length > 0);
@@ -570,8 +570,8 @@ describe('Milestone 3: Gamification Engine (gamification-engine.js)', () => {
     assert.equal(profile.badges.every((b) => b.unlocked === true), true);
   });
 
-  it('calculates 7-World Radar Chart stats accurately for the Parent Cheer Board', () => {
-    assert.equal(WORLD_DEFINITIONS.length, 7);
+  it('calculates 8-World Radar Chart stats accurately for the Parent Cheer Board', () => {
+    assert.equal(WORLD_DEFINITIONS.length, 8);
 
     // Clear all 3 stages of World 1 with 100% accuracy and 0 mistakes -> should score 100
     recordResult({ worldId: 1, stageId: 1, isCorrect: true, wasSelfCorrected: false, isStageComplete: true });
@@ -579,7 +579,7 @@ describe('Milestone 3: Gamification Engine (gamification-engine.js)', () => {
     recordResult({ worldId: 1, stageId: 3, isCorrect: true, wasSelfCorrected: false, isStageComplete: true });
 
     const radar = calculateWorldRadarStats();
-    assert.equal(radar.length, 7);
+    assert.equal(radar.length, 8);
 
     const w1 = radar.find((w) => w.worldId === 1);
     assert.equal(w1.clearedStages, 3);
