@@ -188,6 +188,21 @@ export function validateProgressData(data) {
   return { valid: true };
 }
 
+// 復習キューの stepIndex 上限。services/review-queue.js の
+// REVIEW_INTERVAL_DAYS.length - 1 (= 2) と合わせること。
+// モジュールの初期化順に依存しないよう、ここでは値だけを複製している。
+const REVIEW_MAX_STEP_INDEX = 2;
+
+/**
+ * 復習エントリの stepIndex を有効範囲 0..REVIEW_MAX_STEP_INDEX に収める。
+ * @param {any} stepIndex
+ * @returns {number}
+ */
+function clampReviewStepIndex(stepIndex) {
+  if (typeof stepIndex !== 'number' || !Number.isFinite(stepIndex)) return 0;
+  return Math.min(Math.max(Math.trunc(stepIndex), 0), REVIEW_MAX_STEP_INDEX);
+}
+
 /**
  * Sanitize a raw diagnosis log: keep only well-formed entries
  * ({ category: string, at: parseable date string }) and cap to the latest
@@ -308,7 +323,9 @@ export function normalizeProgressData(data) {
       entries: Array.isArray(cloned.reviewQueue?.entries)
         ? cloned.reviewQueue.entries
             .filter(e => e && typeof e === 'object' && typeof e.key === 'string')
-            .map(e => ({ ...e }))
+            // 範囲外の stepIndex は有効範囲に収めてから取り込む
+            // （範囲外のままだと間隔テーブル参照で例外になるため）
+            .map(e => ({ ...e, stepIndex: clampReviewStepIndex(e.stepIndex) }))
         : []
     },
     diagnosisLog: sanitizeDiagnosisLog(cloned.diagnosisLog),
@@ -363,6 +380,20 @@ function pruneProgressForQuota(userData) {
   }
   if (Array.isArray(pruned.diagnosisLog)) {
     pruned.diagnosisLog = pruned.diagnosisLog.slice(-100);
+  }
+  if (pruned.reviewQueue && Array.isArray(pruned.reviewQueue.entries)) {
+    // 復習キュー: active なエントリは学習継続に必要なため全件保持する。
+    // mastered（定着済み）は履歴として masteredAt の新しい順に最大30件まで
+    // 保持し、それより古いものだけを捨てる（残すエントリの並び順は維持）。
+    const MAX_MASTERED_REVIEW_ENTRIES = 30;
+    const masteredNewestFirst = pruned.reviewQueue.entries
+      .filter(e => e && typeof e === 'object' && e.status === 'mastered')
+      .sort((a, b) => String(b.masteredAt || b.updatedAt || '')
+        .localeCompare(String(a.masteredAt || a.updatedAt || '')));
+    const keepMastered = new Set(masteredNewestFirst.slice(0, MAX_MASTERED_REVIEW_ENTRIES));
+    pruned.reviewQueue.entries = pruned.reviewQueue.entries.filter(
+      e => !e || typeof e !== 'object' || e.status !== 'mastered' || keepMastered.has(e)
+    );
   }
   return pruned;
 }
