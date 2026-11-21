@@ -179,7 +179,7 @@ export class StageMap {
       stageMapEl.appendChild(reviewBar);
     }
 
-    // Render 5 Worlds
+    // Render Worlds (WORLDS_METADATA の全ワールドを描画)
     WORLDS_METADATA.forEach(world => {
       const worldCard = document.createElement('section');
       worldCard.className = 'world-card';

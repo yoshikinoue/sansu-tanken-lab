@@ -352,10 +352,10 @@ describe('Milestone 5 Empirical Stress & Boundary Harness', () => {
       assert.equal(board.isAuthenticated, false);
     });
 
-    it('calculates 8-world radar chart percentages accurately across full, partial, and empty states', () => {
+    it('calculates 9-world radar chart percentages accurately across full, partial, and empty states', () => {
       // Empty progress
       const emptyScores = ParentBoard.calculateRadarScores({});
-      assert.deepEqual(emptyScores, { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0, world6: 0, world7: 0, world8: 0 });
+      assert.deepEqual(emptyScores, { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0, world6: 0, world7: 0, world8: 0, world9: 0 });
 
       // Partial progress: World 1 has 1 stage cleared, World 2 has 2 stages, World 3 has 3 stages
       const partialProgress = {
@@ -381,13 +381,13 @@ describe('Milestone 5 Empirical Stress & Boundary Harness', () => {
       assert.equal(partialScores.world7, 0);
       assert.equal(partialScores.world8, 0);
 
-      // Full progress: all 24 stages cleared
+      // Full progress: all 27 stages cleared
       const fullProgress = { stageProgress: {} };
-      for (let s = 1; s <= 24; s++) {
+      for (let s = 1; s <= 27; s++) {
         fullProgress.stageProgress[`stage-${s}`] = { cleared: true };
       }
       const fullScores = ParentBoard.calculateRadarScores(fullProgress);
-      assert.deepEqual(fullScores, { world1: 100, world2: 100, world3: 100, world4: 100, world5: 100, world6: 100, world7: 100, world8: 100 });
+      assert.deepEqual(fullScores, { world1: 100, world2: 100, world3: 100, world4: 100, world5: 100, world6: 100, world7: 100, world8: 100, world9: 100 });
     });
 
     it('creates cheer stamp with strict 50-character boundary capping and unread defaults', () => {
