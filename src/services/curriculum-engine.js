@@ -1,7 +1,7 @@
 /**
  * @file curriculum-engine.js
  * @description 小学4年生向け 四則演算ステップアップ学習Webアプリ (算数探検ラボ)
- * 全5ワールド・15ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
+ * 全6ワールド・18ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
  */
 
 let problemSequenceCounter = 1;
@@ -32,7 +32,7 @@ function pickRandom(arr, rng = Math.random) {
 }
 
 /**
- * 全5ワールド・15ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
+ * 全6ワールド・18ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
  */
 export const WORLDS_METADATA = [
   {
@@ -734,6 +734,150 @@ export const WORLDS_METADATA = [
         }
       }
     ]
+  },
+  {
+    worldId: 6,
+    id: 'world-6',
+    title: '小数ラボ',
+    subtitle: '小数の仕組み・たし算・ひき算',
+    themeColor: '#009688',
+    icon: '💧',
+    description: '0.1や0.01の世界を探検！小数点の位置をそろえて計算する力を身につけよう！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 6,
+        globalStageNumber: 16,
+        globalId: 'stage-16',
+        title: '小数の仕組み',
+        subtitle: '0.1が何こ分？ 位の数字を読もう',
+        description: '0.1が10こ集まると1になるよ。数を位に分けて、小数の正体をつかもう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        usesDecimal: true,
+        answerLabel: 'こたえ',
+        miniLesson: {
+          title: '小数の仕組み（0.1と0.01）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】0.1が10こ集まると「1」！',
+              body: '1を10等分した1つ分が「0.1」。0.1が10こ集まると1になるよ。さらに0.1を10等分すると「0.01」。3.47は「0.1が34こ」と「0.01が7こ」に分けて考えられるね！',
+              ttsText: '0.1が10こ集まると1になるよ。0.1を10等分すると0.01。小数は位に分けると正体がわかるよ！',
+              visualType: 'decimal_structure'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】0.1が何こ分？',
+              question: '0.1 が 23 こ集まった数はいくつ？',
+              choices: [
+                { id: 'A', label: '23', isCorrect: false, feedback: 'おしい！0.1は「1を10等分した1つ分」だよ。23こ集まると1をこえるかな？' },
+                { id: 'B', label: '2.3', isCorrect: true, feedback: 'ピンポン！大正解！0.1が20こで2、0.1が3こで0.3。合わせて2.3だね！' }
+              ],
+              hint: '0.1が10こで1。20こなら2になるね！',
+              ttsText: '0.1が23こ集まった数はいくつかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【0.1が10こで1、0.01が10こで0.1！】位に分けると小数の大きさが見えてくる！',
+              ttsText: '今日の必殺技！0.1が10こで1！位に分けて考えると小数はこわくないよ！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 6,
+        globalStageNumber: 17,
+        globalId: 'stage-17',
+        title: '小数のたし算',
+        subtitle: '小数点をそろえて位ごとに計算',
+        description: '小数点をたてにそろえるのが鉄則！0.01の位から順に計算して、くり上がりをメモしよう。',
+        operator: '+',
+        displayFormat: 'column',
+        usesDecimal: true,
+        miniLesson: {
+          title: '小数のたし算（小数点をそろえる）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】小数点はたてにピシッとそろえる！',
+              body: '小数のたし算は、小数点の位置をそろえて位ごとに計算するよ。3.25 + 1.48 なら、0.01の位は 5 + 8 = 13 で「3を書いて1くり上がり」。整数の筆算と同じだけど、小数点を落とさないのが一番のコツ！',
+              ttsText: '小数のたし算は小数点をそろえるのが鉄則！位ごとに計算して、答えにも小数点を書こう！',
+              visualType: 'decimal_add'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】くり上がりの確認',
+              question: '0.7 + 0.5 の 0.1の位は 7 + 5 = 12。答えの 0.1の位に書く数字はどっち？',
+              choices: [
+                { id: 'A', label: '2', isCorrect: true, feedback: 'ピンポン！大正解！12の「2」を書いて、1は一の位へくり上がり。答えは1.2だね！' },
+                { id: 'B', label: '12', isCorrect: false, feedback: 'おしい！1つの位に書ける数字は1つだけ。10のまとまりは左の位へお引っ越しだよ！' }
+              ],
+              hint: '12は「0.1が12こ」=「1と0.2」。一の位に送るのはいくつかな？',
+              ttsText: '0.7たす0.5の計算、0.1の位に書く数字はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【小数点をそろえて位ごとに計算、答えにも小数点！】小数点を無視して整数みたいにしない！',
+              ttsText: '今日の必殺技！小数点をそろえて計算、答えにも小数点を忘れずに！ミッションスタート！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 6,
+        globalStageNumber: 18,
+        globalId: 'stage-18',
+        title: '小数のひき算',
+        subtitle: 'くり下がりと0からのひき算',
+        description: '引けない時は上の位から借りてくる！1 - 0.37 のような、整数から小数を引く計算も攻略しよう。',
+        operator: '-',
+        displayFormat: 'column',
+        usesDecimal: true,
+        miniLesson: {
+          title: '小数のひき算（くり下がり）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】引けない時は「10」を借りる（小数でも同じ）！',
+              body: '0.52 - 0.27 の 0.01の位は 2 - 7 で引けない。そんな時は0.1の位から「10」を借りて 12 - 7 = 5。借りた0.1の位は1減るよ。1 - 0.37 のような計算は、1を「0.1が10こ、0.01が100こ」と見ると考えやすいね！',
+              ttsText: '小数のひき算も、引けない時は上の位から十を借りてくるよ。整数から引く時は位に分けて考えよう！',
+              visualType: 'decimal_sub'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】借りたあとの位',
+              question: '0.5 - 0.27 で 0.01の位が引けないので、0.1の位の5から10を借りたよ。0.1の位の計算はどっち？',
+              choices: [
+                { id: 'A', label: '5 - 2', isCorrect: false, feedback: 'おしい！10を貸したから、0.1の位は5ではなく4になっているよ！' },
+                { id: 'B', label: '4 - 2', isCorrect: true, feedback: 'ピンポン！大正解！貸した分を引いて4 - 2 = 2。答えは0.23だね！' }
+              ],
+              hint: 'となりに貸したら、自分の位は1減るんだったね！',
+              ttsText: '0.5ひく0.27の計算、借りたあとの0.1の位はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【引けない時は10を借りる、貸した位は1減らす！】小数点をそろえるのも忘れずに！',
+              ttsText: '今日の必殺技！引けない時は十を借りる！貸した位が1減るのを忘れないでね！'
+            }
+          ]
+        }
+      }
+    ]
   }
 ];
 
@@ -744,6 +888,10 @@ export const WORLDS_METADATA = [
  * @returns {{ worldId: number, stageId: number, globalStageNumber: number }}
  */
 export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
+  // ワールド数・総ステージ数はメタデータから導出する（ワールド追加に追随）
+  const totalWorlds = WORLDS_METADATA.length;
+  const stagesPerWorld = WORLDS_METADATA[0]?.stages.length || 3;
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
   let w = Number(worldIdInput);
   let s = Number(stageIdInput);
 
@@ -752,9 +900,9 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
     const wsMatch = worldIdInput.match(/^w(\d+)[_-]s(\d+)$/i);
     if (stageMatch) {
       const globalNum = parseInt(stageMatch[1], 10);
-      if (globalNum >= 1 && globalNum <= 15) {
-        w = Math.ceil(globalNum / 3);
-        s = ((globalNum - 1) % 3) + 1;
+      if (globalNum >= 1 && globalNum <= totalStages) {
+        w = Math.ceil(globalNum / stagesPerWorld);
+        s = ((globalNum - 1) % stagesPerWorld) + 1;
       }
     } else if (wsMatch) {
       w = parseInt(wsMatch[1], 10);
@@ -766,22 +914,22 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
     const stageMatch = stageIdInput.match(/^stage-(\d+)$/i);
     if (stageMatch) {
       const globalNum = parseInt(stageMatch[1], 10);
-      if (globalNum >= 1 && globalNum <= 15) {
-        w = Math.ceil(globalNum / 3);
-        s = ((globalNum - 1) % 3) + 1;
+      if (globalNum >= 1 && globalNum <= totalStages) {
+        w = Math.ceil(globalNum / stagesPerWorld);
+        s = ((globalNum - 1) % stagesPerWorld) + 1;
       }
     }
   }
 
-  // If worldId was 1..5 and stageId was given as global 1..15 (e.g., (2, 5))
-  if (Number.isInteger(w) && w >= 1 && w <= 5 && Number.isInteger(s) && s >= 4 && s <= 15) {
-    const expectedWorld = Math.ceil(s / 3);
+  // If worldId was valid and stageId was given as a global stage number (e.g., (2, 5))
+  if (Number.isInteger(w) && w >= 1 && w <= totalWorlds && Number.isInteger(s) && s >= 4 && s <= totalStages) {
+    const expectedWorld = Math.ceil(s / stagesPerWorld);
     if (expectedWorld === w) {
-      s = ((s - 1) % 3) + 1;
+      s = ((s - 1) % stagesPerWorld) + 1;
     }
   }
 
-  if (!Number.isInteger(w) || w < 1 || w > 5 || !Number.isInteger(s) || s < 1 || s > 3) {
+  if (!Number.isInteger(w) || w < 1 || w > totalWorlds || !Number.isInteger(s) || s < 1 || s > stagesPerWorld) {
     w = 1;
     s = 1;
   }
@@ -789,7 +937,7 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
   return {
     worldId: w,
     stageId: s,
-    globalStageNumber: (w - 1) * 3 + s
+    globalStageNumber: (w - 1) * stagesPerWorld + s
   };
 }
 
@@ -799,6 +947,23 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
  */
 export function getWorldsMetadata() {
   return WORLDS_METADATA;
+}
+
+/**
+ * グローバルステージ番号 (1..総ステージ数) から所属ワールドIDを引く
+ * ワールドごとのステージ数は WORLDS_METADATA から導出する (ワールド追加に追随)
+ * @param {number} globalStageNumber
+ * @returns {number} ワールドID (1未満は先頭ワールド、超過分は最終ワールド)
+ */
+export function getWorldIdByGlobalStage(globalStageNumber) {
+  const n = Number(globalStageNumber);
+  if (!Number.isInteger(n) || n < 1) return WORLDS_METADATA[0]?.worldId ?? 1;
+  let acc = 0;
+  for (const world of WORLDS_METADATA) {
+    acc += world.stages.length;
+    if (n <= acc) return world.worldId;
+  }
+  return WORLDS_METADATA[WORLDS_METADATA.length - 1]?.worldId ?? 1;
 }
 
 /**
@@ -988,7 +1153,7 @@ function buildMathProblem({
 }
 
 // ============================================================================
-// Stage Generators (15 Stages)
+// Stage Generators (18 Stages)
 // ============================================================================
 
 /**
@@ -3206,6 +3371,706 @@ function generateStage5_3({ questionIndex, level, difficultyLevel, rng, variatio
   });
 }
 
+// ============================================================================
+// World 6: 小数 (Decimal) Helpers & Stage Generators
+// 小数は浮動小数点誤差を避けるため、内部では整数にスケーリングして生成する
+// (例: scale=100 のとき 325 が 3.25 を表す)
+// ============================================================================
+
+/**
+ * スケーリング済み整数を表示用文字列にする (例: (325, 100) -> "3.25", (70, 100) -> "0.7")
+ * 浮動小数点の文字列表現に頼らず、整数演算だけで組み立てる
+ */
+function formatDecimal(scaledInt, scale) {
+  const sign = scaledInt < 0 ? '-' : '';
+  const abs = Math.abs(Math.trunc(scaledInt));
+  const intPart = Math.floor(abs / scale);
+  const fracDigits = String(scale).length - 1; // 10 -> 1桁, 100 -> 2桁
+  const frac = String(abs % scale).padStart(fracDigits, '0').replace(/0+$/, '');
+  return frac ? `${sign}${intPart}.${frac}` : `${sign}${intPart}`;
+}
+
+/**
+ * スケーリング済み整数を位ごとの数字配列にする (下の位から)
+ * 例: (325, 100) -> [5, 2, 3] (0.01の位, 0.1の位, 一の位)
+ */
+function splitPlaces(scaledInt, scale) {
+  const placeCount = String(scale).length; // scale=10 -> 2位, scale=100 -> 3位
+  const digits = [];
+  let rest = Math.trunc(scaledInt);
+  for (let i = 0; i < placeCount; i++) {
+    digits.push(rest % 10);
+    rest = Math.floor(rest / 10);
+  }
+  if (rest > 0) digits.push(rest);
+  return digits;
+}
+
+/**
+ * 問題が小数問題なら、そのスケール (10 | 100) を返す。整数問題は 0
+ */
+function getDecimalScale(problem) {
+  const scale = Number(problem?.trapMetadata?.decimalScale);
+  return scale === 10 || scale === 100 ? scale : 0;
+}
+
+/**
+ * 小数の等値判定 (浮動小数点誤差の影響を受けない厳密比較)
+ * 両値をスケールした結果が「整数 (誤差の範囲内)」であり、かつ一致する場合のみ true。
+ * Math.round 同士の比較だけだと、スケールより細かい入力 (例: 答え 7.3 への 7.301) が
+ * 丸めで一致して正解扱いになってしまうため、整数性もあわせて要求する。
+ */
+function scaledValueEquals(a, b, scale) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  if (!scale) return a === b;
+  const scaledA = a * scale;
+  const scaledB = b * scale;
+  const roundedA = Math.round(scaledA);
+  const roundedB = Math.round(scaledB);
+  const tolerance = 1e-6;
+  if (Math.abs(scaledA - roundedA) > tolerance) return false;
+  if (Math.abs(scaledB - roundedB) > tolerance) return false;
+  return roundedA === roundedB;
+}
+
+/**
+ * Stage 6-1 (pattern A): 0.1 が n こ集まると いくつ？
+ */
+function buildDecimalTenthsCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const ranges = {
+    warmup: [3, 15],
+    remedial: [3, 15],
+    standard: [11, 39],
+    hurdle: [21, 59],
+    challenge: [41, 99]
+  };
+  const [lo, hi] = ranges[difficultyLevel] || ranges.standard;
+  let n = 14;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    n = randInt(lo, hi, rng);
+    if (n % 10 === 0) continue; // ちょうど整数になるケースは位の練習にならない
+    if (!variationTarget || variationTarget.operands?.[1] !== n) break;
+  }
+
+  const ones = Math.floor(n / 10);
+  const tenths = n % 10;
+  const answer = n / 10;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'ones',
+      title: '一の位の数字',
+      actionName: 'かぞえる',
+      explanation: `0.1 が 10 こで 1 だよ。0.1 が ${n} こあるとき、1 のまとまりは何こできる？`,
+      blankPosition: 'ones',
+      expectedStepValue: ones,
+      digit: ones,
+      hint: `10 こずつまとめていくと、1 のまとまりが ${ones} こできるよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'tenths',
+      title: '0.1の位の数字',
+      actionName: 'かぞえる',
+      explanation: '1 のまとまりに入りきらなかった 0.1 は何こ残る？',
+      blankPosition: 'tenths',
+      expectedStepValue: tenths,
+      digit: tenths,
+      hint: `${n} こから 10 こずつ取りのぞくと、${tenths} こ残るよ！`
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '小数の答え',
+      actionName: 'かぞえる',
+      explanation: `一の位が ${ones}、0.1の位が ${tenths}。0.1 が ${n} こ集まった数はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: '一の位と 0.1の位の間に小数点を書いてみよう！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `0.1 が ${n} こ集まると いくつ？`,
+    expression: `0.1 × ${n}`,
+    displayFormat: 'horizontal',
+    operands: [0.1, n],
+    operator: '×',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: n,
+      reasonCategory: 'decimal_point_position',
+      diagnosis: '0.1 が 10 こ集まると 1 だよ！そのまま整数で答えていないかな？',
+      hintMessage: '0.1 を 10 こずつまとめて、一の位と 0.1の位に分けてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: n,
+        reasonCategory: 'decimal_point_position',
+        adviceMessage: `0.1 が ${n} こは、1 のまとまり ${ones} こと 0.1 が ${tenths} こ分だよ！`
+      },
+      {
+        predictedErrorValue: n / 100,
+        reasonCategory: 'decimal_point_position',
+        adviceMessage: '小数点の位置が1つずれているかも！0.1 が 10 こで 1 になるよ！'
+      }
+    ],
+    patternType: 'decimal_tenths_count',
+    trapMetadata: { decimalScale: 10, count: n }
+  });
+}
+
+/**
+ * Stage 6-1 (pattern B): 「x は 0.1 (0.01) が何こ分？」
+ */
+function buildDecimalCountOf(patternType, { questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const isHundredths = patternType === 'decimal_count_of_hundredths';
+  const unit = isHundredths ? 100 : 10;
+  const unitText = isHundredths ? '0.01' : '0.1';
+
+  let count = isHundredths ? 347 : 34;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    count = isHundredths ? randInt(120, 989, rng) : randInt(13, 59, rng);
+    if (count % 10 === 0) continue;
+    if (!variationTarget || Math.round((variationTarget.operands?.[0] ?? -1) * unit) !== count) break;
+  }
+
+  const valueText = formatDecimal(count, unit);
+  // splitPlaces は下の位から返す (例: 347, scale=100 -> [7, 4, 3])
+  const digitsAsc = splitPlaces(count, unit);
+  const placeNameFor = (i) => {
+    if (i === digitsAsc.length - 1) return '一の位';
+    return unit === 100 && i === 0 ? '0.01の位' : '0.1の位';
+  };
+  const placeIdFor = (i) => {
+    if (i === digitsAsc.length - 1) return 'ones';
+    return unit === 100 && i === 0 ? 'hundredths' : 'tenths';
+  };
+  // 大きい位から順にステップ化する (例: 347 なら 一の位=300こ, 0.1の位=40こ, 0.01の位=7こ)
+  const placeIndexes = digitsAsc.map((_, i) => i).reverse();
+  const onesContribution = digitsAsc[digitsAsc.length - 1] * Math.pow(10, digitsAsc.length - 1);
+
+  const steps = placeIndexes.map((i, order) => ({
+    stepNumber: order + 1,
+    id: placeIdFor(i),
+    title: `${placeNameFor(i)}の分`,
+    actionName: 'かぞえる',
+    explanation: `${valueText} の ${placeNameFor(i)}の数字は ${digitsAsc[i]}。${unitText} が何こ分？`,
+    blankPosition: placeIdFor(i),
+    expectedStepValue: digitsAsc[i] * Math.pow(10, i),
+    hint: `${placeNameFor(i)}の 1 は ${unitText} が ${Math.pow(10, i)} こ分だよ！`
+  }));
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: 'ぜんぶの数',
+    actionName: 'かぞえる',
+    explanation: `位ごとの分をぜんぶ合わせると、${valueText} は ${unitText} が何こ分？`,
+    blankPosition: 'final',
+    expectedStepValue: count,
+    hint: '位ごとの数を大きい位から順に足し合わせよう！'
+  });
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${valueText} は ${unitText} が何こ分？`,
+    expression: `${valueText} ÷ ${unitText}`,
+    displayFormat: 'horizontal',
+    operands: [count / unit, 1 / unit],
+    operator: '÷',
+    quotient: count,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: count / unit,
+      reasonCategory: 'decimal_structure',
+      diagnosis: '位に分けて考えよう！一の位の数字は 0.1 が 10 こ分 (0.01 なら 100 こ分) だよ！',
+      hintMessage: '一の位・0.1の位・0.01の位に分けて、それぞれ何こ分か数えてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: onesContribution,
+        reasonCategory: 'decimal_structure',
+        adviceMessage: '一の位の分だけを数えていないかな？小さい位の分も合わせよう！'
+      },
+      {
+        predictedErrorValue: count / unit,
+        reasonCategory: 'decimal_structure',
+        adviceMessage: `${valueText} そのままの数ではなく、${unitText} が何こ分か数える問題だよ！`
+      }
+    ],
+    patternType,
+    trapMetadata: { decimalScale: unit, count }
+  });
+}
+
+/**
+ * Stage 6-1 (pattern C): 小数の位の数字を読む
+ */
+function buildDecimalPlaceDigit({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const targetPlace =
+    variationTarget?.trapMetadata?.targetPlace ??
+    (difficultyLevel === 'challenge' ? 'hundredths' : pickRandom(['tenths', 'hundredths'], rng));
+
+  let m = 528;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const cand = randInt(123, 987, rng);
+    const co = Math.floor(cand / 100);
+    const ct = Math.floor(cand / 10) % 10;
+    const ch = cand % 10;
+    // 位の混同トラップが成立するよう、3つの位の数字はすべて異なる正の数にする
+    if (co === 0 || ct === 0 || ch === 0 || co === ct || ct === ch || co === ch) continue;
+    m = cand;
+    if (!variationTarget || Math.round((variationTarget.operands?.[0] ?? -1) * 100) !== m) break;
+  }
+  const digits = [m % 10, Math.floor(m / 10) % 10, Math.floor(m / 100)];
+
+  const [h, t, o] = digits;
+  const valueText = formatDecimal(m, 100);
+  const isTenths = targetPlace === 'tenths';
+  const targetDigit = isTenths ? t : h;
+  const trapDigit = isTenths ? o : t;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'ones',
+      title: '一の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の小数点の左側、一の位の数字は？`,
+      blankPosition: 'ones',
+      expectedStepValue: o,
+      digit: o,
+      hint: '小数点のすぐ左が一の位だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'tenths',
+      title: '0.1の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の小数点のすぐ右、0.1の位の数字は？`,
+      blankPosition: 'tenths',
+      expectedStepValue: t,
+      digit: t,
+      hint: '小数点のすぐ右が 0.1の位だよ！'
+    }
+  ];
+  if (!isTenths) {
+    steps.push({
+      stepNumber: 3,
+      id: 'hundredths',
+      title: '0.01の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の 0.1の位の次、0.01の位の数字は？`,
+      blankPosition: 'hundredths',
+      expectedStepValue: h,
+      digit: h,
+      hint: '0.1の位の右どなりが 0.01の位だよ！'
+    });
+  }
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '小数を組み立てる',
+    actionName: 'よむ',
+    explanation: `一の位が ${o}、0.1の位が ${t}、0.01の位が ${h}。位を組み立てた小数はいくつ？`,
+    blankPosition: 'final',
+    expectedStepValue: m / 100,
+    hint: '一の位と 0.1の位の間に小数点を書いて、位の順に数字を並べよう！'
+  });
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${valueText} の ${isTenths ? '0.1' : '0.01'} の位の数字は？`,
+    expression: `${valueText} の ${isTenths ? '0.1' : '0.01'}の位`,
+    displayFormat: 'horizontal',
+    operands: [m / 100, isTenths ? 0.1 : 0.01],
+    operator: 'mixed',
+    quotient: targetDigit,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: trapDigit,
+      reasonCategory: 'decimal_place_read',
+      diagnosis: '小数点のすぐ右が 0.1の位、その次が 0.01の位だよ！位の順番を確かめよう！',
+      hintMessage: '一の位 → 0.1の位 → 0.01の位の順に、指でたどってみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: trapDigit,
+        reasonCategory: 'decimal_place_read',
+        adviceMessage: `それは ${isTenths ? '一の位' : '0.1の位'} の数字だよ。${isTenths ? '0.1' : '0.01'} の位は小数点から数えてみよう！`
+      }
+    ],
+    patternType: 'decimal_place_digit',
+    trapMetadata: { decimalScale: 100, targetPlace }
+  });
+}
+
+/**
+ * Stage 6-1: 小数の仕組み (0.1・0.01 の位の理解)
+ */
+function generateStage6_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'decimal_tenths_count';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['decimal_tenths_count', 'decimal_count_of_tenths'], args.rng);
+    } else if (args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['decimal_count_of_tenths', 'decimal_place_digit'], args.rng);
+    } else {
+      patternType = pickRandom(['decimal_count_of_hundredths', 'decimal_place_digit'], args.rng);
+    }
+  }
+
+  if (patternType === 'decimal_count_of_tenths' || patternType === 'decimal_count_of_hundredths') {
+    return buildDecimalCountOf(patternType, args);
+  }
+  if (patternType === 'decimal_place_digit') {
+    return buildDecimalPlaceDigit(args);
+  }
+  return buildDecimalTenthsCount(args);
+}
+
+/**
+ * Stage 6-2: 小数のたし算 (小数第1位・第2位、くり上がり含む)
+ */
+function generateStage6_2({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let scale = variationTarget?.trapMetadata?.decimalScale;
+  if (!scale) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') scale = 10;
+    else if (difficultyLevel === 'standard') scale = rng() < 0.5 ? 10 : 100;
+    else scale = 100;
+  }
+  const needDoubleCarry = difficultyLevel === 'challenge' && scale === 100;
+
+  let aInt = 325;
+  let bInt = 148;
+  let da = splitPlaces(aInt, scale);
+  let db = splitPlaces(bInt, scale);
+  let carries = [];
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (scale === 10) {
+      aInt = randInt(12, 89, rng);
+      bInt = randInt(12, 89, rng);
+    } else {
+      aInt = randInt(112, 989, rng);
+      bInt = randInt(112, 989, rng);
+    }
+    da = splitPlaces(aInt, scale);
+    db = splitPlaces(bInt, scale);
+    carries = [];
+    let carryIn = 0;
+    for (let i = 0; i < da.length; i++) {
+      const s = da[i] + db[i] + carryIn;
+      carries.push(s >= 10);
+      carryIn = Math.floor(s / 10);
+    }
+    // 主題は最下位のくり上がり。challenge では 2 位連続のくり上がりを要求する
+    if (!carries[0]) continue;
+    if (needDoubleCarry && !carries[1]) continue;
+    if (!variationTarget) break;
+    const tScale = variationTarget.trapMetadata?.decimalScale || scale;
+    if (
+      Math.round((variationTarget.operands?.[0] ?? -1) * tScale) !== aInt &&
+      Math.round((variationTarget.operands?.[1] ?? -1) * tScale) !== bInt
+    ) {
+      break;
+    }
+  }
+
+  const sumInt = aInt + bInt;
+  const aText = formatDecimal(aInt, scale);
+  const bText = formatDecimal(bInt, scale);
+  const placeNames = scale === 100 ? ['0.01の位', '0.1の位', '一の位'] : ['0.1の位', '一の位'];
+  const placeIds = scale === 100 ? ['hundredths', 'tenths', 'ones'] : ['tenths', 'ones'];
+
+  const steps = [];
+  let carryIn = 0;
+  for (let i = 0; i < da.length; i++) {
+    const s = da[i] + db[i] + carryIn;
+    const carryOut = Math.floor(s / 10);
+    steps.push({
+      stepNumber: i + 1,
+      id: placeIds[i],
+      title: `${placeNames[i]}の計算`,
+      actionName: 'くりあがり',
+      explanation: carryIn > 0
+        ? `${placeNames[i]}を計算しよう: くり上がりの ${carryIn} + ${da[i]} + ${db[i]} はいくつ？`
+        : `${placeNames[i]}を計算しよう: ${da[i]} + ${db[i]} はいくつ？`,
+      blankPosition: placeIds[i],
+      expectedStepValue: s,
+      carry: carryOut,
+      digit: s % 10,
+      hint: carryIn > 0
+        ? `下の位からくり上がった ${carryIn} を忘れずに足そう！`
+        : `${da[i]} + ${db[i]} を計算しよう！10 をこえたら左の位へ 1 くり上がるよ。`
+    });
+    carryIn = carryOut;
+  }
+  if (carryIn > 0) {
+    const topName = '十の位';
+    steps.push({
+      stepNumber: steps.length + 1,
+      id: 'tens',
+      title: `${topName}の計算`,
+      actionName: 'くりあがり',
+      explanation: `一番上の位へくり上がった ${carryIn} がそのまま ${topName}の数字になるよ。${topName}の数字は？`,
+      blankPosition: 'tens',
+      expectedStepValue: carryIn,
+      carry: 0,
+      digit: carryIn,
+      hint: 'くり上がった 1 を新しい位に書こう！'
+    });
+  }
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '筆算の答え',
+    actionName: 'くりあがり',
+    explanation: `小数点をそろえて、${aText} + ${bText} の答えは？`,
+    blankPosition: 'final',
+    expectedStepValue: sumInt / scale,
+    hint: '答えにも小数点を書くのを忘れないでね！位をそろえて数字を並べよう。'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: sumInt,
+      reasonCategory: 'decimal_point_ignored',
+      adviceMessage: '小数点を無視して整数のように計算していないかな？答えにも小数点を書こう！'
+    },
+    {
+      predictedErrorValue: (sumInt * 10) / scale,
+      reasonCategory: 'decimal_point_position',
+      adviceMessage: '小数点の位置が1つずれているかも！位をそろえて確認しよう！'
+    }
+  ];
+  if (carries[0]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (sumInt - 10) / scale,
+      reasonCategory: 'carry_forgotten',
+      adviceMessage: `${placeNames[1]}へのくり上がりの「1」を足し忘れていないかな？`
+    });
+  }
+  if (scale === 100 && carries[1]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (sumInt - 100) / scale,
+      reasonCategory: 'carry_forgotten',
+      adviceMessage: '一の位へのくり上がりの「1」を足し忘れていないかな？'
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${aText} + ${bText} = ?`,
+    expression: `${aText} + ${bText}`,
+    displayFormat: 'column',
+    operands: [aInt / scale, bInt / scale],
+    operator: '+',
+    quotient: sumInt / scale,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: sumInt,
+      reasonCategory: 'decimal_point_ignored',
+      diagnosis: '小数点を無視して整数のように計算していないかな？小数点の位置をチェック！',
+      hintMessage: '小数点をたてにそろえて、位ごとに計算してみよう！'
+    },
+    errorDiagnostics,
+    patternType: `dec_add_${scale === 10 ? 'tenths' : 'hundredths'}`,
+    trapMetadata: { decimalScale: scale }
+  });
+}
+
+/**
+ * Stage 6-3: 小数のひき算 (くり下がり・整数からのひき算含む)
+ */
+function generateStage6_3({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let scale = variationTarget?.trapMetadata?.decimalScale;
+  if (!scale) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') scale = 10;
+    else if (difficultyLevel === 'standard') scale = rng() < 0.5 ? 10 : 100;
+    else scale = 100;
+  }
+  const fromRound =
+    variationTarget?.trapMetadata?.fromRound ??
+    (difficultyLevel !== 'warmup' && difficultyLevel !== 'remedial' && rng() < 0.4);
+  const needDoubleBorrow = difficultyLevel === 'challenge' && scale === 100;
+
+  let aInt = scale === 10 ? 52 : 502;
+  let bInt = scale === 10 ? 28 : 268;
+  let da = splitPlaces(aInt, scale);
+  let db = splitPlaces(bInt, scale);
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (fromRound) {
+      aInt = randInt(1, 4, rng) * scale;
+      bInt = scale === 10 ? randInt(12, 89, rng) : randInt(112, 989, rng);
+    } else if (scale === 10) {
+      aInt = randInt(23, 95, rng);
+      bInt = randInt(12, 89, rng);
+    } else {
+      aInt = randInt(213, 995, rng);
+      bInt = randInt(112, 989, rng);
+    }
+    da = splitPlaces(aInt, scale);
+    db = splitPlaces(bInt, scale);
+    if (aInt <= bInt) continue;
+    // 主題は最下位のくり下がり
+    if (!(da[0] < db[0])) continue;
+    if (needDoubleBorrow) {
+      const effTens = da[1] - 1;
+      if (!(effTens < db[1])) continue;
+    }
+    if (!variationTarget) break;
+    const tScale = variationTarget.trapMetadata?.decimalScale || scale;
+    if (
+      Math.round((variationTarget.operands?.[0] ?? -1) * tScale) !== aInt &&
+      Math.round((variationTarget.operands?.[1] ?? -1) * tScale) !== bInt
+    ) {
+      break;
+    }
+  }
+
+  // 位ごとのくり下がりをシミュレーション
+  const resDigits = [];
+  const borrowIns = [];
+  let borrow = 0;
+  for (let i = 0; i < da.length; i++) {
+    borrowIns.push(borrow);
+    let d = da[i] - borrow - db[i];
+    if (d < 0) {
+      d += 10;
+      borrow = 1;
+    } else {
+      borrow = 0;
+    }
+    resDigits.push(d);
+  }
+  let diffInt = 0;
+  for (let i = resDigits.length - 1; i >= 0; i--) {
+    diffInt = diffInt * 10 + resDigits[i];
+  }
+
+  const aText = formatDecimal(aInt, scale);
+  const bText = formatDecimal(bInt, scale);
+  const placeNames = scale === 100 ? ['0.01の位', '0.1の位', '一の位'] : ['0.1の位', '一の位'];
+  const placeIds = scale === 100 ? ['hundredths', 'tenths', 'ones'] : ['tenths', 'ones'];
+
+  const steps = da.map((aDigit, i) => {
+    const borrowIn = borrowIns[i];
+    const effA = aDigit - borrowIn;
+    const bDigit = db[i];
+    let explanation;
+    if (effA < 0) {
+      // この位が 0 で下の位に 1 貸したケース: 負の数を出さず、借りてきた 10 から
+      // 貸した 1 を引いた数 (effA + 10) で計算する形で説明する (期待値は変えない)
+      explanation = `${placeNames[i]}を計算しよう: 0 しかないので、上の位から 10 を借りてこよう。下の位に貸した 1 を引くと ${effA + 10} になるよ。${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (effA < bDigit) {
+      explanation = borrowIn > 0
+        ? `${placeNames[i]}を計算しよう: 貸した分を引くと ${effA}。${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`
+        : `${placeNames[i]}を計算しよう: ${effA} から ${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (borrowIn > 0) {
+      explanation = `${placeNames[i]}を計算しよう: 下の位に貸した分を引いて ${effA} - ${bDigit} はいくつ？`;
+    } else {
+      explanation = `${placeNames[i]}を計算しよう: ${effA} - ${bDigit} はいくつ？`;
+    }
+    return {
+      stepNumber: i + 1,
+      id: placeIds[i],
+      title: `${placeNames[i]}の計算`,
+      actionName: 'ひく',
+      explanation,
+      blankPosition: placeIds[i],
+      expectedStepValue: resDigits[i],
+      digit: resDigits[i],
+      hint: effA < bDigit
+        ? '引けない時は、上の位から 10 を借りてこよう！'
+        : '貸した分を引いた数字で計算するのがコツだよ！'
+    };
+  });
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '筆算の答え',
+    actionName: 'ひく',
+    explanation: `小数点をそろえて、${aText} - ${bText} の答えは？`,
+    blankPosition: 'final',
+    expectedStepValue: diffInt / scale,
+    hint: '答えにも小数点を書くのを忘れないでね！くり下がりのメモを確かめよう。'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: diffInt,
+      reasonCategory: 'decimal_point_ignored',
+      adviceMessage: '小数点を無視して整数のように計算していないかな？答えにも小数点を書こう！'
+    }
+  ];
+  if (borrowIns[1] === 1) {
+    errorDiagnostics.push({
+      predictedErrorValue: (diffInt + 10) / scale,
+      reasonCategory: 'borrow_forgotten',
+      adviceMessage: `${placeNames[1]}に「1」貸した分を引くのを忘れていないかな？`
+    });
+  }
+  if (da[0] < db[0]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (diffInt - resDigits[0] + Math.abs(da[0] - db[0])) / scale,
+      reasonCategory: 'borrow_forgotten',
+      adviceMessage: `${placeNames[0]}は引けない時は下の数字から引かずに、上の位から 10 を借りてこよう！`
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${aText} - ${bText} = ?`,
+    expression: `${aText} - ${bText}`,
+    displayFormat: 'column',
+    operands: [aInt / scale, bInt / scale],
+    operator: '-',
+    quotient: diffInt / scale,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: diffInt,
+      reasonCategory: 'decimal_point_ignored',
+      diagnosis: '小数点を無視して整数のように計算していないかな？小数点の位置をチェック！',
+      hintMessage: '小数点をたてにそろえて、引けない時は上の位から 10 を借りてみよう！'
+    },
+    errorDiagnostics,
+    patternType: `dec_sub_${scale === 10 ? 'tenths' : 'hundredths'}${fromRound ? '_from_round' : ''}`,
+    trapMetadata: { decimalScale: scale, fromRound }
+  });
+}
+
 const STAGE_GENERATORS = {
   '1-1': generateStage1_1,
   '1-2': generateStage1_2,
@@ -3221,7 +4086,10 @@ const STAGE_GENERATORS = {
   '4-3': generateStage4_3,
   '5-1': generateStage5_1,
   '5-2': generateStage5_2,
-  '5-3': generateStage5_3
+  '5-3': generateStage5_3,
+  '6-1': generateStage6_1,
+  '6-2': generateStage6_2,
+  '6-3': generateStage6_3
 };
 
 // ============================================================================
@@ -3615,6 +4483,12 @@ export function generateVariationProblem(originalProblem, options = {}) {
       originalProblem.remainder ??
       origOperands[0] % origOperands[1];
     trapMetadata.withRemainder = rem > 0;
+  } else if (norm.worldId === 6 && trapMetadata.decimalScale === undefined) {
+    // 小数問題 (compact 形式): operands に小数第2位の端数があるかでスケールを推定
+    const hasHundredths = origOperands.some(
+      (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9 && Math.abs(v * 10 - Math.round(v * 10)) > 1e-9
+    );
+    trapMetadata.decimalScale = hasHundredths ? 100 : 10;
   }
 
   const targetModel = {
@@ -3707,11 +4581,14 @@ export function diagnoseError(problem, userAnswer) {
   const trueVal = problem?.correctAnswer?.value ?? problem?.answer ?? 0;
   const trueRem = problem?.correctAnswer?.remainder ?? problem?.remainder ?? 0;
   const isDiv = problem?.operator === '÷';
+  const decScale = getDecimalScale(problem);
+  const valueMatches = (candidate) =>
+    decScale ? scaledValueEquals(norm.value, candidate, decScale) : norm.value === candidate;
 
   // First check exact match in problem.errorDiagnostics
   if (Array.isArray(problem?.errorDiagnostics)) {
     for (const diag of problem.errorDiagnostics) {
-      const valMatch = norm.value === diag.predictedErrorValue;
+      const valMatch = valueMatches(diag.predictedErrorValue);
       const remMatch =
         diag.predictedRemainder === undefined || norm.remainder === diag.predictedRemainder;
       if (valMatch && remMatch) {
@@ -3730,7 +4607,7 @@ export function diagnoseError(problem, userAnswer) {
   }
 
   // Check commonTrap
-  if (problem?.commonTrap && norm.value === problem.commonTrap.mistakeValue) {
+  if (problem?.commonTrap && valueMatches(problem.commonTrap.mistakeValue)) {
     if (
       problem.commonTrap.mistakeRemainder === undefined ||
       norm.remainder === problem.commonTrap.mistakeRemainder
@@ -3796,6 +4673,35 @@ export function diagnoseError(problem, userAnswer) {
       }
     }
   } else {
+    // Decimal dynamic rules (World 6): point ignored / point shifted by one place
+    if (decScale) {
+      const integerValue = Math.round(trueVal * decScale);
+      if (Number.isInteger(norm.value) && norm.value === integerValue && integerValue !== Math.round(trueVal)) {
+        return {
+          matched: true,
+          reasonCategory: 'decimal_point_ignored',
+          diagnosis: '小数点を無視して整数のように計算しているかも！',
+          adviceMessage: '小数点をたてにそろえて位ごとに計算し、答えにも小数点を書いてみよう！',
+          hintMessage: '小数点の位置に注目してステップガイドで確かめてみよう！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: { value: norm.value, remainder: norm.remainder }
+        };
+      }
+      if (scaledValueEquals(norm.value, trueVal * 10, decScale) || scaledValueEquals(norm.value, trueVal / 10, decScale)) {
+        return {
+          matched: true,
+          reasonCategory: 'decimal_point_position',
+          diagnosis: '小数点の位置が1つずれているかも！',
+          adviceMessage: '0.1 が 10 こで 1、0.01 が 10 こで 0.1 だよ。位の大きさを確認してみよう！',
+          hintMessage: '一の位・0.1の位・0.01の位を指でたどって確かめてみよう！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: { value: norm.value, remainder: norm.remainder }
+        };
+      }
+    }
+
     const diff = Math.abs(trueVal - norm.value);
     if (diff === 10 || diff === 100 || diff === 1000) {
       const placeName = diff === 10 ? '十の位' : diff === 100 ? '百の位' : '千の位';
@@ -3979,7 +4885,11 @@ export function evaluateAnswer(problem, userAnswer) {
   const trueRem = problem?.correctAnswer?.remainder ?? problem?.remainder ?? 0;
   const isDiv = problem?.operator === '÷';
 
-  const isQuotientCorrect = norm.value === trueVal;
+  // 小数問題はスケールで丸めて比較し、浮動小数点誤差で不正解にしない
+  const decScale = getDecimalScale(problem);
+  const isQuotientCorrect = decScale
+    ? scaledValueEquals(norm.value, trueVal, decScale)
+    : norm.value === trueVal;
   const isRemainderCorrect = isDiv ? norm.remainder === trueRem : true;
   const isCorrect = isQuotientCorrect && isRemainderCorrect;
 
@@ -4021,6 +4931,7 @@ export const CurriculumEngine = {
   TRAINING_CATEGORY_LABELS,
   getTrainingCategoryLabel,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,

@@ -3,6 +3,8 @@
  * 算数探検ラボ (Smart Math Discovery Lab)
  */
 
+import { WORLDS_METADATA } from './curriculum-engine.js';
+
 export const MINI_LESSON_SCRIPTS = {
   'stage-1': {
     stageId: 'stage-1',
@@ -423,6 +425,90 @@ export const MINI_LESSON_SCRIPTS = {
       rule: '【25×4=100を見つけたら勝ち！】工夫して100や1000のまとまりを作ろう！',
       ttsText: '二十五掛ける四は百！キリのいい数を作ると、暗算で解けちゃうよ！'
     }
+  },
+  'stage-16': {
+    stageId: 'stage-16',
+    worldId: 6,
+    stageNumber: 1,
+    title: '小数の仕組み（0.1と0.01）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '1を10等分した1つ分が「0.1」。0.1が10こ集まると1！0.1を10等分すると「0.01」だよ。',
+      ttsText: '0.1が10こ集まると1になるよ。0.1を10等分すると0.01。小数は位に分けると正体がわかるよ！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.1 が 23 こ集まった数はいくつ？',
+      options: [
+        { id: 'A', label: '23' },
+        { id: 'B', label: '2.3' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！0.1が20こで2、0.1が3こで0.3。合わせて2.3だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！0.1が10こ集まると1になるんだったね。',
+      ttsText: '0.1が23こ集まった数はいくつかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【0.1が10こで1、0.01が10こで0.1！】位に分けると小数の大きさが見えてくる！',
+      ttsText: '今日の必殺技！0.1が10こで1！位に分けて考えると小数はこわくないよ！'
+    }
+  },
+  'stage-17': {
+    stageId: 'stage-17',
+    worldId: 6,
+    stageNumber: 2,
+    title: '小数のたし算（小数点をそろえる）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '小数のたし算は小数点の位置をそろえて、位ごとに計算！答えにも小数点を書こう。',
+      ttsText: '小数のたし算は小数点をそろえるのが鉄則！位ごとに計算して、答えにも小数点を書こう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.7 + 0.5 の 0.1の位は 7 + 5 = 12。答えの 0.1の位に書く数字はどっち？',
+      options: [
+        { id: 'A', label: '2' },
+        { id: 'B', label: '12' }
+      ],
+      correctOption: 'A',
+      correctFeedback: 'ピンポン！大正解！12の「2」を書いて、1は一の位へくり上がり。答えは1.2だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！1つの位に書ける数字は1つだけだよ。',
+      ttsText: '0.7たす0.5の計算、0.1の位に書く数字はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【小数点をそろえて位ごとに計算、答えにも小数点！】小数点を無視して整数みたいにしない！',
+      ttsText: '今日の必殺技！小数点をそろえて計算、答えにも小数点を忘れずに！'
+    }
+  },
+  'stage-18': {
+    stageId: 'stage-18',
+    worldId: 6,
+    stageNumber: 3,
+    title: '小数のひき算（くり下がり）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '引けない時は上の位から「10」を借りる！小数でも整数と同じルールだよ。',
+      ttsText: '小数のひき算も、引けない時は上の位から十を借りてくるよ。整数から引く時は位に分けて考えよう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.5 - 0.27 で、0.1の位の5から10を借りたよ。0.1の位の計算はどっち？',
+      options: [
+        { id: 'A', label: '5 - 2' },
+        { id: 'B', label: '4 - 2' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！貸した分を引いて4 - 2 = 2。答えは0.23だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！となりに貸したら、自分の位は1減るんだったね。',
+      ttsText: '0.5ひく0.27の計算、借りたあとの0.1の位はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【引けない時は10を借りる、貸した位は1減らす！】小数点をそろえるのも忘れずに！',
+      ttsText: '今日の必殺技！引けない時は十を借りる！貸した位が1減るのを忘れないでね！'
+    }
   }
 };
 
@@ -723,16 +809,18 @@ export function speakText(text, options = {}) {
  */
 export function getMiniLessonData(stageIdentifier) {
   let key = 'stage-1';
+  // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 
   if (typeof stageIdentifier === 'number') {
-    const clamped = Math.max(1, Math.min(15, Math.floor(stageIdentifier)));
+    const clamped = Math.max(1, Math.min(totalStages, Math.floor(stageIdentifier)));
     key = `stage-${clamped}`;
   } else if (typeof stageIdentifier === 'string') {
     const trimmed = stageIdentifier.trim().toLowerCase();
     if (MINI_LESSON_SCRIPTS[trimmed]) {
       key = trimmed;
     } else if (/^\d+$/.test(trimmed)) {
-      const num = Math.max(1, Math.min(15, Number(trimmed)));
+      const num = Math.max(1, Math.min(totalStages, Number(trimmed)));
       key = `stage-${num}`;
     } else {
       const worldStageMatch = trimmed.match(/w(?:orld)?[-_]?(\d+)[-_]s(?:tage)?[-_]?(\d+)/);
@@ -740,7 +828,7 @@ export function getMiniLessonData(stageIdentifier) {
         const w = Number(worldStageMatch[1]);
         const s = Number(worldStageMatch[2]);
         const globalStage = (w - 1) * 3 + s;
-        if (globalStage >= 1 && globalStage <= 15) {
+        if (globalStage >= 1 && globalStage <= totalStages) {
           key = `stage-${globalStage}`;
         }
       }
@@ -748,11 +836,11 @@ export function getMiniLessonData(stageIdentifier) {
   } else if (stageIdentifier && typeof stageIdentifier === 'object') {
     const w = Number(stageIdentifier.worldId || 1);
     const s = Number(stageIdentifier.stageId || 1);
-    if (s >= 1 && s <= 15 && !stageIdentifier.worldId) {
+    if (s >= 1 && s <= totalStages && !stageIdentifier.worldId) {
       key = `stage-${s}`;
     } else {
       const globalStage = (w - 1) * 3 + s;
-      if (globalStage >= 1 && globalStage <= 15) {
+      if (globalStage >= 1 && globalStage <= totalStages) {
         key = `stage-${globalStage}`;
       }
     }

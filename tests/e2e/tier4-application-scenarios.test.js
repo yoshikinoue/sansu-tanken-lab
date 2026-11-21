@@ -34,7 +34,8 @@ import {
   StageMapReference,
   TreasureBoxReference,
   ParentBoardReference,
-  RouterReference
+  RouterReference,
+  WORLDS_METADATA
 } from './test-helpers.js';
 
 describe('Tier 4: Real-World Application Scenarios (End-to-End Journeys)', async () => {
@@ -340,7 +341,7 @@ describe('Tier 4: Real-World Application Scenarios (End-to-End Journeys)', async
       assert.equal(ParentBoardReference.verifyPin('1234', progress.parentCheer.parentPinHash), true);
     });
 
-    it('T4-D2: Views 5-world radar chart scores and prominent selfCorrectionCount metric', () => {
+    it('T4-D2: Views per-world radar chart scores and prominent selfCorrectionCount metric', () => {
       const radar = ParentBoardReference.calculateRadarScores(progress);
       assert.equal(radar.world1, 100);
       assert.equal(radar.world2, 0);
@@ -432,15 +433,14 @@ describe('Tier 4: Real-World Application Scenarios (End-to-End Journeys)', async
       assert.equal(topRank.name, '算数マスター大博士');
     });
 
-    it('T4-E4: Verifies ParentBoard.calculateRadarScores reaches 100 across all 5 worlds when all 15 stages are cleared', () => {
+    it('T4-E4: Verifies ParentBoard.calculateRadarScores reaches 100 across the worlds cleared in this scenario (Worlds 1-5)', () => {
       const radar = ParentBoardReference.calculateRadarScores(progress);
-      assert.deepEqual(radar, {
-        world1: 100,
-        world2: 100,
-        world3: 100,
-        world4: 100,
-        world5: 100
-      });
+      // This scenario clears Stages 1-15 (Worlds 1-5); any later world stays 0
+      const expected = {};
+      for (const world of WORLDS_METADATA) {
+        expected[`world${world.worldId}`] = world.worldId <= 5 ? 100 : 0;
+      }
+      assert.deepEqual(radar, expected);
     });
 
     it('T4-E5: Verifies all 8 achievement badges can be unlocked and persisted in user profile', () => {

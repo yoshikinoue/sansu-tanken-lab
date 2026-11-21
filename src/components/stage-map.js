@@ -1,10 +1,10 @@
 /**
  * src/components/stage-map.js
- * 算数探検ラボ - 5ワールド15ステージマップ＆ナビゲーター (StageMap)
+ * 算数探検ラボ - 全ワールド・ステージのマップ＆ナビゲーター (StageMap)
  *
  * Dual capability:
  * 1. Pure helper functions and constants matching StageMapReference for headless Node.js
- * 2. Interactive DOM StageMap class for tablet browser rendering all 5 worlds,
+ * 2. Interactive DOM StageMap class for tablet browser rendering all worlds,
  *    star ratings, stage lock/unlock states, and mini-lesson review triggers.
  */
 
@@ -21,15 +21,16 @@ import {
 
 // --- PURE HELPER FUNCTIONS & CONSTANTS (HEADLESS COMPATIBLE) ---
 
-export const totalWorlds = 5;
-export const stagesPerWorld = 3;
-export const totalStages = 15;
+// ワールド数・総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+export const totalWorlds = WORLDS_METADATA.length;
+export const stagesPerWorld = WORLDS_METADATA[0]?.stages.length || 3;
+export const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 
 /**
  * 指定ステージがアンロックされているか判定
  * Stage 1 は常に true
- * Stage N (2..15) は前の Stage (N - 1) が cleared === true のとき true
- * @param {number} stageNumber 1..15
+ * Stage N (2..総ステージ数) は前の Stage (N - 1) が cleared === true のとき true
+ * @param {number} stageNumber 1..総ステージ数
  * @param {object} clearedStagesMap progress.stageProgress マップ
  * @returns {boolean}
  */
@@ -44,9 +45,9 @@ export function isStageUnlocked(stageNumber, clearedStagesMap = {}) {
 }
 
 /**
- * ステージ番号から所属ワールド番号 (1..5) を算出
- * @param {number} stageNumber 1..15
- * @returns {number} 1..5
+ * ステージ番号から所属ワールド番号を算出
+ * @param {number} stageNumber 1..総ステージ数
+ * @returns {number} ワールド番号
  */
 export function getWorldForStage(stageNumber) {
   const num = Number(stageNumber);

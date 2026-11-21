@@ -29,7 +29,8 @@ import {
   TreasureBoxReference,
   ParentBoardReference,
   RouterReference,
-  PackageConfigReference
+  PackageConfigReference,
+  WORLDS_METADATA
 } from './test-helpers.js';
 
 describe('Tier 2: Boundary & Corner Cases (F1 - F25)', async () => {
@@ -382,9 +383,9 @@ describe('Tier 2: Boundary & Corner Cases (F1 - F25)', async () => {
       assert.equal(fallbackStage.expectedAnswer, 42);
     });
 
-    it('F6-B5: enforces strict 5-question count invariant across all 15 stages', () => {
-      for (let s = 1; s <= 15; s++) {
-        const w = Math.ceil(s / 3);
+    it('F6-B5: enforces strict 5-question count invariant across all stages', () => {
+      for (let s = 1; s <= StageMapReference.totalStages; s++) {
+        const w = StageMapReference.getWorldForStage(s);
         const set = curriculum.generateStageProblems(w, s, []);
         assert.equal(set.length, 5, `Stage ${s} did not generate 5 problems`);
       }
@@ -952,16 +953,16 @@ describe('Tier 2: Boundary & Corner Cases (F1 - F25)', async () => {
       assert.equal(StageMapReference.isStageUnlocked(15, { 'stage-14': { cleared: true } }), true);
     });
 
-    it('F20-B4: maps exact world transition boundaries (3->1, 4->2, 6->2, 7->3, 9->3, 10->4, 12->4, 13->5, 15->5)', () => {
+    it('F20-B4: maps exact world transition boundaries (3->1, 4->2, 6->2, 7->3, 9->3, 10->4, 12->4, 13->5, 15->5, 16->6, 18->6)', () => {
       const pairs = [
-        [3, 1], [4, 2], [6, 2], [7, 3], [9, 3], [10, 4], [12, 4], [13, 5], [15, 5]
+        [3, 1], [4, 2], [6, 2], [7, 3], [9, 3], [10, 4], [12, 4], [13, 5], [15, 5], [16, 6], [18, 6]
       ];
       for (const [stage, expectedWorld] of pairs) {
         assert.equal(StageMapReference.getWorldForStage(stage), expectedWorld);
       }
     });
 
-    it('F20-B5: maintains invariant totalStages === totalWorlds * stagesPerWorld (15 === 5 * 3)', () => {
+    it('F20-B5: maintains invariant totalStages === totalWorlds * stagesPerWorld', () => {
       assert.equal(
         StageMapReference.totalStages,
         StageMapReference.totalWorlds * StageMapReference.stagesPerWorld
@@ -1037,18 +1038,26 @@ describe('Tier 2: Boundary & Corner Cases (F1 - F25)', async () => {
       assert.equal(ParentBoardReference.verifyPin(undefined, '1234'), false);
     });
 
-    it('F22-B3: returns 0 for all 5 worlds when calculateRadarScores receives empty stageProgress {}', () => {
+    it('F22-B3: returns 0 for all worlds when calculateRadarScores receives empty stageProgress {}', () => {
       const scores = ParentBoardReference.calculateRadarScores({ stageProgress: {} });
-      assert.deepEqual(scores, { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0 });
+      const expected = {};
+      for (const world of WORLDS_METADATA) {
+        expected[`world${world.worldId}`] = 0;
+      }
+      assert.deepEqual(scores, expected);
     });
 
-    it('F22-B4: returns 100 for all 5 worlds when all 15 stages are cleared', () => {
+    it('F22-B4: returns 100 for all worlds when all stages are cleared', () => {
       const stageProgress = {};
-      for (let s = 1; s <= 15; s++) {
+      for (let s = 1; s <= StageMapReference.totalStages; s++) {
         stageProgress[`stage-${s}`] = { cleared: true };
       }
       const scores = ParentBoardReference.calculateRadarScores({ stageProgress });
-      assert.deepEqual(scores, { world1: 100, world2: 100, world3: 100, world4: 100, world5: 100 });
+      const expected = {};
+      for (const world of WORLDS_METADATA) {
+        expected[`world${world.worldId}`] = 100;
+      }
+      assert.deepEqual(scores, expected);
     });
 
     it('F22-B5: handles empty/undefined customText and exact 50 vs 51 char truncation boundary in createCheerStamp', () => {

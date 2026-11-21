@@ -62,7 +62,7 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
   // 1. Default Schema & Validation
   // =========================================================================
   describe('Default Progress Schema & Validation', () => {
-    it('creates complete default progress matching schemaVersion 1.0.0 with all 15 stages', () => {
+    it('creates complete default progress matching schemaVersion 1.0.0 with all 18 stages', () => {
       const def = createDefaultProgress();
       assert.equal(def.schemaVersion, '1.0.0');
       assert.equal(def.userProfile.grade, 4);
@@ -72,10 +72,10 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
       assert.equal(def.gamification.selfCorrectionCount, 0);
       assert.ok(Array.isArray(def.gamification.unlockedBadges));
 
-      // Verify all 15 stages exist and only stage-1 is unlocked initially
+      // Verify all 18 stages exist and only stage-1 is unlocked initially
       const stageKeys = Object.keys(def.stageProgress);
-      assert.equal(stageKeys.length, 15);
-      for (let i = 1; i <= 15; i++) {
+      assert.equal(stageKeys.length, 18);
+      for (let i = 1; i <= 18; i++) {
         const key = `stage-${i}`;
         const stg = def.stageProgress[key];
         assert.ok(stg, `Missing ${key}`);

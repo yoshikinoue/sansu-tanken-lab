@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import CurriculumEngine, {
   WORLDS_METADATA,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,
@@ -24,14 +25,14 @@ import CurriculumEngine, {
 import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
-  describe('1. Worlds & Stages Metadata (5 Worlds, 15 Stages, Mini-Lessons)', () => {
-    it('exports all 5 worlds and 15 stages with complete metadata and 3-card mini-lessons', () => {
+  describe('1. Worlds & Stages Metadata (6 Worlds, 18 Stages, Mini-Lessons)', () => {
+    it('exports all 6 worlds and 18 stages with complete metadata and 3-card mini-lessons', () => {
       const worlds = getWorldsMetadata();
-      assert.equal(worlds.length, 5);
-      assert.equal(WORLDS_METADATA.length, 5);
+      assert.equal(worlds.length, 6);
+      assert.equal(WORLDS_METADATA.length, 6);
 
       let totalStages = 0;
-      for (let w = 1; w <= 5; w++) {
+      for (let w = 1; w <= 6; w++) {
         const world = worlds[w - 1];
         assert.equal(world.worldId, w);
         assert.ok(world.title.length > 0);
@@ -57,7 +58,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.equal(stage.miniLesson.cards[2].type, 'summary');
         }
       }
-      assert.equal(totalStages, 15);
+      assert.equal(totalStages, 18);
     });
 
     it('falls back safely to World 1 Stage 1 for out-of-range worldId or stageId', () => {
@@ -93,9 +94,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
   });
 
-  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 15 Stages', () => {
-    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 15 stages', () => {
-      for (let w = 1; w <= 5; w++) {
+  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 18 Stages', () => {
+    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 18 stages', () => {
+      for (let w = 1; w <= 6; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, {
             questionIndex: 3,
@@ -353,8 +354,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
   });
 
   describe('5. Review Variation Generator (Power-Up Treasure Box)', () => {
-    it('generates number-varied problems preserving cognitive traps across all 15 stages', () => {
-      for (let w = 1; w <= 5; w++) {
+    it('generates number-varied problems preserving cognitive traps across all 18 stages', () => {
+      for (let w = 1; w <= 6; w++) {
         for (let s = 1; s <= 3; s++) {
           const orig = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const varied = generateVariationProblem(orig);
@@ -412,7 +413,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     it('detects specific buggy rules and never emits forbidden negative or X symbols', () => {
       const forbiddenPattern = /[×✕❌✖]|バツ|不正解|ダメ|失敗/;
 
-      for (let w = 1; w <= 5; w++) {
+      for (let w = 1; w <= 6; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const trapInput =
@@ -815,6 +816,279 @@ describe('BUG-008: hint and step-guide wording must match the actual problem and
     };
     const modal = new StepGuideModal({ problem, diagnosis });
     assert.equal(modal.session.steps[0].explanation, 'original too-small explanation');
+  });
+});
+
+describe('Issue #16: World 6 小数ラボ (decimals)', () => {
+  it('normalizes World 6 stages and keeps stage-1..15 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-16'), {
+      worldId: 6,
+      stageId: 1,
+      globalStageNumber: 16
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-17'), {
+      worldId: 6,
+      stageId: 2,
+      globalStageNumber: 17
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-18'), {
+      worldId: 6,
+      stageId: 3,
+      globalStageNumber: 18
+    });
+    assert.deepEqual(normalizeWorldAndStage(6, 2), {
+      worldId: 6,
+      stageId: 2,
+      globalStageNumber: 17
+    });
+    // Out-of-range values still fall back to World 1 Stage 1
+    assert.deepEqual(normalizeWorldAndStage(7, 1), {
+      worldId: 1,
+      stageId: 1,
+      globalStageNumber: 1
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-19'), {
+      worldId: 1,
+      stageId: 1,
+      globalStageNumber: 1
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 15; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 6 metadata with decimal stages and 3-card mini-lessons', () => {
+    const meta = getStageMetadata(6, 1);
+    assert.equal(meta.globalId, 'stage-16');
+    assert.equal(meta.usesDecimal, true);
+    assert.equal(getStageMetadata(6, 2).globalId, 'stage-17');
+    assert.equal(getStageMetadata(6, 3).globalId, 'stage-18');
+    const world6 = getWorldsMetadata()[5];
+    assert.equal(world6.title, '小数ラボ');
+    assert.equal(world6.stages.length, 3);
+  });
+
+  it('generates arithmetically exact decimal addition/subtraction across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 40; i++) {
+        const add = generateProblem(6, 2, { difficultyLevel: diff });
+        const scale = add.trapMetadata.decimalScale;
+        assert.ok(scale === 10 || scale === 100);
+        const expectAdd =
+          (Math.round(add.operands[0] * scale) + Math.round(add.operands[1] * scale)) / scale;
+        assert.equal(add.correctAnswer.value, expectAdd);
+        // 0.1 + 0.2 style float error must never mark a correct answer wrong
+        assert.equal(evaluateAnswer(add, add.correctAnswer.value).isCorrect, true);
+        assert.equal(evaluateAnswer(add, String(add.correctAnswer.value)).isCorrect, true);
+
+        const sub = generateProblem(6, 3, { difficultyLevel: diff });
+        const sScale = sub.trapMetadata.decimalScale;
+        const expectSub =
+          (Math.round(sub.operands[0] * sScale) - Math.round(sub.operands[1] * sScale)) / sScale;
+        assert.equal(sub.correctAnswer.value, expectSub);
+        assert.ok(sub.correctAnswer.value > 0);
+        assert.equal(evaluateAnswer(sub, sub.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('requires a ones-place carry in decimal addition and a borrow in subtraction', () => {
+    for (let i = 0; i < 60; i++) {
+      const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+      const scale = add.trapMetadata.decimalScale;
+      const aLow = Math.round(add.operands[0] * scale) % 10;
+      const bLow = Math.round(add.operands[1] * scale) % 10;
+      assert.ok(aLow + bLow >= 10, `lowest place must carry: ${add.expression}`);
+
+      const sub = generateProblem(6, 3, { difficultyLevel: 'standard' });
+      const sScale = sub.trapMetadata.decimalScale;
+      const aLowS = Math.round(sub.operands[0] * sScale) % 10;
+      const bLowS = Math.round(sub.operands[1] * sScale) % 10;
+      assert.ok(aLowS < bLowS, `lowest place must borrow: ${sub.expression}`);
+    }
+  });
+
+  it('generates decimal-structure problems whose answers are consistent', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 40; i++) {
+        const p = generateProblem(6, 1, { difficultyLevel: diff });
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        if (p.patternType === 'decimal_tenths_count') {
+          // 0.1 が n こ = n / 10
+          assert.equal(p.correctAnswer.value, p.trapMetadata.count / 10);
+        }
+        if (p.patternType.startsWith('decimal_count_of')) {
+          // 答えは unit が何こ分か (整数)
+          assert.ok(Number.isInteger(p.correctAnswer.value));
+          assert.equal(p.correctAnswer.value, p.trapMetadata.count);
+        }
+      }
+    }
+  });
+
+  it('diagnoses the integer-as-decimal trap with decimal categories', () => {
+    for (let i = 0; i < 40; i++) {
+      const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+      const diag = diagnoseError(add, add.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true);
+      assert.equal(diag.reasonCategory, 'decimal_point_ignored');
+
+      const sub = generateProblem(6, 3, { difficultyLevel: 'standard' });
+      const diagSub = diagnoseError(sub, sub.commonTrap.mistakeValue);
+      assert.equal(diagSub.matched, true);
+      assert.equal(diagSub.reasonCategory, 'decimal_point_ignored');
+    }
+  });
+
+  it('diagnoses a one-place point shift dynamically', () => {
+    const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+    const shifted = add.correctAnswer.value * 10;
+    if (shifted !== add.commonTrap.mistakeValue) {
+      const diag = diagnoseError(add, shifted);
+      assert.equal(diag.matched, true);
+      assert.ok(
+        diag.reasonCategory === 'decimal_point_position' ||
+          diag.reasonCategory === 'decimal_point_ignored'
+      );
+    }
+  });
+
+  it('generates World 6 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(6, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 6);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+    }
+    // Compact format without trapMetadata still yields a World 6 variation
+    const compact = { worldId: 6, stageId: 2, num1: 3.25, num2: 1.48, operator: '+', answer: 4.73 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 6);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('serves a full 5-problem decimal stage set', () => {
+    const problems = generateStageProblems(6, 17, []);
+    assert.equal(problems.length, 5);
+    for (const p of problems) {
+      assert.equal(p.worldId, 6);
+      assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+    }
+  });
+
+  it('grades decimals strictly: finer input than the scale is wrong (Pi review regression)', () => {
+    const prob73 = {
+      operator: '+',
+      correctAnswer: { value: 7.3, quotient: 7.3, remainder: 0 },
+      answer: 7.3,
+      trapMetadata: { decimalScale: 100 }
+    };
+    assert.equal(evaluateAnswer(prob73, 7.3).isCorrect, true);
+    // Math.round-only comparison used to accept these via rounding
+    assert.equal(evaluateAnswer(prob73, 7.301).isCorrect, false);
+    assert.equal(evaluateAnswer(prob73, 7.305).isCorrect, false);
+    assert.equal(evaluateAnswer(prob73, '7.301').isCorrect, false);
+
+    const prob73Scale10 = { ...prob73, trapMetadata: { decimalScale: 10 } };
+    assert.equal(evaluateAnswer(prob73Scale10, 7.3).isCorrect, true);
+    assert.equal(evaluateAnswer(prob73Scale10, 7.34).isCorrect, false);
+
+    // 0.1 + 0.2 style binary float error must still be accepted
+    const prob03 = {
+      operator: '+',
+      correctAnswer: { value: 0.3, quotient: 0.3, remainder: 0 },
+      answer: 0.3,
+      trapMetadata: { decimalScale: 10 }
+    };
+    assert.equal(evaluateAnswer(prob03, 0.1 + 0.2).isCorrect, true);
+
+    // Generated problems: a sub-scale perturbation of the answer is never correct
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 30; i++) {
+        for (const s of [2, 3]) {
+          const p = generateProblem(6, s, { difficultyLevel: diff });
+          const scale = p.trapMetadata.decimalScale;
+          assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+          assert.equal(
+            evaluateAnswer(p, p.correctAnswer.value + 1 / (scale * 10)).isCorrect,
+            false,
+            `${p.expression}: answer + 1/${scale * 10} must be wrong`
+          );
+          assert.equal(
+            evaluateAnswer(p, p.correctAnswer.value + 5 / (scale * 100)).isCorrect,
+            false,
+            `${p.expression}: answer + 5/${scale * 100} must be wrong`
+          );
+        }
+      }
+    }
+  });
+
+  it('never shows a negative number in Stage 6-3 step explanations (borrow across 0)', () => {
+    let sawBorrowFromZero = false;
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 120; i++) {
+        const p = generateProblem(6, 3, { difficultyLevel: diff });
+        for (const step of p.stepGuide.steps) {
+          const text = step.explanation || '';
+          assert.ok(!/-\d+。/.test(text), `negative value leaked into step text: ${text}`);
+          if (text.includes('0 しかないので、上の位から 10 を借りてこよう')) {
+            sawBorrowFromZero = true;
+            // The expected step value must stay the plain digit result
+            assert.ok(Number.isInteger(step.expectedStepValue));
+            assert.ok(step.expectedStepValue >= 0 && step.expectedStepValue <= 9);
+          }
+        }
+      }
+    }
+    assert.ok(sawBorrowFromZero, 'the borrow-across-zero wording must be exercised');
+  });
+
+  it('ends decimal_place_digit guides by assembling the whole number, not repeating the digit', () => {
+    let seen = 0;
+    for (let i = 0; i < 400 && seen < 30; i++) {
+      const p = generateProblem(6, 1, { difficultyLevel: 'challenge' });
+      if (p.patternType !== 'decimal_place_digit') continue;
+      seen++;
+      const steps = p.stepGuide.steps;
+      const finalStep = steps[steps.length - 1];
+      assert.equal(finalStep.id, 'final');
+      // operands[0] is the full decimal (m / 100); the final step asks for it whole
+      assert.equal(finalStep.expectedStepValue, p.operands[0]);
+      assert.notEqual(finalStep.expectedStepValue, p.correctAnswer.value);
+    }
+    assert.ok(seen > 0, 'decimal_place_digit problems must be generated');
+  });
+
+  it('maps global stage numbers to worlds via metadata (getWorldIdByGlobalStage)', () => {
+    assert.equal(getWorldIdByGlobalStage(1), 1);
+    assert.equal(getWorldIdByGlobalStage(3), 1);
+    assert.equal(getWorldIdByGlobalStage(4), 2);
+    assert.equal(getWorldIdByGlobalStage(15), 5);
+    assert.equal(getWorldIdByGlobalStage(16), 6);
+    assert.equal(getWorldIdByGlobalStage(18), 6);
+    assert.equal(getWorldIdByGlobalStage(0), 1);
+    assert.equal(CurriculumEngine.getWorldIdByGlobalStage(17), 6);
+    // Consistent with WORLDS_METADATA stage ranges
+    for (const world of WORLDS_METADATA) {
+      for (const stage of world.stages) {
+        assert.equal(getWorldIdByGlobalStage(stage.globalStageNumber), world.worldId);
+      }
+    }
+  });
+
+  it('labels Stage 16 answers as こたえ with a non-misleading mixed operator', () => {
+    const meta = getStageMetadata(6, 1);
+    assert.equal(meta.answerLabel, 'こたえ');
+    assert.equal(meta.operator, 'mixed');
   });
 });
 

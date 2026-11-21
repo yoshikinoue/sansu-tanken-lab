@@ -43,7 +43,9 @@ export function addItem(box, problem) {
 
   _itemCounter += 1;
   const rawStage = problem?.stageId ?? 1;
-  const rawWorld = problem?.worldId ?? Math.ceil(Number(rawStage) / 3);
+  const globalStageNum =
+    Number(String(problem?.globalStageId ?? '').match(/\d+/)?.[0]) || Number(rawStage);
+  const rawWorld = problem?.worldId ?? CurriculumEngine.getWorldIdByGlobalStage(globalStageNum);
 
   const stageId = String(rawStage).startsWith('stage-') ? rawStage : `stage-${rawStage}`;
   const worldId = String(rawWorld).startsWith('world-') ? rawWorld : `world-${rawWorld}`;
@@ -309,11 +311,11 @@ export class TreasureBox {
         <div style="margin:20px 0;">
           ${variation.hasRemainder
             ? `<div style="display:flex; gap:12px; justify-content:center;">
-                 <input type="number" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <input type="number" inputmode="decimal" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
                  <span style="font-size:1.3rem; align-self:center;">あまり</span>
-                 <input type="number" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <input type="number" inputmode="decimal" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
                </div>`
-            : `<input type="number" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
+            : `<input type="number" inputmode="decimal" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
           }
         </div>
 

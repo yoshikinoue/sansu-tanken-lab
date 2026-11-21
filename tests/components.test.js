@@ -248,6 +248,47 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       assert.equal(state.activeField, 'quotient');
     });
 
+    it('accepts a single decimal point in decimal mode and builds decimal values', () => {
+      let state = createKeypadState(false, true);
+      assert.equal(state.hasDecimal, true);
+      state = handleInput(state, '3');
+      state = handleInput(state, '.');
+      state = handleInput(state, '2');
+      state = handleInput(state, '.'); // second dot is ignored
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '3.25');
+      assert.equal(getValue(state), 3.25);
+    });
+
+    it('prefixes "0." when the decimal point is pressed on an empty field', () => {
+      let state = createKeypadState(false, true);
+      state = handleInput(state, '.');
+      assert.equal(state.quotientText, '0.');
+      state = handleInput(state, '7');
+      assert.equal(state.quotientText, '0.7');
+      assert.equal(getValue(state), 0.7);
+    });
+
+    it('ignores the decimal point when decimal mode is off', () => {
+      let state = createKeypadState(false);
+      assert.equal(state.hasDecimal, false);
+      state = handleInput(state, '.');
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '5');
+      assert.equal(getValue(state), 5);
+    });
+
+    it('deletes the decimal point with "del" and re-allows it afterwards', () => {
+      let state = createKeypadState(false, true);
+      state = handleInput(state, '1');
+      state = handleInput(state, '.');
+      state = handleInput(state, 'del');
+      assert.equal(state.quotientText, '1');
+      state = handleInput(state, '.');
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '1.5');
+    });
+
     it('caps remainder field at 4 digits while capping quotient field at 6 digits', () => {
       let state = createKeypadState(true);
       for (let i = 0; i < 10; i++) state = handleInput(state, '1');
