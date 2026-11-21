@@ -280,6 +280,44 @@ export class MathLabApp {
     }
   }
 
+  /**
+   * アリーナのサブコンポーネント（キーパッド・メモパッド・ステップガイド・
+   * マスコット）と進行タイマーを破棄する。ルート遷移時と追加セッション開始時で共用。
+   * Notably the keypad registers a window keydown listener that must not
+   * survive into the next session or view.
+   */
+  teardownArena() {
+    if (this.arenaAdvanceTimer) {
+      clearTimeout(this.arenaAdvanceTimer);
+      this.arenaAdvanceTimer = null;
+    }
+
+    if (this.arenaKeypad) {
+      // BUG-009 hardening: release the lock before teardown so a locked
+      // state never outlives the arena that set it.
+      this.arenaKeypad.setLocked(false);
+      if (typeof this.arenaKeypad.destroy === 'function') {
+        this.arenaKeypad.destroy();
+      }
+      this.arenaKeypad = null;
+    }
+
+    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
+      this.arenaCanvasPad.destroy();
+    }
+    this.arenaCanvasPad = null;
+
+    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
+      this.arenaStepGuide.destroy();
+    }
+    this.arenaStepGuide = null;
+
+    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
+      this.arenaMascotWidget.destroy();
+    }
+    this.arenaMascotWidget = null;
+  }
+
   handleRoute() {
     SpeechService.stopSpeech();
     const route = parseRoute(window.location.hash);
@@ -295,35 +333,7 @@ export class MathLabApp {
     this.activeViewComponent = null;
 
     // Cleanup arena subcomponents
-    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
-      this.arenaCanvasPad.destroy();
-    }
-    this.arenaCanvasPad = null;
-
-    if (this.arenaKeypad) {
-      // BUG-009 hardening: release the lock before teardown so a locked
-      // state never outlives the arena that set it.
-      this.arenaKeypad.setLocked(false);
-      if (typeof this.arenaKeypad.destroy === 'function') {
-        this.arenaKeypad.destroy();
-      }
-    }
-    this.arenaKeypad = null;
-
-    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
-      this.arenaStepGuide.destroy();
-    }
-    this.arenaStepGuide = null;
-
-    if (this.arenaAdvanceTimer) {
-      clearTimeout(this.arenaAdvanceTimer);
-      this.arenaAdvanceTimer = null;
-    }
-
-    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
-      this.arenaMascotWidget.destroy();
-    }
-    this.arenaMascotWidget = null;
+    this.teardownArena();
 
     if (this.bonusModal && typeof this.bonusModal.destroy === 'function') {
       this.bonusModal.destroy();
@@ -475,32 +485,9 @@ export class MathLabApp {
     const container = document.getElementById('view-container');
     if (!container) return;
 
-    // Tear down the finished session's arena components before re-rendering.
-    // Notably the keypad registers a window keydown listener that would
-    // otherwise survive into the extra session and double-process input.
-    if (this.arenaAdvanceTimer) {
-      clearTimeout(this.arenaAdvanceTimer);
-      this.arenaAdvanceTimer = null;
-    }
-    if (this.arenaKeypad) {
-      this.arenaKeypad.setLocked(false);
-      if (typeof this.arenaKeypad.destroy === 'function') {
-        this.arenaKeypad.destroy();
-      }
-      this.arenaKeypad = null;
-    }
-    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
-      this.arenaCanvasPad.destroy();
-      this.arenaCanvasPad = null;
-    }
-    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
-      this.arenaStepGuide.destroy();
-      this.arenaStepGuide = null;
-    }
-    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
-      this.arenaMascotWidget.destroy();
-      this.arenaMascotWidget = null;
-    }
+    // Tear down the finished session's arena components before re-rendering
+    // (the keypad's window keydown listener must not double-process input).
+    this.teardownArena();
 
     this.currentSession = {
       stageNum: prev.stageNum,
@@ -1053,6 +1040,11 @@ export class MathLabApp {
     const trainingLabel = adaptation.trainingCategory
       ? CurriculumEngine.getTrainingCategoryLabel(adaptation.trainingCategory)
       : '';
+    // Issue #23: the catch-all category has no concrete weakness name, so
+    // its button uses a generic label instead of a category name.
+    const trainingButtonText = adaptation.trainingCategory === 'general_recheck'
+      ? `🎯 まちがい直し特訓：類題${CurriculumEngine.EXTRA_SESSION_QUESTION_COUNT}問`
+      : `🎯 にがて特訓：「${trainingLabel}」の類題${CurriculumEngine.EXTRA_SESSION_QUESTION_COUNT}問`;
 
     card.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px;">
@@ -1075,11 +1067,11 @@ export class MathLabApp {
       </button>
       ${adaptation.showChallenge ? `
       <button type="button" class="btn btn-primary btn-stage-challenge" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
-        🔥 チャレンジ問題に挑戦する（3問）
+        🔥 チャレンジ問題に挑戦する（${CurriculumEngine.EXTRA_SESSION_QUESTION_COUNT}問）
       </button>` : ''}
       ${adaptation.trainingCategory ? `
       <button type="button" class="btn btn-primary btn-stage-training" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
-        🎯 にがて特訓：「${trainingLabel}」の類題3問
+        ${trainingButtonText}
       </button>` : ''}
       <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.05rem;">
         マップへ戻る 🗺️
@@ -1104,13 +1096,20 @@ export class MathLabApp {
       };
     }
 
-    // Issue #23: optional challenge (only offered on a perfect first-try clear)
+    // Issue #23: optional challenge (only offered on a perfect first-try clear).
+    // Problems are generated and validated BEFORE the modal closes, so a
+    // generation failure can never strand the player without the modal.
     const challengeBtn = card.querySelector('.btn-stage-challenge');
     if (challengeBtn) {
       challengeBtn.onclick = () => {
+        const problems = CurriculumEngine.generateChallengeProblems(
+          session.worldId,
+          session.stageNum,
+          CurriculumEngine.EXTRA_SESSION_QUESTION_COUNT
+        );
+        if (!Array.isArray(problems) || problems.length === 0) return;
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         this.stageCompleteModal = null;
-        const problems = CurriculumEngine.generateChallengeProblems(session.worldId, session.stageNum);
         this.startExtraSession({ mode: 'challenge', problems });
       };
     }
@@ -1119,20 +1118,19 @@ export class MathLabApp {
     const trainingBtn = card.querySelector('.btn-stage-training');
     if (trainingBtn) {
       trainingBtn.onclick = () => {
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        this.stageCompleteModal = null;
         const problems = CurriculumEngine.selectTrainingProblems(
           session.errorRecords || [],
           adaptation.trainingCategory,
-          3
+          CurriculumEngine.EXTRA_SESSION_QUESTION_COUNT
         );
-        if (problems.length > 0) {
-          this.startExtraSession({
-            mode: 'training',
-            problems,
-            category: adaptation.trainingCategory
-          });
-        }
+        if (!Array.isArray(problems) || problems.length === 0) return;
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        this.startExtraSession({
+          mode: 'training',
+          problems,
+          category: adaptation.trainingCategory
+        });
       };
     }
 
@@ -1161,6 +1159,11 @@ export class MathLabApp {
         this.progress.stageProgress = {};
       }
       const prev = this.progress.stageProgress[session.stageId] || {};
+      // Issue #23: extra sessions never advance until the answer is correct,
+      // so a plain correct count is always a perfect score and meaningless.
+      // Record first-try performance (and self-corrections) instead.
+      const firstTryCount = session.firstTryCount || 0;
+      const selfCorrectedCount = session.selfCorrectedCount || 0;
       if (isChallenge) {
         const prevChallenge = prev.challenge || {};
         this.progress.stageProgress[session.stageId] = {
@@ -1168,8 +1171,9 @@ export class MathLabApp {
           challenge: {
             played: true,
             attempts: (prevChallenge.attempts || 0) + 1,
-            lastCorrectCount: session.correctCount,
-            bestCorrectCount: Math.max(prevChallenge.bestCorrectCount || 0, session.correctCount),
+            lastFirstTryCount: firstTryCount,
+            bestFirstTryCount: Math.max(prevChallenge.bestFirstTryCount || 0, firstTryCount),
+            lastSelfCorrectedCount: selfCorrectedCount,
             totalQuestions: total,
             lastPlayedAt: nowIso
           }
@@ -1181,7 +1185,9 @@ export class MathLabApp {
           training: {
             sessions: (prevTraining.sessions || 0) + 1,
             lastCategory: session.trainingCategory || null,
-            lastCorrectCount: session.correctCount,
+            lastFirstTryCount: firstTryCount,
+            bestFirstTryCount: Math.max(prevTraining.bestFirstTryCount || 0, firstTryCount),
+            lastSelfCorrectedCount: selfCorrectedCount,
             totalQuestions: total,
             lastPlayedAt: nowIso
           }
@@ -1209,8 +1215,10 @@ export class MathLabApp {
     card.style.padding = '32px';
 
     const title = isChallenge ? 'チャレンジ結果！' : 'にがて特訓クリア！';
-    const message = session.correctCount >= total
-      ? '全問正解！すごい力だね！'
+    const firstTryCount = session.firstTryCount || 0;
+    const selfCorrectedCount = session.selfCorrectedCount || 0;
+    const message = firstTryCount >= total
+      ? '全問、初回で正解！すごい力だね！'
       : 'おつかれさま！結果は記録されたよ。また挑戦しよう！';
 
     card.innerHTML = `
@@ -1218,7 +1226,8 @@ export class MathLabApp {
       <h2 style="font-size:1.6rem; color:var(--color-accent-cyan);">${title}</h2>
       <p style="color:var(--color-text-muted); margin:8px 0;">STAGE ${session.stageNum} の${isChallenge ? 'チャレンジ問題' : 'にがて特訓'}が終わりました！</p>
       <div style="background:rgba(0,0,0,0.3); padding:14px; border-radius:var(--radius-lg); margin-bottom:14px;">
-        <div style="font-size:1.1rem; font-weight:700;">正解数: ${session.correctCount} / ${total} 問</div>
+        <div style="font-size:1.1rem; font-weight:700;">初回正解: ${firstTryCount} / ${total} 問</div>
+        ${selfCorrectedCount > 0 ? `<div style="color:var(--color-text-muted); margin-top:6px;">自分で直せた問題: ${selfCorrectedCount} 問</div>` : ''}
         <div style="color:var(--color-text-muted); margin-top:6px;">${message}</div>
       </div>
       <button type="button" class="btn btn-primary btn-extra-finish" style="width:100%; padding:14px; font-size:1.05rem;">

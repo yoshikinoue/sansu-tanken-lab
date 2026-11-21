@@ -476,6 +476,42 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
       assert.equal(twice.trainingErrorCount, 2);
     });
 
+    it('counts distinct problems per category: repeated misses on one problem count once', () => {
+      const probA = generateProblem(1, 1, { difficultyLevel: 'hurdle' });
+      const probB = generateProblem(1, 1, { difficultyLevel: 'standard' });
+
+      // The same problem missed twice in one category must NOT qualify:
+      // the training set would otherwise be built from a single problem.
+      const sameProblem = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probA }
+        ]
+      });
+      assert.equal(sameProblem.trainingCategory, null);
+      assert.equal(sameProblem.trainingErrorCount, 0);
+
+      // The same problem re-generated (same id) is still the same problem
+      const sameId = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: { ...probA } }
+        ]
+      });
+      assert.equal(sameId.trainingCategory, null);
+
+      // Two different problems in the same category qualify
+      const twoProblems = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probB }
+        ]
+      });
+      assert.equal(twoProblems.trainingCategory, 'carry_forgotten');
+      assert.equal(twoProblems.trainingErrorCount, 2);
+    });
+
     it('prefers the most frequent category, then specific categories over general_recheck', () => {
       const frequent = evaluateStageAdaptation({
         errorRecords: [
@@ -562,6 +598,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
 
     it('provides Japanese labels for diagnosis categories', () => {
       assert.equal(getTrainingCategoryLabel('carry_forgotten'), 'くり上がり');
+      assert.equal(getTrainingCategoryLabel('calculation_slip'), '計算のミス');
+      assert.equal(getTrainingCategoryLabel('trap_detected'), 'ひっかけポイント');
       assert.equal(getTrainingCategoryLabel('general_recheck'), '計算ミス');
       assert.equal(getTrainingCategoryLabel('unknown_category'), 'にがて');
     });

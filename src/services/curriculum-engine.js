@@ -6643,8 +6643,16 @@ export const TRAINING_CATEGORY_LABELS = {
   quotient_too_small: '商が小さい',
   quotient_too_big: '商が大きい',
   remainder_scale: 'あまりの位',
+  calculation_slip: '計算のミス',
+  trap_detected: 'ひっかけポイント',
   general_recheck: '計算ミス'
 };
+
+/**
+ * 追加セッション（発展問題／にがて特訓）の問題数（Issue #23）。
+ * ボタンの文言と生成呼び出しはこの定数を正として揃える。
+ */
+export const EXTRA_SESSION_QUESTION_COUNT = 3;
 
 /**
  * 診断カテゴリの表示名を返す（にがて特訓用）
@@ -6660,13 +6668,16 @@ export function getTrainingCategoryLabel(category) {
  * （発展問題＝チャレンジ／にがて特訓）を出すかどうかを判定する純粋関数（Issue #23）。
  *
  * - チャレンジ: 全問を初回正解（firstTryCount === totalQuestions）したときだけ出す
- * - にがて特訓: 同じ診断カテゴリの誤答が2回以上あったとき、そのカテゴリを対象にする。
+ * - にがて特訓: 同じ診断カテゴリで「異なる問題」を2問以上誤答したとき、そのカテゴリを
+ *   対象にする。同じ問題への複数回の誤答は1問分として数える（問題単位で重複排除）。
+ *   problem 参照を持たない記録は重複排除できないため、それぞれ別の問題として数える。
  *   対象が複数ある場合は「具体的なカテゴリ（general_recheck 以外）を優先 →
- *   誤答回数が多い方 → 最初に現れた方」の順で1つに決める
+ *   誤答した問題数が多い方 → 最初に現れた方」の順で1つに決める
  *
  * @param {{ firstTryCount?: number, totalQuestions?: number,
- *           errorRecords?: Array<{ reasonCategory?: string }> }} [input]
+ *           errorRecords?: Array<{ reasonCategory?: string, problem?: object }> }} [input]
  * @returns {{ showChallenge: boolean, trainingCategory: string|null, trainingErrorCount: number }}
+ *   trainingErrorCount は対象カテゴリで誤答した「異なる問題」の数
  */
 export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5, errorRecords = [] } = {}) {
   const total = Math.max(0, Number(totalQuestions) || 0);
@@ -6678,24 +6689,36 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
     const category = rec?.reasonCategory;
     if (!category || typeof category !== 'string') return;
     if (!stats.has(category)) {
-      stats.set(category, { category, count: 0, firstIndex: idx });
+      stats.set(category, { category, missedProblems: new Set() });
     }
-    stats.get(category).count += 1;
+    const problem = rec?.problem;
+    const problemKey =
+      problem && typeof problem === 'object'
+        ? problem.id || problem.expression || problem
+        : `record-${idx}`;
+    stats.get(category).missedProblems.add(problemKey);
   });
 
   let training = null;
+  let trainingCount = 0;
   for (const entry of stats.values()) {
-    if (entry.count < 2) continue;
+    const count = entry.missedProblems.size;
+    if (count < 2) continue;
     if (!training) {
       training = entry;
+      trainingCount = count;
       continue;
     }
     const entryIsGeneral = entry.category === 'general_recheck';
     const bestIsGeneral = training.category === 'general_recheck';
     if (entryIsGeneral !== bestIsGeneral) {
-      if (!entryIsGeneral) training = entry;
-    } else if (entry.count > training.count) {
+      if (!entryIsGeneral) {
+        training = entry;
+        trainingCount = count;
+      }
+    } else if (count > trainingCount) {
       training = entry;
+      trainingCount = count;
     }
     // Same generality and same count: Map iterates in first-occurrence
     // order, so the earlier category is kept.
@@ -6704,7 +6727,7 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
   return {
     showChallenge,
     trainingCategory: training ? training.category : null,
-    trainingErrorCount: training ? training.count : 0
+    trainingErrorCount: training ? trainingCount : 0
   };
 }
 
@@ -6713,13 +6736,13 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
  * 指定問数だけ生成する（Issue #23）。式が重複しないよう再試行する。
  * @param {number|string} worldId
  * @param {number|string} stageId
- * @param {number} [count=3]
+ * @param {number} [count=EXTRA_SESSION_QUESTION_COUNT]
  * @param {object} [options={}]
  * @returns {Array<object>} MathProblem 配列
  */
-export function generateChallengeProblems(worldId, stageId, count = 3, options = {}) {
+export function generateChallengeProblems(worldId, stageId, count = EXTRA_SESSION_QUESTION_COUNT, options = {}) {
   const norm = normalizeWorldAndStage(worldId, stageId);
-  const total = Math.max(1, Math.min(5, Number(count) || 3));
+  const total = Math.max(1, Math.min(5, Number(count) || EXTRA_SESSION_QUESTION_COUNT));
   const rng = typeof options.rng === 'function' ? options.rng : Math.random;
 
   const problems = [];
@@ -6751,12 +6774,12 @@ export function generateChallengeProblems(worldId, stageId, count = 3, options =
  * 元問題が問数より少ない場合は元問題を巡回して別の類題を生成する。
  * @param {Array<{ reasonCategory?: string, problem?: object }>} [errorRecords=[]]
  * @param {string|null} [category=null] 対象カテゴリ（null の場合は全カテゴリ）
- * @param {number} [count=3]
+ * @param {number} [count=EXTRA_SESSION_QUESTION_COUNT]
  * @param {object} [options={}]
  * @returns {Array<object>} MathProblem 配列（元問題が無ければ空配列）
  */
-export function selectTrainingProblems(errorRecords = [], category = null, count = 3, options = {}) {
-  const total = Math.max(1, Number(count) || 3);
+export function selectTrainingProblems(errorRecords = [], category = null, count = EXTRA_SESSION_QUESTION_COUNT, options = {}) {
+  const total = Math.max(1, Number(count) || EXTRA_SESSION_QUESTION_COUNT);
   const sources = (Array.isArray(errorRecords) ? errorRecords : []).filter(
     (rec) => rec && rec.problem && (!category || rec.reasonCategory === category)
   );
@@ -7472,6 +7495,7 @@ export const CurriculumEngine = {
   WORLDS_METADATA,
   TRAINING_CATEGORY_LABELS,
   getTrainingCategoryLabel,
+  EXTRA_SESSION_QUESTION_COUNT,
   getWorldsMetadata,
   getWorldIdByGlobalStage,
   getStageMetadata,
