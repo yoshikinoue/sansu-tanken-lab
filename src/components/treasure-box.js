@@ -308,7 +308,19 @@ export class TreasureBox {
         </div>
 
         <div style="margin:20px 0;">
-          ${variation.hasRemainder
+          ${variation.hasFraction
+            ? `<div style="display:flex; gap:12px; justify-content:center; align-items:center;">
+                 <div>
+                   <div style="font-size:0.8rem; color:var(--color-text-muted); margin-bottom:4px;">分子（ぶんし）</div>
+                   <input type="number" class="review-numerator-input" placeholder="分子" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 </div>
+                 <span style="font-size:1.5rem; font-weight:700; align-self:center;">/</span>
+                 <div>
+                   <div style="font-size:0.8rem; color:var(--color-text-muted); margin-bottom:4px;">分母（ぶんぼ）</div>
+                   <input type="number" class="review-denominator-input" placeholder="分母" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 </div>
+               </div>`
+            : variation.hasRemainder
             ? `<div style="display:flex; gap:12px; justify-content:center;">
                  <input type="number" inputmode="decimal" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
                  <span style="font-size:1.3rem; align-self:center;">あまり</span>
@@ -333,6 +345,8 @@ export class TreasureBox {
     const singleInput = card.querySelector('.review-answer-input');
     const quotientInput = card.querySelector('.review-quotient-input');
     const remainderInput = card.querySelector('.review-remainder-input');
+    const numeratorInput = card.querySelector('.review-numerator-input');
+    const denominatorInput = card.querySelector('.review-denominator-input');
 
     const closeModal = () => {
       if (this.reviewTimer) {
@@ -358,7 +372,21 @@ export class TreasureBox {
 
     const handleSubmitReview = () => {
       let answerVal;
-      if (variation.hasRemainder) {
+      if (variation.hasFraction) {
+        const nRaw = String(numeratorInput?.value ?? '').trim();
+        const dRaw = String(denominatorInput?.value ?? '').trim();
+        if (nRaw === '' || dRaw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 分子と分母の両方を入力してから「決定！」をおしてね！';
+          }
+          (nRaw === '' ? numeratorInput : denominatorInput)?.focus?.();
+          return;
+        }
+        answerVal = { numerator: Number(nRaw), denominator: Number(dRaw) };
+      } else if (variation.hasRemainder) {
         const qRaw = String(quotientInput?.value ?? '').trim();
         const rRaw = String(remainderInput?.value ?? '').trim();
         if (qRaw === '') {
@@ -450,6 +478,13 @@ export class TreasureBox {
         if (remainderInput) {
           remainderInput.value = '';
         }
+        if (numeratorInput) {
+          numeratorInput.value = '';
+          numeratorInput.focus?.();
+        }
+        if (denominatorInput) {
+          denominatorInput.value = '';
+        }
 
         if (typeof this.onSave === 'function' && this.progress) {
           this.onSave(this.progress);
@@ -464,7 +499,7 @@ export class TreasureBox {
       submitBtn.onclick = handleSubmitReview;
     }
 
-    [singleInput, quotientInput, remainderInput].forEach((inp) => {
+    [singleInput, quotientInput, remainderInput, numeratorInput, denominatorInput].forEach((inp) => {
       if (inp) {
         inp.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
@@ -478,7 +513,7 @@ export class TreasureBox {
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-    (quotientInput || singleInput)?.focus?.();
+    (numeratorInput || quotientInput || singleInput)?.focus?.();
   }
 
   destroy() {

@@ -180,7 +180,8 @@ export const WORLD_DEFINITIONS = [
   { worldId: 3, key: 'world-3', name: 'わり算とあまり', fullName: 'わり算とあまりラボ', stages: ['stage-7', 'stage-8', 'stage-9'] },
   { worldId: 4, key: 'world-4', name: '2桁わり算・見積もり', fullName: '2桁わり算・見積もりラボ', stages: ['stage-10', 'stage-11', 'stage-12'] },
   { worldId: 5, key: 'world-5', name: '計算のきまり・四則混合', fullName: '計算のきまり・四則混合ラボ', stages: ['stage-13', 'stage-14', 'stage-15'] },
-  { worldId: 6, key: 'world-6', name: '小数', fullName: '小数ラボ', stages: ['stage-16', 'stage-17', 'stage-18'] }
+  { worldId: 6, key: 'world-6', name: '小数', fullName: '小数ラボ', stages: ['stage-16', 'stage-17', 'stage-18'] },
+  { worldId: 7, key: 'world-7', name: '分数', fullName: '分数パーク', stages: ['stage-19', 'stage-20', 'stage-21'] }
 ];
 
 // ワールド数・総ステージ数は定義から導出する (ワールド追加に追随)

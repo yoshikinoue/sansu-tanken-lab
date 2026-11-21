@@ -533,11 +533,14 @@ export class MathLabApp {
     const stageMeta = CurriculumEngine.getStageMetadata(worldId, stageNum);
     // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
     const hasDecimal = Boolean(stageMeta?.usesDecimal);
+    // 分数問題では分子・分母の2欄入力キーを有効化する (問題ごとの hasFraction)
+    const hasFraction = Boolean(currentProblem?.hasFraction);
 
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
         hasRemainder,
         hasDecimal,
+        hasFraction,
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
         answerLabel: stageMeta?.answerLabel || null,
@@ -586,6 +589,7 @@ export class MathLabApp {
       const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, session.stageNum);
       this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
         hasDecimal: Boolean(stageMeta?.usesDecimal),
+        hasFraction: Boolean(prob.hasFraction),
         operator: prob.operator || null,
         prompt: prob.prompt || '',
         answerLabel: stageMeta?.answerLabel || null
