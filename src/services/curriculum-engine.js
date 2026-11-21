@@ -6632,6 +6632,167 @@ export function generateStageProblems(worldId, stageId, history = [], options = 
 }
 
 /**
+ * 診断カテゴリ（reasonCategory）の表示名マップ（Issue #23: にがて特訓の対象表示用）
+ */
+export const TRAINING_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり',
+  borrow_forgotten: 'くり下がり',
+  shift_forgotten: '位のずれ',
+  place_value_slip: '位の計算',
+  order_mistake: '計算の順序',
+  quotient_too_small: '商が小さい',
+  quotient_too_big: '商が大きい',
+  remainder_scale: 'あまりの位',
+  general_recheck: '計算ミス'
+};
+
+/**
+ * 診断カテゴリの表示名を返す（にがて特訓用）
+ * @param {string} category reasonCategory
+ * @returns {string}
+ */
+export function getTrainingCategoryLabel(category) {
+  return TRAINING_CATEGORY_LABELS[category] || 'にがて';
+}
+
+/**
+ * ステージ完了時点のセッション結果から、ステージ単位の適応導線
+ * （発展問題＝チャレンジ／にがて特訓）を出すかどうかを判定する純粋関数（Issue #23）。
+ *
+ * - チャレンジ: 全問を初回正解（firstTryCount === totalQuestions）したときだけ出す
+ * - にがて特訓: 同じ診断カテゴリの誤答が2回以上あったとき、そのカテゴリを対象にする。
+ *   対象が複数ある場合は「具体的なカテゴリ（general_recheck 以外）を優先 →
+ *   誤答回数が多い方 → 最初に現れた方」の順で1つに決める
+ *
+ * @param {{ firstTryCount?: number, totalQuestions?: number,
+ *           errorRecords?: Array<{ reasonCategory?: string }> }} [input]
+ * @returns {{ showChallenge: boolean, trainingCategory: string|null, trainingErrorCount: number }}
+ */
+export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5, errorRecords = [] } = {}) {
+  const total = Math.max(0, Number(totalQuestions) || 0);
+  const firstTry = Math.max(0, Number(firstTryCount) || 0);
+  const showChallenge = total > 0 && firstTry >= total;
+
+  const stats = new Map();
+  (Array.isArray(errorRecords) ? errorRecords : []).forEach((rec, idx) => {
+    const category = rec?.reasonCategory;
+    if (!category || typeof category !== 'string') return;
+    if (!stats.has(category)) {
+      stats.set(category, { category, count: 0, firstIndex: idx });
+    }
+    stats.get(category).count += 1;
+  });
+
+  let training = null;
+  for (const entry of stats.values()) {
+    if (entry.count < 2) continue;
+    if (!training) {
+      training = entry;
+      continue;
+    }
+    const entryIsGeneral = entry.category === 'general_recheck';
+    const bestIsGeneral = training.category === 'general_recheck';
+    if (entryIsGeneral !== bestIsGeneral) {
+      if (!entryIsGeneral) training = entry;
+    } else if (entry.count > training.count) {
+      training = entry;
+    }
+    // Same generality and same count: Map iterates in first-occurrence
+    // order, so the earlier category is kept.
+  }
+
+  return {
+    showChallenge,
+    trainingCategory: training ? training.category : null,
+    trainingErrorCount: training ? training.count : 0
+  };
+}
+
+/**
+ * 発展問題（チャレンジ）用に、ステージの生成器から challenge 難易度の問題を
+ * 指定問数だけ生成する（Issue #23）。式が重複しないよう再試行する。
+ * @param {number|string} worldId
+ * @param {number|string} stageId
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列
+ */
+export function generateChallengeProblems(worldId, stageId, count = 3, options = {}) {
+  const norm = normalizeWorldAndStage(worldId, stageId);
+  const total = Math.max(1, Math.min(5, Number(count) || 3));
+  const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+
+  const problems = [];
+  const usedExpressions = new Set();
+
+  for (let qIdx = 1; qIdx <= total; qIdx++) {
+    let candidate = null;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      candidate = generateProblem(norm.worldId, norm.stageId, {
+        ...options,
+        rng,
+        questionIndex: qIdx,
+        level: 3,
+        difficultyLevel: 'challenge'
+      });
+      if (!usedExpressions.has(candidate.expression)) {
+        usedExpressions.add(candidate.expression);
+        break;
+      }
+    }
+    problems.push(candidate);
+  }
+
+  return problems;
+}
+
+/**
+ * にがて特訓用に、対象カテゴリで誤答した問題の類題を指定問数だけ選ぶ（Issue #23）。
+ * 元問題が問数より少ない場合は元問題を巡回して別の類題を生成する。
+ * @param {Array<{ reasonCategory?: string, problem?: object }>} [errorRecords=[]]
+ * @param {string|null} [category=null] 対象カテゴリ（null の場合は全カテゴリ）
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列（元問題が無ければ空配列）
+ */
+export function selectTrainingProblems(errorRecords = [], category = null, count = 3, options = {}) {
+  const total = Math.max(1, Number(count) || 3);
+  const sources = (Array.isArray(errorRecords) ? errorRecords : []).filter(
+    (rec) => rec && rec.problem && (!category || rec.reasonCategory === category)
+  );
+  if (sources.length === 0) return [];
+
+  const problems = [];
+  const usedExpressions = new Set();
+  let cursor = 0;
+  let guard = 0;
+  while (problems.length < total && guard < total * 20) {
+    guard += 1;
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    const variation = generateVariationProblem(source.problem, {
+      ...options,
+      questionIndex: problems.length + 1
+    });
+    if (usedExpressions.has(variation.expression)) continue;
+    usedExpressions.add(variation.expression);
+    problems.push(variation);
+  }
+  // Uniqueness could not be satisfied (very small variation space): top up.
+  while (problems.length < total) {
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    problems.push(
+      generateVariationProblem(source.problem, {
+        ...options,
+        questionIndex: problems.length + 1
+      })
+    );
+  }
+  return problems;
+}
+
+/**
  * パワーアップ宝箱（復習用）および救済分岐向けに、認知トラップと難易度を厳密に維持した
  * 数字違いの類題（Variation Problem）を生成する
  * @param {object} originalProblem
@@ -7094,6 +7255,105 @@ export function diagnoseError(problem, userAnswer) {
 }
 
 /**
+ * 誤答診断カテゴリ（reasonCategory）の保護者向け表示名。
+ * diagnoseError が返す診断文の用語に合わせている。
+ * Issue #21: 保護者ボードの「つまずきパターンの記録」で使用する。
+ */
+export const REASON_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり忘れ',
+  borrow_forgotten: 'くり下がり忘れ',
+  place_value_slip: '位の計算のずれ',
+  shift_forgotten: '位のずれ・0の立て忘れ',
+  order_mistake: '計算の順序のまちがい',
+  quotient_too_small: '商が小さすぎる',
+  quotient_too_big: '商が大きすぎる',
+  trial_quotient_too_small: '仮の商が小さすぎる',
+  trial_quotient_too_big: '仮の商が大きすぎる',
+  remainder_scale: 'あまりの位の戻し忘れ',
+  trap_detected: 'ひっかけパターン',
+  calculation_slip: '計算ミス',
+  general_recheck: '見直しが必要な計算'
+};
+
+/**
+ * reasonCategory の表示名を返す。未知のカテゴリは汎用名にフォールバックする。
+ * @param {string} category
+ * @returns {string}
+ */
+export function getReasonCategoryLabel(category) {
+  return REASON_CATEGORY_LABELS[category] || 'その他のつまずき';
+}
+
+const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
+ * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
+ * @param {Array} log 診断ログ（不正な項目は無視される）
+ * @param {Date|number|string} [nowInput=new Date()] 集計基準時刻
+ * @returns {{
+ *   totalEntries: number,
+ *   byCategory: Array<{category: string, label: string, total: number, recent30: number, recent14: number}>,
+ *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
+ *   resolvedPatterns: Array<{category: string, label: string, total: number}>
+ * }} focusPatterns は直近30日で多い順に最大2件、
+ *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ */
+export function summarizeDiagnosisLog(log, nowInput = new Date()) {
+  const nowMs = nowInput instanceof Date
+    ? nowInput.getTime()
+    : typeof nowInput === 'number'
+      ? nowInput
+      : Date.parse(nowInput);
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+
+  const stats = new Map();
+  let totalEntries = 0;
+
+  if (Array.isArray(log)) {
+    for (const entry of log) {
+      if (!entry || typeof entry.category !== 'string' || entry.category === '') continue;
+      const atMs = Date.parse(entry.at);
+      if (!Number.isFinite(atMs)) continue;
+      totalEntries++;
+      let s = stats.get(entry.category);
+      if (!s) {
+        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
+        stats.set(entry.category, s);
+      }
+      s.total++;
+      const ageMs = safeNow - atMs;
+      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+    }
+  }
+
+  const byCategory = [...stats.values()]
+    .map((s) => ({ ...s, label: getReasonCategoryLabel(s.category) }))
+    .sort((a, b) =>
+      (b.total - a.total) ||
+      (b.recent30 - a.recent30) ||
+      a.category.localeCompare(b.category)
+    );
+
+  const focusPatterns = byCategory
+    .filter((s) => s.recent30 > 0)
+    .sort((a, b) =>
+      (b.recent30 - a.recent30) ||
+      (b.total - a.total) ||
+      a.category.localeCompare(b.category)
+    )
+    .slice(0, 2)
+    .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
+
+  const resolvedPatterns = byCategory
+    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .map(({ category, label, total }) => ({ category, label, total }));
+
+  return { totalEntries, byCategory, focusPatterns, resolvedPatterns };
+}
+
+/**
  * 正解と誤答で最初に異なる桁インデックス（一の位=0, 十の位=1, ...）を返す
  * @param {number} expected
  * @param {number} actual
@@ -7210,6 +7470,8 @@ export function generateSingleProblem(worldId, stageId, questionIndex = 1, level
 
 export const CurriculumEngine = {
   WORLDS_METADATA,
+  TRAINING_CATEGORY_LABELS,
+  getTrainingCategoryLabel,
   getWorldsMetadata,
   getWorldIdByGlobalStage,
   getStageMetadata,
@@ -7219,9 +7481,15 @@ export const CurriculumEngine = {
   generateStageProblems,
   selectNextProblem,
   determineAdaptiveDifficulty,
+  evaluateStageAdaptation,
+  generateChallengeProblems,
+  selectTrainingProblems,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog,
   normalizeUserAnswer
 };
 

@@ -10,10 +10,17 @@ import CurriculumEngine, {
   generateStageProblems,
   selectNextProblem,
   determineAdaptiveDifficulty,
+  evaluateStageAdaptation,
+  generateChallengeProblems,
+  selectTrainingProblems,
+  getTrainingCategoryLabel,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
-  normalizeUserAnswer
+  normalizeUserAnswer,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog
 } from '../src/services/curriculum-engine.js';
 import { StepGuideModal } from '../src/components/step-guide.js';
 
@@ -428,6 +435,135 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.ok(!forbiddenPattern.test(evalRes.diagnosis.hintMessage));
         }
       }
+    });
+  });
+
+  describe('7. Stage-Level Adaptation Offers (Issue #23)', () => {
+    it('offers the challenge only when every question was answered correctly on the first try', () => {
+      const perfect = evaluateStageAdaptation({ firstTryCount: 5, totalQuestions: 5, errorRecords: [] });
+      assert.equal(perfect.showChallenge, true);
+      assert.equal(perfect.trainingCategory, null);
+
+      const almost = evaluateStageAdaptation({
+        firstTryCount: 4,
+        totalQuestions: 5,
+        errorRecords: [{ reasonCategory: 'carry_forgotten' }]
+      });
+      assert.equal(almost.showChallenge, false);
+
+      // Missing / malformed inputs never offer the challenge
+      assert.equal(evaluateStageAdaptation().showChallenge, false);
+      assert.equal(evaluateStageAdaptation({ firstTryCount: 5, totalQuestions: 0 }).showChallenge, false);
+    });
+
+    it('selects a training category only when the same category was missed at least twice', () => {
+      const single = evaluateStageAdaptation({
+        firstTryCount: 4,
+        errorRecords: [{ reasonCategory: 'carry_forgotten' }]
+      });
+      assert.equal(single.trainingCategory, null);
+      assert.equal(single.trainingErrorCount, 0);
+
+      const twice = evaluateStageAdaptation({
+        firstTryCount: 3,
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'carry_forgotten' }
+        ]
+      });
+      assert.equal(twice.trainingCategory, 'carry_forgotten');
+      assert.equal(twice.trainingErrorCount, 2);
+    });
+
+    it('prefers the most frequent category, then specific categories over general_recheck', () => {
+      const frequent = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'borrow_forgotten' },
+          { reasonCategory: 'carry_forgotten' },
+          { reasonCategory: 'borrow_forgotten' }
+        ]
+      });
+      assert.equal(frequent.trainingCategory, 'borrow_forgotten');
+      assert.equal(frequent.trainingErrorCount, 3);
+
+      // Tie on count: a specific category beats the catch-all general_recheck
+      const tie = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'general_recheck' },
+          { reasonCategory: 'general_recheck' },
+          { reasonCategory: 'shift_forgotten' },
+          { reasonCategory: 'shift_forgotten' }
+        ]
+      });
+      assert.equal(tie.trainingCategory, 'shift_forgotten');
+
+      // general_recheck alone still qualifies as a fallback
+      const fallback = evaluateStageAdaptation({
+        errorRecords: [{ reasonCategory: 'general_recheck' }, { reasonCategory: 'general_recheck' }]
+      });
+      assert.equal(fallback.trainingCategory, 'general_recheck');
+
+      // Records without a category are ignored
+      const ignored = evaluateStageAdaptation({ errorRecords: [{}, { reasonCategory: '' }, null] });
+      assert.equal(ignored.trainingCategory, null);
+    });
+
+    it('generates 3 distinct challenge-level problems from the same stage generator', () => {
+      for (const [w, s] of [[1, 1], [2, 2], [4, 3]]) {
+        const problems = generateChallengeProblems(w, s);
+        assert.equal(problems.length, 3);
+        const expressions = new Set(problems.map((p) => p.expression));
+        assert.equal(expressions.size, 3, `Challenge problems for W${w}-S${s} must be distinct`);
+        for (const p of problems) {
+          assert.equal(p.worldId, w);
+          assert.equal(p.stageId, s);
+          assert.equal(p.difficultyLevel, 'challenge');
+          assert.equal(p.level, 3);
+        }
+      }
+    });
+
+    it('builds 3 training variations from the problems missed in the target category', () => {
+      const sourceA = generateProblem(1, 1, { difficultyLevel: 'hurdle' });
+      const sourceB = generateProblem(1, 1, { difficultyLevel: 'standard' });
+      const otherCategory = generateProblem(1, 2, { difficultyLevel: 'hurdle' });
+      const records = [
+        { reasonCategory: 'carry_forgotten', problem: sourceA },
+        { reasonCategory: 'borrow_forgotten', problem: otherCategory },
+        { reasonCategory: 'carry_forgotten', problem: sourceB }
+      ];
+
+      const training = selectTrainingProblems(records, 'carry_forgotten', 3);
+      assert.equal(training.length, 3);
+      for (const p of training) {
+        assert.equal(p.worldId, 1);
+        assert.equal(p.stageId, 1);
+        assert.ok(p.variationOf, 'training problems must be variations of a missed problem');
+        assert.notEqual(p.expression, sourceA.expression);
+        assert.notEqual(p.expression, sourceB.expression);
+      }
+
+      // A single missed problem is cycled to still produce 3 distinct variations
+      const singleSource = selectTrainingProblems(
+        [{ reasonCategory: 'carry_forgotten', problem: sourceA }],
+        'carry_forgotten',
+        3
+      );
+      assert.equal(singleSource.length, 3);
+      assert.equal(new Set(singleSource.map((p) => p.expression)).size, 3);
+
+      // No matching records -> no training set
+      assert.deepEqual(selectTrainingProblems(records, 'quotient_too_small', 3), []);
+      assert.deepEqual(selectTrainingProblems([], 'carry_forgotten', 3), []);
+    });
+
+    it('provides Japanese labels for diagnosis categories', () => {
+      assert.equal(getTrainingCategoryLabel('carry_forgotten'), 'くり上がり');
+      assert.equal(getTrainingCategoryLabel('general_recheck'), '計算ミス');
+      assert.equal(getTrainingCategoryLabel('unknown_category'), 'にがて');
     });
   });
 });
@@ -1506,6 +1642,85 @@ describe('Issue #18: World 8 大きな数とがい数ラボ (large numbers & rou
         assert.equal(p.worldId, 8);
         assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
       }
+    }
+  });
+});
+
+describe('Issue #21: diagnosis log summary for the parent board', () => {
+  const NOW = new Date('2026-11-21T12:00:00.000Z');
+  const daysAgo = (n) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
+  const entry = (category, n) => ({ category, worldId: 1, stageId: 'stage-1', at: daysAgo(n) });
+
+  it('labels every built-in reason category in Japanese with a safe fallback', () => {
+    assert.equal(getReasonCategoryLabel('carry_forgotten'), 'くり上がり忘れ');
+    assert.equal(getReasonCategoryLabel('borrow_forgotten'), 'くり下がり忘れ');
+    assert.equal(getReasonCategoryLabel('remainder_scale'), 'あまりの位の戻し忘れ');
+    assert.equal(getReasonCategoryLabel('totally_unknown'), 'その他のつまずき');
+    assert.equal(getReasonCategoryLabel(undefined), 'その他のつまずき');
+    for (const cat of ['shift_forgotten', 'order_mistake', 'quotient_too_small', 'quotient_too_big',
+      'trial_quotient_too_small', 'trial_quotient_too_big', 'place_value_slip', 'trap_detected',
+      'calculation_slip', 'general_recheck']) {
+      assert.ok(REASON_CATEGORY_LABELS[cat], `label missing for ${cat}`);
+    }
+  });
+
+  it('aggregates totals, recent windows, focus patterns and resolved patterns', () => {
+    const log = [
+      entry('shift_forgotten', 1), entry('shift_forgotten', 1), entry('shift_forgotten', 2),
+      entry('shift_forgotten', 3), entry('shift_forgotten', 5),
+      entry('carry_forgotten', 2), entry('carry_forgotten', 2), entry('carry_forgotten', 10),
+      entry('quotient_too_small', 3), entry('quotient_too_small', 3),
+      entry('borrow_forgotten', 40), entry('borrow_forgotten', 41), entry('borrow_forgotten', 42),
+      entry('mystery_cat', 1),
+      // invalid entries are ignored
+      { category: '', worldId: 1, stageId: 'stage-1', at: daysAgo(1) },
+      { category: 'carry_forgotten', worldId: 1, stageId: 'stage-1', at: 'not-a-date' },
+      { worldId: 1, stageId: 'stage-1', at: daysAgo(1) },
+      null
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.equal(summary.totalEntries, 14);
+
+    const byCat = Object.fromEntries(summary.byCategory.map((s) => [s.category, s]));
+    assert.equal(byCat.shift_forgotten.total, 5);
+    assert.equal(byCat.shift_forgotten.recent30, 5);
+    assert.equal(byCat.carry_forgotten.total, 3);
+    assert.equal(byCat.carry_forgotten.recent30, 3);
+    assert.equal(byCat.carry_forgotten.recent14, 3);
+    assert.equal(byCat.borrow_forgotten.total, 3);
+    assert.equal(byCat.borrow_forgotten.recent30, 0);
+    assert.equal(byCat.mystery_cat.label, 'その他のつまずき');
+
+    // Focus: top 2 by last-30-days count
+    assert.deepEqual(
+      summary.focusPatterns.map((p) => [p.category, p.recent30]),
+      [['shift_forgotten', 5], ['carry_forgotten', 3]]
+    );
+    assert.equal(summary.focusPatterns[0].label, '位のずれ・0の立て忘れ');
+
+    // Resolved: >=3 total and none in the last 14 days
+    assert.deepEqual(summary.resolvedPatterns.map((p) => p.category), ['borrow_forgotten']);
+    assert.equal(summary.resolvedPatterns[0].total, 3);
+  });
+
+  it('a pattern seen recently is not resolved even with a high total', () => {
+    const log = [
+      entry('carry_forgotten', 60), entry('carry_forgotten', 55), entry('carry_forgotten', 50),
+      entry('carry_forgotten', 13)
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.equal(summary.resolvedPatterns.length, 0);
+    assert.equal(summary.focusPatterns.length, 1);
+    assert.equal(summary.focusPatterns[0].recent30, 1);
+  });
+
+  it('handles empty and malformed logs', () => {
+    for (const bad of [[], null, undefined, 'nope', 42]) {
+      const summary = summarizeDiagnosisLog(bad, NOW);
+      assert.equal(summary.totalEntries, 0);
+      assert.deepEqual(summary.byCategory, []);
+      assert.deepEqual(summary.focusPatterns, []);
+      assert.deepEqual(summary.resolvedPatterns, []);
     }
   });
 });
