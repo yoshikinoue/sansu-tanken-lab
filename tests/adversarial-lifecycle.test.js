@@ -616,6 +616,20 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       app.checkCheerBanner();
       assert.equal(env.cheerBanner.style.display, 'flex');
     });
+
+    it('renders exactly one learning scope card on the parent dashboard (Issue #22)', () => {
+      global.window.location.hash = '#parent';
+      app.handleRoute();
+
+      const board = app.activeViewComponent;
+      assert.ok(board instanceof ParentBoard);
+      board.setupInitialPin('4321');
+
+      const scopeCards = env.viewContainer.querySelectorAll('.learning-scope-card');
+      assert.equal(scopeCards.length, 1, 'dashboard must contain exactly one .learning-scope-card');
+      assert.ok(scopeCards[0].innerHTML.includes('このアプリの対象範囲'), 'scope card must show its title');
+      assert.ok(scopeCards[0].innerHTML.includes('対象外'), 'scope card must mention out-of-scope topics');
+    });
   });
 
   // =========================================================================
