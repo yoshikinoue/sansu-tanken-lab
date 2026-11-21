@@ -65,6 +65,9 @@ export class StageMap {
     this.onOpenLesson = options.onOpenLesson || null;
     this.onOpenBonusGame = options.onOpenBonusGame || null;
     this.onOpenCharacterBook = options.onOpenCharacterBook || null;
+    // Issue #20: 復習キュー（期限到来件数とセッション開始コールバック）
+    this.reviewDueCount = typeof options.reviewDueCount === 'number' ? options.reviewDueCount : 0;
+    this.onStartReviewQueue = options.onStartReviewQueue || null;
     this.rootEl = null;
   }
 
@@ -146,6 +149,35 @@ export class StageMap {
     }
 
     stageMapEl.appendChild(hubBar);
+
+    // Issue #20: 今日の復習バナー（期限到来の復習がある日だけ表示）
+    if (this.reviewDueCount > 0) {
+      const reviewBar = document.createElement('section');
+      reviewBar.className = 'bonus-hub-bar review-queue-bar';
+      reviewBar.innerHTML = `
+        <div class="hub-card review-queue-card">
+          <div class="hub-backrooms-icon" aria-hidden="true">📅</div>
+          <div class="hub-card-info">
+            <div class="hub-card-title">今日の復習：${this.reviewDueCount}件</div>
+            <div class="hub-card-sub">まちがえた問題を、時間をおいてもう一度！おぼえているか確かめよう。</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary btn-start-review-queue">▶️ 復習をはじめる</button>
+        </div>
+      `;
+
+      const reviewBtn = reviewBar.querySelector('.btn-start-review-queue');
+      if (reviewBtn) {
+        reviewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          SoundEffects.playSound('tap');
+          if (typeof this.onStartReviewQueue === 'function') {
+            this.onStartReviewQueue();
+          }
+        });
+      }
+
+      stageMapEl.appendChild(reviewBar);
+    }
 
     // Render 5 Worlds
     WORLDS_METADATA.forEach(world => {

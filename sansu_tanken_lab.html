@@ -6380,6 +6380,167 @@ function generateStageProblems(worldId, stageId, history = [], options = {}) {
 }
 
 /**
+ * 診断カテゴリ（reasonCategory）の表示名マップ（Issue #23: にがて特訓の対象表示用）
+ */
+const TRAINING_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり',
+  borrow_forgotten: 'くり下がり',
+  shift_forgotten: '位のずれ',
+  place_value_slip: '位の計算',
+  order_mistake: '計算の順序',
+  quotient_too_small: '商が小さい',
+  quotient_too_big: '商が大きい',
+  remainder_scale: 'あまりの位',
+  general_recheck: '計算ミス'
+};
+
+/**
+ * 診断カテゴリの表示名を返す（にがて特訓用）
+ * @param {string} category reasonCategory
+ * @returns {string}
+ */
+function getTrainingCategoryLabel(category) {
+  return TRAINING_CATEGORY_LABELS[category] || 'にがて';
+}
+
+/**
+ * ステージ完了時点のセッション結果から、ステージ単位の適応導線
+ * （発展問題＝チャレンジ／にがて特訓）を出すかどうかを判定する純粋関数（Issue #23）。
+ *
+ * - チャレンジ: 全問を初回正解（firstTryCount === totalQuestions）したときだけ出す
+ * - にがて特訓: 同じ診断カテゴリの誤答が2回以上あったとき、そのカテゴリを対象にする。
+ *   対象が複数ある場合は「具体的なカテゴリ（general_recheck 以外）を優先 →
+ *   誤答回数が多い方 → 最初に現れた方」の順で1つに決める
+ *
+ * @param {{ firstTryCount?: number, totalQuestions?: number,
+ *           errorRecords?: Array<{ reasonCategory?: string }> }} [input]
+ * @returns {{ showChallenge: boolean, trainingCategory: string|null, trainingErrorCount: number }}
+ */
+function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5, errorRecords = [] } = {}) {
+  const total = Math.max(0, Number(totalQuestions) || 0);
+  const firstTry = Math.max(0, Number(firstTryCount) || 0);
+  const showChallenge = total > 0 && firstTry >= total;
+
+  const stats = new Map();
+  (Array.isArray(errorRecords) ? errorRecords : []).forEach((rec, idx) => {
+    const category = rec?.reasonCategory;
+    if (!category || typeof category !== 'string') return;
+    if (!stats.has(category)) {
+      stats.set(category, { category, count: 0, firstIndex: idx });
+    }
+    stats.get(category).count += 1;
+  });
+
+  let training = null;
+  for (const entry of stats.values()) {
+    if (entry.count < 2) continue;
+    if (!training) {
+      training = entry;
+      continue;
+    }
+    const entryIsGeneral = entry.category === 'general_recheck';
+    const bestIsGeneral = training.category === 'general_recheck';
+    if (entryIsGeneral !== bestIsGeneral) {
+      if (!entryIsGeneral) training = entry;
+    } else if (entry.count > training.count) {
+      training = entry;
+    }
+    // Same generality and same count: Map iterates in first-occurrence
+    // order, so the earlier category is kept.
+  }
+
+  return {
+    showChallenge,
+    trainingCategory: training ? training.category : null,
+    trainingErrorCount: training ? training.count : 0
+  };
+}
+
+/**
+ * 発展問題（チャレンジ）用に、ステージの生成器から challenge 難易度の問題を
+ * 指定問数だけ生成する（Issue #23）。式が重複しないよう再試行する。
+ * @param {number|string} worldId
+ * @param {number|string} stageId
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列
+ */
+function generateChallengeProblems(worldId, stageId, count = 3, options = {}) {
+  const norm = normalizeWorldAndStage(worldId, stageId);
+  const total = Math.max(1, Math.min(5, Number(count) || 3));
+  const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+
+  const problems = [];
+  const usedExpressions = new Set();
+
+  for (let qIdx = 1; qIdx <= total; qIdx++) {
+    let candidate = null;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      candidate = generateProblem(norm.worldId, norm.stageId, {
+        ...options,
+        rng,
+        questionIndex: qIdx,
+        level: 3,
+        difficultyLevel: 'challenge'
+      });
+      if (!usedExpressions.has(candidate.expression)) {
+        usedExpressions.add(candidate.expression);
+        break;
+      }
+    }
+    problems.push(candidate);
+  }
+
+  return problems;
+}
+
+/**
+ * にがて特訓用に、対象カテゴリで誤答した問題の類題を指定問数だけ選ぶ（Issue #23）。
+ * 元問題が問数より少ない場合は元問題を巡回して別の類題を生成する。
+ * @param {Array<{ reasonCategory?: string, problem?: object }>} [errorRecords=[]]
+ * @param {string|null} [category=null] 対象カテゴリ（null の場合は全カテゴリ）
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列（元問題が無ければ空配列）
+ */
+function selectTrainingProblems(errorRecords = [], category = null, count = 3, options = {}) {
+  const total = Math.max(1, Number(count) || 3);
+  const sources = (Array.isArray(errorRecords) ? errorRecords : []).filter(
+    (rec) => rec && rec.problem && (!category || rec.reasonCategory === category)
+  );
+  if (sources.length === 0) return [];
+
+  const problems = [];
+  const usedExpressions = new Set();
+  let cursor = 0;
+  let guard = 0;
+  while (problems.length < total && guard < total * 20) {
+    guard += 1;
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    const variation = generateVariationProblem(source.problem, {
+      ...options,
+      questionIndex: problems.length + 1
+    });
+    if (usedExpressions.has(variation.expression)) continue;
+    usedExpressions.add(variation.expression);
+    problems.push(variation);
+  }
+  // Uniqueness could not be satisfied (very small variation space): top up.
+  while (problems.length < total) {
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    problems.push(
+      generateVariationProblem(source.problem, {
+        ...options,
+        questionIndex: problems.length + 1
+      })
+    );
+  }
+  return problems;
+}
+
+/**
  * パワーアップ宝箱（復習用）および救済分岐向けに、認知トラップと難易度を厳密に維持した
  * 数字違いの類題（Variation Problem）を生成する
  * @param {object} originalProblem
@@ -6707,6 +6868,105 @@ function diagnoseError(problem, userAnswer) {
 }
 
 /**
+ * 誤答診断カテゴリ（reasonCategory）の保護者向け表示名。
+ * diagnoseError が返す診断文の用語に合わせている。
+ * Issue #21: 保護者ボードの「つまずきパターンの記録」で使用する。
+ */
+const REASON_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり忘れ',
+  borrow_forgotten: 'くり下がり忘れ',
+  place_value_slip: '位の計算のずれ',
+  shift_forgotten: '位のずれ・0の立て忘れ',
+  order_mistake: '計算の順序のまちがい',
+  quotient_too_small: '商が小さすぎる',
+  quotient_too_big: '商が大きすぎる',
+  trial_quotient_too_small: '仮の商が小さすぎる',
+  trial_quotient_too_big: '仮の商が大きすぎる',
+  remainder_scale: 'あまりの位の戻し忘れ',
+  trap_detected: 'ひっかけパターン',
+  calculation_slip: '計算ミス',
+  general_recheck: '見直しが必要な計算'
+};
+
+/**
+ * reasonCategory の表示名を返す。未知のカテゴリは汎用名にフォールバックする。
+ * @param {string} category
+ * @returns {string}
+ */
+function getReasonCategoryLabel(category) {
+  return REASON_CATEGORY_LABELS[category] || 'その他のつまずき';
+}
+
+const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
+ * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
+ * @param {Array} log 診断ログ（不正な項目は無視される）
+ * @param {Date|number|string} [nowInput=new Date()] 集計基準時刻
+ * @returns {{
+ *   totalEntries: number,
+ *   byCategory: Array<{category: string, label: string, total: number, recent30: number, recent14: number}>,
+ *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
+ *   resolvedPatterns: Array<{category: string, label: string, total: number}>
+ * }} focusPatterns は直近30日で多い順に最大2件、
+ *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ */
+function summarizeDiagnosisLog(log, nowInput = new Date()) {
+  const nowMs = nowInput instanceof Date
+    ? nowInput.getTime()
+    : typeof nowInput === 'number'
+      ? nowInput
+      : Date.parse(nowInput);
+  const safeNow = Number.isFinite(nowMs) ? nowMs : Date.now();
+
+  const stats = new Map();
+  let totalEntries = 0;
+
+  if (Array.isArray(log)) {
+    for (const entry of log) {
+      if (!entry || typeof entry.category !== 'string' || entry.category === '') continue;
+      const atMs = Date.parse(entry.at);
+      if (!Number.isFinite(atMs)) continue;
+      totalEntries++;
+      let s = stats.get(entry.category);
+      if (!s) {
+        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
+        stats.set(entry.category, s);
+      }
+      s.total++;
+      const ageMs = safeNow - atMs;
+      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+    }
+  }
+
+  const byCategory = [...stats.values()]
+    .map((s) => ({ ...s, label: getReasonCategoryLabel(s.category) }))
+    .sort((a, b) =>
+      (b.total - a.total) ||
+      (b.recent30 - a.recent30) ||
+      a.category.localeCompare(b.category)
+    );
+
+  const focusPatterns = byCategory
+    .filter((s) => s.recent30 > 0)
+    .sort((a, b) =>
+      (b.recent30 - a.recent30) ||
+      (b.total - a.total) ||
+      a.category.localeCompare(b.category)
+    )
+    .slice(0, 2)
+    .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
+
+  const resolvedPatterns = byCategory
+    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .map(({ category, label, total }) => ({ category, label, total }));
+
+  return { totalEntries, byCategory, focusPatterns, resolvedPatterns };
+}
+
+/**
  * 正解と誤答で最初に異なる桁インデックス（一の位=0, 十の位=1, ...）を返す
  * @param {number} expected
  * @param {number} actual
@@ -6779,6 +7039,8 @@ function generateSingleProblem(worldId, stageId, questionIndex = 1, level = 2) {
 
 const CurriculumEngine = {
   WORLDS_METADATA,
+  TRAINING_CATEGORY_LABELS,
+  getTrainingCategoryLabel,
   getWorldsMetadata,
   getStageMetadata,
   normalizeWorldAndStage,
@@ -6787,15 +7049,21 @@ const CurriculumEngine = {
   generateStageProblems,
   selectNextProblem,
   determineAdaptiveDifficulty,
+  evaluateStageAdaptation,
+  generateChallengeProblems,
+  selectTrainingProblems,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
+  summarizeDiagnosisLog,
   normalizeUserAnswer
 };
 
 const __default_export = CurriculumEngine;
 
-    return { WORLDS_METADATA, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, CurriculumEngine, default: __default_export };
+    return { WORLDS_METADATA, TRAINING_CATEGORY_LABELS, getTrainingCategoryLabel, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, evaluateStageAdaptation, generateChallengeProblems, selectTrainingProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, REASON_CATEGORY_LABELS, getReasonCategoryLabel, summarizeDiagnosisLog, CurriculumEngine, default: __default_export };
   })();
 
   // === services/storage-service.js ===
@@ -6819,6 +7087,7 @@ const TRANSFER_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 const DEFAULT_DEBOUNCE_MS = 1000;
 // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
 const TOTAL_STAGES = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
+const DIAGNOSIS_LOG_LIMIT = 500;
 
 // In-memory storage fallback for Node.js or restricted browser environments
 const memoryStore = new Map();
@@ -6938,6 +7207,10 @@ function createDefaultProgress() {
     treasureBox: {
       items: []
     },
+    reviewQueue: {
+      entries: []
+    },
+    diagnosisLog: [],
     parentCheer: {
       parentPinHash: '1234',
       pinConfigured: false,
@@ -6986,6 +7259,58 @@ function validateProgressData(data) {
     return { valid: false, error: 'stageProgress形式が不正です' };
   }
   return { valid: true };
+}
+
+/**
+ * Sanitize a raw diagnosis log: keep only well-formed entries
+ * ({ category: string, at: parseable date string }) and cap to the latest
+ * DIAGNOSIS_LOG_LIMIT entries. Issue #21.
+ * @param {any} rawLog
+ * @returns {Array<{category: string, worldId: any, stageId: any, at: string}>}
+ */
+function sanitizeDiagnosisLog(rawLog) {
+  if (!Array.isArray(rawLog)) return [];
+  const cleaned = [];
+  for (const entry of rawLog) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (typeof entry.category !== 'string' || entry.category === '') continue;
+    if (typeof entry.at !== 'string' || !Number.isFinite(Date.parse(entry.at))) continue;
+    cleaned.push({
+      category: entry.category,
+      worldId: entry.worldId ?? null,
+      stageId: entry.stageId ?? null,
+      at: entry.at
+    });
+  }
+  return cleaned.slice(-DIAGNOSIS_LOG_LIMIT);
+}
+
+/**
+ * Append one diagnosis entry to progress.diagnosisLog, creating the log when
+ * missing (legacy saves) and capping it to the latest DIAGNOSIS_LOG_LIMIT
+ * entries. Mutates and returns the progress object. Issue #21.
+ * @param {object} progress
+ * @param {{category: string, worldId?: any, stageId?: any, at?: string}} entry
+ * @returns {object} progress
+ */
+function appendDiagnosisLogEntry(progress, entry) {
+  if (!progress || typeof progress !== 'object') return progress;
+  if (!entry || typeof entry.category !== 'string' || entry.category === '') return progress;
+  if (!Array.isArray(progress.diagnosisLog)) {
+    progress.diagnosisLog = [];
+  }
+  progress.diagnosisLog.push({
+    category: entry.category,
+    worldId: entry.worldId ?? null,
+    stageId: entry.stageId ?? null,
+    at: typeof entry.at === 'string' && Number.isFinite(Date.parse(entry.at))
+      ? entry.at
+      : new Date().toISOString()
+  });
+  if (progress.diagnosisLog.length > DIAGNOSIS_LOG_LIMIT) {
+    progress.diagnosisLog = progress.diagnosisLog.slice(-DIAGNOSIS_LOG_LIMIT);
+  }
+  return progress;
 }
 
 /**
@@ -7052,6 +7377,14 @@ function normalizeProgressData(data) {
         ? [...cloned.treasureBox.items]
         : []
     },
+    reviewQueue: {
+      entries: Array.isArray(cloned.reviewQueue?.entries)
+        ? cloned.reviewQueue.entries
+            .filter(e => e && typeof e === 'object' && typeof e.key === 'string')
+            .map(e => ({ ...e }))
+        : []
+    },
+    diagnosisLog: sanitizeDiagnosisLog(cloned.diagnosisLog),
     parentCheer: {
       ...base.parentCheer,
       ...rawParentCheer,
@@ -7100,6 +7433,9 @@ function pruneProgressForQuota(userData) {
   }
   if (pruned.parentCheer && Array.isArray(pruned.parentCheer.cheerMessages)) {
     pruned.parentCheer.cheerMessages = pruned.parentCheer.cheerMessages.slice(-10);
+  }
+  if (Array.isArray(pruned.diagnosisLog)) {
+    pruned.diagnosisLog = pruned.diagnosisLog.slice(-100);
   }
   return pruned;
 }
@@ -7830,9 +8166,12 @@ const StorageService = {
   TRANSFER_TTL_MS,
   DEFAULT_DEBOUNCE_MS,
   TOTAL_STAGES,
+  DIAGNOSIS_LOG_LIMIT,
   createDefaultProgress,
   validateProgressData,
   normalizeProgressData,
+  sanitizeDiagnosisLog,
+  appendDiagnosisLogEntry,
   readLocalProgress,
   resolveProgressConflict,
   loadProgress,
@@ -7852,7 +8191,7 @@ const StorageService = {
 
 const __default_export = StorageService;
 
-    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, readLocalProgress, isSyncPending, isStaticHostingEnvironment, getOfflineBannerText, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
+    return { STORAGE_KEY, TRANSFER_STORE_KEY, SYNC_PENDING_KEY, SCHEMA_VERSION, TRANSFER_ALPHABET, TRANSFER_TTL_MS, DEFAULT_DEBOUNCE_MS, TOTAL_STAGES, DIAGNOSIS_LOG_LIMIT, getStorageBackend, createDefaultProgress, validateProgressData, normalizeProgressData, sanitizeDiagnosisLog, appendDiagnosisLogEntry, readLocalProgress, isSyncPending, isStaticHostingEnvironment, getOfflineBannerText, flushPendingSync, resolveProgressConflict, loadProgress, saveProgress, exportBackupJSON, importBackupJSON, normalizeTransferCode, generateTransferCode, restoreFromTransferCode, resetStorageState, StorageService, default: __default_export };
   })();
 
   // === services/sound-effects.js ===
@@ -10169,6 +10508,276 @@ function resetGamificationState(initialState) {
 
 
     return { LAB_RANKS, BADGE_DEFINITIONS, WORLD_DEFINITIONS, PARENT_STAMPS, getRankForScore, calculateStageStars, evaluateBadges, calculateWorldRadarStats, recordResult, recordStageClear, recordTreasureMastered, recordDailyStreak, sendParentCheer, markCheerRead, getUserProfile, exportGamificationState, loadGamificationState, resetGamificationState };
+  })();
+
+  // === services/review-queue.js ===
+  __mods['services/review-queue.js'] = (function() {
+/**
+ * src/services/review-queue.js
+ * 算数探検ラボ - 復習キュー (Review Queue / Spaced Repetition)
+ *
+ * Issue #20: 誤答した問題を「その場の自己修正・宝箱の卒業」とは別概念として、
+ * 時間間隔（1日 → 3日 → 7日）をおいて再出題し、定着（mastered）を測る。
+ *
+ * Pure logic only (headless compatible). すべての関数は時刻を引数 `now`
+ * (Date | number(ms) | ISO文字列) で受け取るため、テストで時間を注入できる。
+ *
+ * Entry shape (progress.reviewQueue.entries[]):
+ * {
+ *   key: string,              // `${stageId}|${patternType}|${prompt}` の重複排除キー
+ *   treasureItemId: string|null,
+ *   stageId: string,          // 'stage-N'
+ *   worldId: string,          // 'world-N'
+ *   patternType: string|null,
+ *   originalProblem: object,  // 宝箱アイテムと同じ保存形式（類題生成に使用）
+ *   stepIndex: number,        // 0..REVIEW_INTERVAL_DAYS.length-1
+ *   status: 'active' | 'mastered',
+ *   dueAt: string|null,       // 次回出題期限 (ISO). mastered のとき null
+ *   createdAt: string,
+ *   updatedAt: string,
+ *   lastAttemptAt: string|null,
+ *   masteredAt: string|null,
+ *   attempts: number,
+ *   correctCount: number
+ * }
+ */
+
+const REVIEW_INTERVAL_DAYS = [1, 3, 7];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// --- INTERNAL HELPERS ---
+
+function toMs(now) {
+  if (now instanceof Date) return now.getTime();
+  if (typeof now === 'number' && Number.isFinite(now)) return now;
+  if (typeof now === 'string') {
+    const parsed = Date.parse(now);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return Date.now();
+}
+
+function toIso(ms) {
+  return new Date(ms).toISOString();
+}
+
+function deepCopy(obj) {
+  return JSON.parse(JSON.stringify(obj ?? null));
+}
+
+function promptOf(problem) {
+  if (!problem || typeof problem !== 'object') return '';
+  return problem.prompt ||
+    `${problem.operands?.[0]} ${problem.operator} ${problem.operands?.[1]}`;
+}
+
+function stageKeyOf(source, problem) {
+  // originalProblem.globalStageId ('stage-N', 全体通し番号) が正。
+  // 宝箱アイテム側の stageId はワールド内番号から作られており全体番号と
+  // 一致しないため、キーには使わない。
+  if (problem?.globalStageId) return problem.globalStageId;
+  const rawWorld = problem?.worldId ?? source?.worldId;
+  const world = (typeof rawWorld === 'string'
+    ? parseInt(rawWorld.replace('world-', ''), 10)
+    : Number(rawWorld)) || 1;
+  const stageInWorld = Number(problem?.stageId ?? 1) || 1;
+  return `stage-${(world - 1) * 3 + stageInWorld}`;
+}
+
+function worldKeyOf(source, problem) {
+  const rawWorld = source?.worldId ?? problem?.worldId;
+  if (typeof rawWorld === 'string' && rawWorld.startsWith('world-')) return rawWorld;
+  const world = Number(rawWorld ?? 1) || 1;
+  return `world-${world}`;
+}
+
+// --- PUBLIC API ---
+
+/**
+ * 空の復習キューを作成
+ * @returns {{ entries: Array }}
+ */
+function createReviewQueue() {
+  return { entries: [] };
+}
+
+/**
+ * progress.reviewQueue を保証し、返す。
+ * 既存セーブデータ（reviewQueue 項目なし）でも壊れないようデフォルトで補完する。
+ * @param {object} progress
+ * @returns {{ entries: Array }}
+ */
+function ensureReviewQueue(progress) {
+  if (!progress || typeof progress !== 'object') return createReviewQueue();
+  const queue = progress.reviewQueue;
+  if (!queue || typeof queue !== 'object' || !Array.isArray(queue.entries)) {
+    progress.reviewQueue = createReviewQueue();
+    return progress.reviewQueue;
+  }
+  return queue;
+}
+
+/**
+ * 問題または宝箱アイテムから復習エントリの重複排除キーを作る。
+ * キー = ステージ + patternType + 元の問題文（類題ではなく元の問題で識別）。
+ * @param {object} source MathProblem または宝箱アイテム
+ * @returns {string}
+ */
+function buildReviewKey(source) {
+  const problem = source?.originalProblem && typeof source.originalProblem === 'object'
+    ? source.originalProblem
+    : (source || {});
+  const stageKey = stageKeyOf(source, problem);
+  const pattern = problem.patternType || 'unknown';
+  return `${stageKey}|${pattern}|${promptOf(problem)}`;
+}
+
+/**
+ * 誤答で宝箱に追加されたアイテムから復習エントリを作成する。
+ * - 同キーの active なエントリがある場合はそのまま返す（スケジュールは変えない）
+ * - mastered 済みのエントリが再び誤答された場合はステップ0から再開する
+ * @param {object} progress
+ * @param {object} item 宝箱アイテム (addItem の戻り値)
+ * @param {Date|number|string} now
+ * @returns {object|null} 作成または更新されたエントリ
+ */
+function enqueueFromTreasureItem(progress, item, now) {
+  if (!progress || !item || typeof item !== 'object') return null;
+  const queue = ensureReviewQueue(progress);
+  const nowMs = toMs(now);
+  const key = buildReviewKey(item);
+  const problem = item.originalProblem && typeof item.originalProblem === 'object'
+    ? item.originalProblem
+    : {};
+
+  const existing = queue.entries.find(e => e && e.key === key);
+  if (existing) {
+    if (existing.status === 'mastered') {
+      existing.status = 'active';
+      existing.stepIndex = 0;
+      existing.dueAt = toIso(nowMs + REVIEW_INTERVAL_DAYS[0] * DAY_MS);
+      existing.masteredAt = null;
+      existing.originalProblem = deepCopy(problem);
+      existing.treasureItemId = item.id || existing.treasureItemId || null;
+      existing.updatedAt = toIso(nowMs);
+    }
+    return existing;
+  }
+
+  const entry = {
+    key,
+    treasureItemId: item.id || null,
+    stageId: stageKeyOf(item, problem),
+    worldId: worldKeyOf(item, problem),
+    patternType: problem.patternType || null,
+    originalProblem: deepCopy(problem),
+    stepIndex: 0,
+    status: 'active',
+    dueAt: toIso(nowMs + REVIEW_INTERVAL_DAYS[0] * DAY_MS),
+    createdAt: toIso(nowMs),
+    updatedAt: toIso(nowMs),
+    lastAttemptAt: null,
+    masteredAt: null,
+    attempts: 0,
+    correctCount: 0
+  };
+  queue.entries.push(entry);
+  return entry;
+}
+
+/**
+ * エントリが期限到来しているか
+ * @param {object} entry
+ * @param {Date|number|string} now
+ * @returns {boolean}
+ */
+function isDue(entry, now) {
+  if (!entry || entry.status !== 'active' || !entry.dueAt) return false;
+  return toMs(entry.dueAt) <= toMs(now);
+}
+
+/**
+ * 期限到来している active なエントリを dueAt 昇順で返す
+ * @param {object} progress
+ * @param {Date|number|string} now
+ * @returns {Array}
+ */
+function getDueEntries(progress, now) {
+  const queue = ensureReviewQueue(progress);
+  const nowMs = toMs(now);
+  return queue.entries
+    .filter(e => e && e.status === 'active' && e.dueAt && toMs(e.dueAt) <= nowMs)
+    .sort((a, b) => toMs(a.dueAt) - toMs(b.dueAt));
+}
+
+/**
+ * 期限到来している復習の件数
+ * @param {object} progress
+ * @param {Date|number|string} now
+ * @returns {number}
+ */
+function countDueReviews(progress, now) {
+  return getDueEntries(progress, now).length;
+}
+
+/**
+ * 復習セッションでの解答結果を記録し、スケジュールを更新する。
+ * - 期限到来後の正解: 次のステップへ進む。最終ステップ正解で mastered（定着）
+ * - 期限到来後の誤答: ステップを1つ戻し（最小0）、そのステップの間隔で再スケジュール
+ * - 期限前の解答: ステップは進めない（attempts のみ記録し outcome は 'early'）
+ * @param {object} progress
+ * @param {string} key エントリのキー
+ * @param {boolean} isCorrect
+ * @param {Date|number|string} now
+ * @returns {{ entry: object|null, outcome: 'advanced'|'mastered'|'steppedBack'|'early'|'notFound' }}
+ */
+function recordReviewResult(progress, key, isCorrect, now) {
+  const queue = ensureReviewQueue(progress);
+  const entry = queue.entries.find(e => e && e.key === key);
+  if (!entry) return { entry: null, outcome: 'notFound' };
+  if (entry.status !== 'active') return { entry, outcome: 'notFound' };
+
+  const nowMs = toMs(now);
+  entry.attempts = (entry.attempts || 0) + 1;
+  entry.lastAttemptAt = toIso(nowMs);
+  entry.updatedAt = toIso(nowMs);
+
+  if (!isDue(entry, nowMs)) {
+    return { entry, outcome: 'early' };
+  }
+
+  if (isCorrect) {
+    entry.correctCount = (entry.correctCount || 0) + 1;
+    if (entry.stepIndex >= REVIEW_INTERVAL_DAYS.length - 1) {
+      entry.status = 'mastered';
+      entry.masteredAt = toIso(nowMs);
+      entry.dueAt = null;
+      return { entry, outcome: 'mastered' };
+    }
+    entry.stepIndex += 1;
+    entry.dueAt = toIso(nowMs + REVIEW_INTERVAL_DAYS[entry.stepIndex] * DAY_MS);
+    return { entry, outcome: 'advanced' };
+  }
+
+  entry.stepIndex = Math.max(0, (entry.stepIndex || 0) - 1);
+  entry.dueAt = toIso(nowMs + REVIEW_INTERVAL_DAYS[entry.stepIndex] * DAY_MS);
+  return { entry, outcome: 'steppedBack' };
+}
+
+const ReviewQueue = {
+  REVIEW_INTERVAL_DAYS,
+  createReviewQueue,
+  ensureReviewQueue,
+  buildReviewKey,
+  enqueueFromTreasureItem,
+  isDue,
+  getDueEntries,
+  countDueReviews,
+  recordReviewResult
+};
+
+    return { REVIEW_INTERVAL_DAYS, createReviewQueue, ensureReviewQueue, buildReviewKey, enqueueFromTreasureItem, isDue, getDueEntries, countDueReviews, recordReviewResult, ReviewQueue, default: ReviewQueue };
   })();
 
   // === components/cute-characters.js ===
@@ -14245,6 +14854,9 @@ class StageMap {
     this.onOpenLesson = options.onOpenLesson || null;
     this.onOpenBonusGame = options.onOpenBonusGame || null;
     this.onOpenCharacterBook = options.onOpenCharacterBook || null;
+    // Issue #20: 復習キュー（期限到来件数とセッション開始コールバック）
+    this.reviewDueCount = typeof options.reviewDueCount === 'number' ? options.reviewDueCount : 0;
+    this.onStartReviewQueue = options.onStartReviewQueue || null;
     this.rootEl = null;
   }
 
@@ -14326,6 +14938,36 @@ class StageMap {
     }
 
     stageMapEl.appendChild(hubBar);
+
+    // Issue #20: 今日の復習バナー（期限到来の復習がある日だけ表示）
+    if (this.reviewDueCount > 0) {
+      const reviewBar = document.createElement('section');
+      reviewBar.className = 'bonus-hub-bar review-queue-bar';
+      reviewBar.innerHTML = `
+        <div class="hub-card review-queue-card">
+          <div class="hub-backrooms-icon" aria-hidden="true">📅</div>
+          <div class="hub-card-info">
+            <div class="hub-card-title">今日の復習：${this.reviewDueCount}件</div>
+            <div class="hub-card-sub">まちがえた問題を、時間をおいてもう一度！おぼえているか確かめよう。</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary btn-start-review-queue">▶️ 復習をはじめる</button>
+        </div>
+      `;
+
+      const reviewBtn = reviewBar.querySelector('.btn-start-review-queue');
+      if (reviewBtn) {
+        reviewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          SoundEffects.playSound('tap');
+          if (typeof this.onStartReviewQueue === 'function') {
+            this.onStartReviewQueue();
+          }
+        });
+      }
+
+      stageMapEl.appendChild(reviewBar);
+    }
+
 
     // Render 5 Worlds
     WORLDS_METADATA.forEach(world => {
@@ -14589,6 +15231,7 @@ class TreasureBox {
     this.rootEl = null;
     this.reviewModalEl = null;
     this.reviewTimer = null;
+    this.reviewSessionTimer = null;
     // BUG-010: set when a review attempt changed an item's mastery state.
     // The list behind the modal must be re-rendered when the modal closes,
     // no matter how it is closed.
@@ -14962,10 +15605,203 @@ class TreasureBox {
     (quotientInput || singleInput)?.focus?.();
   }
 
+  /**
+   * Issue #20: 復習キュー（間隔反復）専用の類題モーダル。
+   * 宝箱の類題特訓と同じ問題表示・判定フローを使うが、こちらは「定着を測る」
+   * ため1問につき1回だけ解答する。結果は宝箱の卒業条件には影響せず、
+   * onResult 経由で復習スケジュール側にだけ伝わる。
+   * @param {object} entry 復習エントリ（originalProblem を保持）
+   * @param {{ onResult?: (isCorrect: boolean) => ({ outcome?: string, entry?: object }|void),
+   *           onClose?: (answered: boolean) => void }} callbacks
+   */
+  launchScheduledReviewModal(entry, callbacks = {}) {
+    if (typeof document === 'undefined' || !entry) return;
+    const onResult = typeof callbacks.onResult === 'function' ? callbacks.onResult : null;
+    const onClose = typeof callbacks.onClose === 'function' ? callbacks.onClose : null;
+
+    if (this.reviewModalEl && this.reviewModalEl.parentNode) {
+      this.reviewModalEl.parentNode.removeChild(this.reviewModalEl);
+      this.reviewModalEl = null;
+    }
+
+    const variation = CurriculumEngine.generateVariationProblem(entry.originalProblem);
+    this.currentVariation = variation;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    this.reviewModalEl = overlay;
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '500px';
+
+    card.innerHTML = `
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📅</span>
+          <span>今日の復習チャレンジ！</span>
+        </div>
+        <button type="button" class="btn btn-secondary modal-close-btn" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center; padding:24px;">
+        <p style="color:var(--color-text-muted); margin-bottom:12px;">時間をおいてもう一度！おぼえているか確かめよう。1回だけのチャレンジだよ。</p>
+        <div style="font-size:1.8rem; font-weight:700; font-family:monospace; margin:16px 0; background:rgba(0,0,0,0.3); padding:16px; border-radius:var(--radius-lg);">
+          ${variation.prompt || `${variation.operands?.[0]} ${variation.operator} ${variation.operands?.[1]} = ?`}
+        </div>
+
+        <div style="margin:20px 0;">
+          ${variation.hasRemainder
+            ? `<div style="display:flex; gap:12px; justify-content:center;">
+                 <input type="number" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <span style="font-size:1.3rem; align-self:center;">あまり</span>
+                 <input type="number" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+               </div>`
+            : `<input type="number" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
+          }
+        </div>
+
+        <div class="review-feedback" style="display:none; padding:10px; font-weight:700; border-radius:var(--radius-md); margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px;">
+        <button type="button" class="btn btn-secondary review-cancel-btn">やめる</button>
+        <button type="button" class="btn btn-primary review-submit-btn">決定！ 👉</button>
+      </div>
+    `;
+
+    const closeBtn = card.querySelector('.modal-close-btn');
+    const cancelBtn = card.querySelector('.review-cancel-btn');
+    const submitBtn = card.querySelector('.review-submit-btn');
+    const feedbackBox = card.querySelector('.review-feedback');
+    const singleInput = card.querySelector('.review-answer-input');
+    const quotientInput = card.querySelector('.review-quotient-input');
+    const remainderInput = card.querySelector('.review-remainder-input');
+
+    let answered = false;
+    let closed = false;
+
+    const closeModal = () => {
+      if (closed) return;
+      closed = true;
+      if (this.reviewSessionTimer) {
+        clearTimeout(this.reviewSessionTimer);
+        this.reviewSessionTimer = null;
+      }
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (this.reviewModalEl === overlay) {
+        this.reviewModalEl = null;
+      }
+      if (onClose) onClose(answered);
+    };
+
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+
+    const handleSubmitReview = () => {
+      if (answered) return;
+
+      let answerVal;
+      if (variation.hasRemainder) {
+        const qRaw = String(quotientInput?.value ?? '').trim();
+        const rRaw = String(remainderInput?.value ?? '').trim();
+        if (qRaw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 商（こたえ）の数字を入力してから「決定！」をおしてね！';
+          }
+          quotientInput?.focus?.();
+          return;
+        }
+        answerVal = { quotient: Number(qRaw), remainder: rRaw === '' ? 0 : Number(rRaw) };
+      } else {
+        const raw = String(singleInput?.value ?? '').trim();
+        if (raw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 数字を入力してから「決定！」をおしてね！';
+          }
+          singleInput?.focus?.();
+          return;
+        }
+        answerVal = Number(raw);
+      }
+
+      answered = true;
+      const evalResult = CurriculumEngine.evaluateAnswer(variation, answerVal);
+      const result = onResult ? onResult(evalResult.isCorrect) : null;
+      const outcome = result?.outcome;
+
+      if (evalResult.isCorrect) {
+        if (outcome === 'mastered') {
+          SoundEffects.playSound('stage_clear');
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(16,185,129,0.2)';
+            feedbackBox.style.color = 'var(--color-emerald-success)';
+            feedbackBox.innerHTML = '🎉 時間をおいても正解！この問題は「定着」したよ！';
+          }
+          showToast(null, 'success', '定着達成！時間をおいても解けました！');
+        } else {
+          SoundEffects.playSound('correct');
+          let nextMsg = '✨ 正解！また時間をおいて出題するよ！';
+          const dueAt = result?.entry?.dueAt;
+          if (dueAt) {
+            const days = Math.max(1, Math.round((Date.parse(dueAt) - Date.now()) / (24 * 60 * 60 * 1000)));
+            nextMsg = `✨ 正解！次の復習は${days}日後だよ！`;
+          }
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(14,165,233,0.2)';
+            feedbackBox.style.color = 'var(--color-accent-cyan)';
+            feedbackBox.innerHTML = nextMsg;
+          }
+        }
+        this.reviewSessionTimer = setTimeout(closeModal, 1500);
+      } else {
+        SoundEffects.playSound('near_miss');
+        const diag = evalResult.diagnosis || CurriculumEngine.diagnoseError(variation, answerVal);
+        if (feedbackBox) {
+          feedbackBox.style.display = 'block';
+          feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+          feedbackBox.style.color = 'var(--color-amber-warm)';
+          feedbackBox.innerHTML = `💡 ${diag?.adviceMessage || 'おしい！'} また時間をおいてチャレンジしよう！`;
+        }
+        this.reviewSessionTimer = setTimeout(closeModal, 2000);
+      }
+    };
+
+    if (submitBtn) {
+      submitBtn.onclick = handleSubmitReview;
+    }
+
+    [singleInput, quotientInput, remainderInput].forEach((inp) => {
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            handleSubmitReview();
+          }
+        });
+      }
+    });
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    (quotientInput || singleInput)?.focus?.();
+  }
+
   destroy() {
     if (this.reviewTimer) {
       clearTimeout(this.reviewTimer);
       this.reviewTimer = null;
+    }
+    if (this.reviewSessionTimer) {
+      clearTimeout(this.reviewSessionTimer);
+      this.reviewSessionTimer = null;
     }
     if (this.reviewModalEl && this.reviewModalEl.parentNode) {
       this.reviewModalEl.parentNode.removeChild(this.reviewModalEl);
@@ -15002,6 +15838,7 @@ const StorageService = __mods['services/storage-service.js'];
 const SoundEffects = __mods['services/sound-effects.js'];
 const GamificationEngine = __mods['services/gamification-engine.js'];
 const { showToast } = __mods['components/toast-feedback.js'];
+const { summarizeDiagnosisLog } = __mods['services/curriculum-engine.js'];
 
 // --- PURE HELPER FUNCTIONS (HEADLESS COMPATIBLE) ---
 
@@ -15557,6 +16394,89 @@ class ParentBoard {
     `;
     dashboard.appendChild(radarCard);
 
+    // Diagnosis Pattern Stats Card (Issue #21)
+    const diagnosisCard = document.createElement('div');
+    diagnosisCard.className = 'card-dark diagnosis-stats-card';
+    diagnosisCard.style.padding = '24px';
+    diagnosisCard.style.borderRadius = 'var(--radius-xl)';
+    diagnosisCard.style.border = '1px solid var(--color-card-border)';
+
+    const diagnosisSummary = summarizeDiagnosisLog(this.progress?.diagnosisLog, new Date());
+    let diagnosisBodyHtml = '';
+    if (diagnosisSummary.totalEntries === 0) {
+      diagnosisBodyHtml = `
+        <p style="font-size:0.9rem; color:var(--color-text-muted); margin:0;">
+          まだ記録がありません。まちがえた問題のつまずきパターンが、ここに自動で記録されます。
+        </p>
+      `;
+    } else {
+      const patternRow = (label, detail) => `
+        <div class="diagnosis-pattern-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 12px; background:rgba(0,0,0,0.25); border-radius:var(--radius-md); margin-top:8px;">
+          <span style="font-weight:700; font-size:0.95rem;">${label}</span>
+          <span style="font-size:0.85rem; color:var(--color-text-muted);">${detail}</span>
+        </div>
+      `;
+      const focusHtml = diagnosisSummary.focusPatterns.length > 0
+        ? diagnosisSummary.focusPatterns
+          .map((p) => patternRow(p.label, `直近30日で ${p.recent30} 回（これまで ${p.total} 回）`))
+          .join('')
+        : `
+          <p style="font-size:0.9rem; color:var(--color-text-muted); margin:8px 0 0;">
+            直近30日につまずいた記録はありません。
+          </p>
+        `;
+      const resolvedHtml = diagnosisSummary.resolvedPatterns.length > 0
+        ? `
+          <div style="font-size:0.9rem; font-weight:700; color:var(--color-emerald-success); margin-top:20px;">
+            ✅ 解消したパターン
+          </div>
+          ${diagnosisSummary.resolvedPatterns
+            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近14日は出ていません）`))
+            .join('')}
+        `
+        : '';
+      diagnosisBodyHtml = `
+        <div style="font-size:0.9rem; font-weight:700; color:var(--color-amber-warm);">
+          🎯 今の重点パターン
+        </div>
+        ${focusHtml}
+        ${resolvedHtml}
+      `;
+    }
+
+    diagnosisCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <span>🧩</span>
+        <span>つまずきパターンの記録</span>
+      </h3>
+      ${diagnosisBodyHtml}
+    `;
+    dashboard.appendChild(diagnosisCard);
+
+    // Learning Scope Notice Card (Issue #22): calculation-only scope
+    const scopeCard = document.createElement('div');
+    scopeCard.className = 'card-dark learning-scope-card';
+    scopeCard.style.padding = '24px';
+    scopeCard.style.borderRadius = 'var(--radius-xl)';
+    scopeCard.style.border = '1px solid var(--color-card-border)';
+
+    scopeCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <span>📘</span>
+        <span>このアプリの対象範囲</span>
+      </h3>
+      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+        このアプリは、小学4年生の算数のうち<strong>「計算」の練習に特化</strong>したアプリです。
+      </p>
+      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+        <strong>対象：</strong>たし算・ひき算・かけ算・わり算の筆算、計算の順序と工夫、虫食い算（□の式）です。小学3年生の計算の復習も含みます。
+      </p>
+      <p style="font-size:0.9rem; line-height:1.7; color:var(--color-text-muted);">
+        <strong>対象外：</strong>小数・分数・大きな数と概数・文章題・図形・面積・折れ線グラフなどは扱っていません。学校の授業の全範囲をカバーするものではありませんので、計算以外の単元は教科書などとあわせてご活用ください。
+      </p>
+    `;
+    dashboard.appendChild(scopeCard);
+
     // Cheer Stamp Sender Section
     const cheerCard = document.createElement('div');
     cheerCard.className = 'card-dark';
@@ -15940,6 +16860,7 @@ const StorageService = __mods['services/storage-service.js'];
 const SoundEffects = __mods['services/sound-effects.js'];
 const SpeechService = __mods['services/speech-service.js'];
 const GamificationEngine = __mods['services/gamification-engine.js'];
+const ReviewQueue = __mods['services/review-queue.js'];
 
 const CanvasPad = __mods['components/canvas-pad.js'].default;
 const { clear : clearPad } = __mods['components/canvas-pad.js'];
@@ -15995,6 +16916,7 @@ class MathLabApp {
     this.stageCompleteModal = null;
     this.bonusModal = null;
     this.characterBookModal = null;
+    this.reviewSessionBox = null;
   }
 
   syncGamificationProgress() {
@@ -16251,6 +17173,11 @@ class MathLabApp {
     }
     this.bonusModal = null;
 
+    if (this.reviewSessionBox && typeof this.reviewSessionBox.destroy === 'function') {
+      this.reviewSessionBox.destroy();
+    }
+    this.reviewSessionBox = null;
+
     if (this.characterBookModal && typeof this.characterBookModal.destroy === 'function') {
       this.characterBookModal.destroy();
     }
@@ -16301,6 +17228,10 @@ class MathLabApp {
     this.activeViewComponent = new StageMap({
       container,
       progress: this.progress,
+      reviewDueCount: this.progress ? ReviewQueue.countDueReviews(this.progress, new Date()) : 0,
+      onStartReviewQueue: () => {
+        this.startReviewSession();
+      },
       onSelectStage: (stageId) => {
         window.location.hash = `#stage/${stageId}`;
       },
@@ -16364,8 +17295,91 @@ class MathLabApp {
       isAdvancing: false,
       lastCompletedSteps: null,
       lastDiagnosis: null,
-      history: []
+      history: [],
+      // Issue #23: 'normal' | 'challenge' | 'training'
+      mode: 'normal',
+      errorRecords: [],
+      headerLabel: `STAGE ${stageNum}`
     };
+
+    this.setupArenaSession(container);
+  }
+
+  /**
+   * Issue #23: ステージ完了後の任意セッション（発展問題／にがて特訓）を開始する。
+   * 通常セッションと同じアリーナ・ステップガイド・自己修正の流れを再利用し、
+   * 星・解放・通常のクリア記録には一切影響しない。
+   * @param {{ mode: 'challenge'|'training', problems: Array<object>, category?: string|null }} config
+   */
+  startExtraSession({ mode, problems, category = null } = {}) {
+    const prev = this.currentSession;
+    if (!prev || !Array.isArray(problems) || problems.length === 0) return;
+
+    const container = document.getElementById('view-container');
+    if (!container) return;
+
+    // Tear down the finished session's arena components before re-rendering.
+    // Notably the keypad registers a window keydown listener that would
+    // otherwise survive into the extra session and double-process input.
+    if (this.arenaAdvanceTimer) {
+      clearTimeout(this.arenaAdvanceTimer);
+      this.arenaAdvanceTimer = null;
+    }
+    if (this.arenaKeypad) {
+      this.arenaKeypad.setLocked(false);
+      if (typeof this.arenaKeypad.destroy === 'function') {
+        this.arenaKeypad.destroy();
+      }
+      this.arenaKeypad = null;
+    }
+    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
+      this.arenaCanvasPad.destroy();
+      this.arenaCanvasPad = null;
+    }
+    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
+      this.arenaStepGuide.destroy();
+      this.arenaStepGuide = null;
+    }
+    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
+      this.arenaMascotWidget.destroy();
+      this.arenaMascotWidget = null;
+    }
+
+    this.currentSession = {
+      stageNum: prev.stageNum,
+      worldId: prev.worldId,
+      stageId: prev.stageId,
+      problems,
+      currentIndex: 0,
+      attempts: 0,
+      wasSelfCorrected: false,
+      correctCount: 0,
+      firstTryCount: 0,
+      selfCorrectedCount: 0,
+      isAdvancing: false,
+      lastCompletedSteps: null,
+      lastDiagnosis: null,
+      history: [],
+      mode,
+      trainingCategory: category,
+      errorRecords: [],
+      headerLabel: mode === 'challenge'
+        ? `STAGE ${prev.stageNum} チャレンジ`
+        : `STAGE ${prev.stageNum} にがて特訓`
+    };
+
+    this.setupArenaSession(container);
+  }
+
+  setupArenaSession(container) {
+    const session = this.currentSession;
+    if (!session) return;
+
+    const { stageNum, stageId } = session;
+    const problems = session.problems;
+    const dotsHtml = problems
+      .map((_, i) => `<div class="q-dot${i === 0 ? ' active' : ''}" data-q="${i}"></div>`)
+      .join('\n                ');
 
     container.innerHTML = `
       <div class="problem-arena">
@@ -16374,13 +17388,9 @@ class MathLabApp {
           <div class="problem-header-bar">
             <button type="button" class="btn btn-sm btn-secondary btn-arena-back">◀ マップ</button>
             <div class="problem-progress">
-              <span style="color:var(--color-accent-cyan);">STAGE ${stageNum}</span>
+              <span style="color:var(--color-accent-cyan);">${session.headerLabel || `STAGE ${stageNum}`}</span>
               <div class="question-pills">
-                <div class="q-dot active" data-q="0"></div>
-                <div class="q-dot" data-q="1"></div>
-                <div class="q-dot" data-q="2"></div>
-                <div class="q-dot" data-q="3"></div>
-                <div class="q-dot" data-q="4"></div>
+                ${dotsHtml}
               </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline btn-arena-lesson">📖 ミニ授業</button>
@@ -16491,8 +17501,8 @@ class MathLabApp {
       summaryEl.innerHTML = '';
     }
 
-    // Update dots
-    for (let i = 0; i < 5; i++) {
+    // Update dots (Issue #23: extra sessions have 3 questions, not 5)
+    for (let i = 0; i < session.problems.length; i++) {
       const dot = document.querySelector(`.q-dot[data-q="${i}"]`);
       if (dot) {
         dot.className = 'q-dot';
@@ -16588,17 +17598,21 @@ class MathLabApp {
         session.selfCorrectedCount = (session.selfCorrectedCount || 0) + 1;
       }
 
-      // Gamification scoring
-      GamificationEngine.recordResult({
-        problemId: prob.id,
-        worldId: prob.worldId || session.worldId,
-        stageId: session.stageId,
-        isCorrect: true,
-        wasSelfCorrected: session.wasSelfCorrected,
-        isStageComplete: false
-      });
-      this.syncGamificationProgress();
-      StorageService.saveProgress(this.progress).catch(() => {});
+      // Gamification scoring (Issue #23: extra sessions are optional practice
+      // and must not affect score/stars/unlocks, so they skip recording here;
+      // their results are stored separately at extra-session completion)
+      if (session.mode === 'normal') {
+        GamificationEngine.recordResult({
+          problemId: prob.id,
+          worldId: prob.worldId || session.worldId,
+          stageId: session.stageId,
+          isCorrect: true,
+          wasSelfCorrected: session.wasSelfCorrected,
+          isStageComplete: false
+        });
+        this.syncGamificationProgress();
+        StorageService.saveProgress(this.progress).catch(() => {});
+      }
 
       if (session.wasSelfCorrected) {
         SoundEffects.playSound('self_correct');
@@ -16614,8 +17628,12 @@ class MathLabApp {
 
       // Advance to next problem or clear stage
       session.currentIndex++;
-      if (session.currentIndex >= 5) {
-        this.handleArenaStageComplete();
+      if (session.currentIndex >= session.problems.length) {
+        if (session.mode === 'normal') {
+          this.handleArenaStageComplete();
+        } else {
+          this.handleExtraSessionComplete();
+        }
       } else {
         session.isAdvancing = true;
         // BUG-009: clear the just-submitted answer immediately and lock the
@@ -16652,24 +17670,53 @@ class MathLabApp {
       const diagnosis = result.diagnosis || CurriculumEngine.diagnoseError(prob, answerValue);
       session.lastDiagnosis = diagnosis;
 
+      // Issue #23: remember which diagnosis category was missed (and on which
+      // problem) so the stage-complete modal can offer targeted training.
+      if (session.mode === 'normal') {
+        if (!Array.isArray(session.errorRecords)) session.errorRecords = [];
+        session.errorRecords.push({
+          reasonCategory: diagnosis?.reasonCategory || 'general_recheck',
+          problem: prob
+        });
+      }
+
       // Clear keypad immediately so old wrong digits / remainder activeField do not persist on return
       if (this.arenaKeypad) {
         this.arenaKeypad.clear();
       }
 
-      GamificationEngine.recordResult({
-        problemId: prob.id,
-        worldId: prob.worldId || session.worldId,
-        stageId: session.stageId,
-        isCorrect: false,
-        isStageComplete: false
-      });
-      this.syncGamificationProgress();
+      // Issue #23: extra sessions skip gamification scoring and the treasure
+      // box so they stay side-effect free apart from their own result record.
+      if (session.mode === 'normal') {
+        GamificationEngine.recordResult({
+          problemId: prob.id,
+          worldId: prob.worldId || session.worldId,
+          stageId: session.stageId,
+          isCorrect: false,
+          isStageComplete: false
+        });
+        this.syncGamificationProgress();
 
-      // Quarantine problem in Power-Up Treasure Box
-      if (this.progress?.treasureBox) {
-        addTreasureItem(this.progress.treasureBox, prob);
-        StorageService.saveProgress(this.progress).catch(() => {});
+        // Issue #21: record the diagnosis pattern so the parent board can
+        // aggregate つまずきパターン later. Persisted by the save below.
+        if (this.progress) {
+          StorageService.appendDiagnosisLogEntry(this.progress, {
+            category: diagnosis?.reasonCategory || 'general_recheck',
+            worldId: prob.worldId || session.worldId || null,
+            stageId: session.stageId || null,
+            at: new Date().toISOString()
+          });
+        }
+
+        // Quarantine problem in Power-Up Treasure Box
+        if (this.progress?.treasureBox) {
+          const addedItem = addTreasureItem(this.progress.treasureBox, prob);
+          // Issue #20: schedule a spaced review for this missed problem.
+          // This is separate from the treasure-box mastery (その場の卒業):
+          // the entry only advances when answered after its due date.
+          ReviewQueue.enqueueFromTreasureItem(this.progress, addedItem, new Date());
+          StorageService.saveProgress(this.progress).catch(() => {});
+        }
       }
 
       // Show warm amber encouragement toast
@@ -16810,6 +17857,18 @@ class MathLabApp {
     const starString = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
     const activeChar = getCharacterById(bonusState.selectedCharacterId);
 
+    // Issue #23: stage-level adaptation offers. The normal clear record
+    // (stars / unlock / save above) is already finalized before these
+    // optional offers appear, and taking them never changes it.
+    const adaptation = CurriculumEngine.evaluateStageAdaptation({
+      firstTryCount: session.firstTryCount || 0,
+      totalQuestions: Array.isArray(session.problems) ? session.problems.length : 5,
+      errorRecords: session.errorRecords || []
+    });
+    const trainingLabel = adaptation.trainingCategory
+      ? CurriculumEngine.getTrainingCategoryLabel(adaptation.trainingCategory)
+      : '';
+
     card.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px;">
         <span style="font-size:2.8rem;">🏆</span>
@@ -16829,6 +17888,14 @@ class MathLabApp {
       <button type="button" class="btn btn-accent btn-stage-bonus" style="width:100%; padding:14px; font-size:1.1rem; margin-bottom:10px;">
         🎮 ボーナスゲーム（バックルーム）で遊ぶ！
       </button>
+      ${adaptation.showChallenge ? `
+      <button type="button" class="btn btn-primary btn-stage-challenge" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
+        🔥 チャレンジ問題に挑戦する（3問）
+      </button>` : ''}
+      ${adaptation.trainingCategory ? `
+      <button type="button" class="btn btn-primary btn-stage-training" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
+        🎯 にがて特訓：「${trainingLabel}」の類題3問
+      </button>` : ''}
       <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.05rem;">
         マップへ戻る 🗺️
       </button>
@@ -16844,6 +17911,137 @@ class MathLabApp {
     }
 
     const finishBtn = card.querySelector('.btn-stage-finish');
+    if (finishBtn) {
+      finishBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        window.location.hash = '#map';
+      };
+    }
+
+    // Issue #23: optional challenge (only offered on a perfect first-try clear)
+    const challengeBtn = card.querySelector('.btn-stage-challenge');
+    if (challengeBtn) {
+      challengeBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        const problems = CurriculumEngine.generateChallengeProblems(session.worldId, session.stageNum);
+        this.startExtraSession({ mode: 'challenge', problems });
+      };
+    }
+
+    // Issue #23: optional targeted training for the repeated weakness category
+    const trainingBtn = card.querySelector('.btn-stage-training');
+    if (trainingBtn) {
+      trainingBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        const problems = CurriculumEngine.selectTrainingProblems(
+          session.errorRecords || [],
+          adaptation.trainingCategory,
+          3
+        );
+        if (problems.length > 0) {
+          this.startExtraSession({
+            mode: 'training',
+            problems,
+            category: adaptation.trainingCategory
+          });
+        }
+      };
+    }
+
+    overlay.appendChild(card);
+    modalRoot.appendChild(overlay);
+    this.stageCompleteModal = overlay;
+  }
+
+  /**
+   * Issue #23: 追加セッション（チャレンジ／にがて特訓）の完了処理。
+   * 結果は stageProgress のステージ別サブキーに記録するだけで、
+   * 星・解放・通常のクリア記録には影響しない。
+   */
+  handleExtraSessionComplete() {
+    const session = this.currentSession;
+    if (!session || !session.mode || session.mode === 'normal') return;
+
+    SoundEffects.playSound('stage_clear');
+
+    const total = session.problems.length;
+    const isChallenge = session.mode === 'challenge';
+    const nowIso = new Date().toISOString();
+
+    if (this.progress) {
+      if (!this.progress.stageProgress) {
+        this.progress.stageProgress = {};
+      }
+      const prev = this.progress.stageProgress[session.stageId] || {};
+      if (isChallenge) {
+        const prevChallenge = prev.challenge || {};
+        this.progress.stageProgress[session.stageId] = {
+          ...prev,
+          challenge: {
+            played: true,
+            attempts: (prevChallenge.attempts || 0) + 1,
+            lastCorrectCount: session.correctCount,
+            bestCorrectCount: Math.max(prevChallenge.bestCorrectCount || 0, session.correctCount),
+            totalQuestions: total,
+            lastPlayedAt: nowIso
+          }
+        };
+      } else {
+        const prevTraining = prev.training || {};
+        this.progress.stageProgress[session.stageId] = {
+          ...prev,
+          training: {
+            sessions: (prevTraining.sessions || 0) + 1,
+            lastCategory: session.trainingCategory || null,
+            lastCorrectCount: session.correctCount,
+            totalQuestions: total,
+            lastPlayedAt: nowIso
+          }
+        };
+      }
+      StorageService.saveProgress(this.progress).catch(() => {});
+    }
+
+    // Show the extra-session result modal (tracked as stageCompleteModal so
+    // the router cleanup removes it like the normal completion modal)
+    const modalRoot = document.getElementById('modal-root') || document.body;
+
+    if (this.stageCompleteModal && this.stageCompleteModal.parentNode) {
+      this.stageCompleteModal.parentNode.removeChild(this.stageCompleteModal);
+      this.stageCompleteModal = null;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '480px';
+    card.style.textAlign = 'center';
+    card.style.padding = '32px';
+
+    const title = isChallenge ? 'チャレンジ結果！' : 'にがて特訓クリア！';
+    const message = session.correctCount >= total
+      ? '全問正解！すごい力だね！'
+      : 'おつかれさま！結果は記録されたよ。また挑戦しよう！';
+
+    card.innerHTML = `
+      <div style="font-size:2.8rem; margin-bottom:8px;">${isChallenge ? '🔥' : '🎯'}</div>
+      <h2 style="font-size:1.6rem; color:var(--color-accent-cyan);">${title}</h2>
+      <p style="color:var(--color-text-muted); margin:8px 0;">STAGE ${session.stageNum} の${isChallenge ? 'チャレンジ問題' : 'にがて特訓'}が終わりました！</p>
+      <div style="background:rgba(0,0,0,0.3); padding:14px; border-radius:var(--radius-lg); margin-bottom:14px;">
+        <div style="font-size:1.1rem; font-weight:700;">正解数: ${session.correctCount} / ${total} 問</div>
+        <div style="color:var(--color-text-muted); margin-top:6px;">${message}</div>
+      </div>
+      <button type="button" class="btn btn-primary btn-extra-finish" style="width:100%; padding:14px; font-size:1.05rem;">
+        マップへ戻る 🗺️
+      </button>
+    `;
+
+    const finishBtn = card.querySelector('.btn-extra-finish');
     if (finishBtn) {
       finishBtn.onclick = () => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -16946,6 +18144,73 @@ class MathLabApp {
         }
       }
     }).open(modalRoot);
+  }
+
+  /**
+   * Issue #20: 復習セッションを開始する。
+   * 期限到来エントリの類題を宝箱チャレンジと同じモーダルで順に出題し、
+   * 結果を復習スケジュールにだけ反映する（宝箱の卒業条件には影響しない）。
+   */
+  startReviewSession() {
+    if (!this.progress) return;
+
+    const dueEntries = ReviewQueue.getDueEntries(this.progress, new Date());
+    if (dueEntries.length === 0) {
+      showToast(null, 'encourage', '今日の復習はありません！');
+      return;
+    }
+
+    if (!this.reviewSessionBox) {
+      this.reviewSessionBox = new TreasureBox({
+        progress: this.progress,
+        onSave: (p) => StorageService.saveProgress(p),
+        onUpdateHeader: () => {
+          this.syncGamificationProgress();
+          this.updateHeaderStats();
+        }
+      });
+    } else {
+      this.reviewSessionBox.progress = this.progress;
+    }
+
+    const queue = [...dueEntries];
+    let answeredCount = 0;
+
+    const finishSession = () => {
+      if (answeredCount > 0) {
+        showToast(null, 'success', `今日の復習が終わったよ！${answeredCount}件チャレンジしました！`);
+      }
+      // Refresh the map so the due-count banner reflects the new schedule.
+      if (this.currentRoute.view === '#map') {
+        this.handleRoute();
+      }
+    };
+
+    const step = () => {
+      const entry = queue.shift();
+      if (!entry) {
+        finishSession();
+        return;
+      }
+      this.reviewSessionBox.launchScheduledReviewModal(entry, {
+        onResult: (isCorrect) => {
+          answeredCount++;
+          const result = ReviewQueue.recordReviewResult(this.progress, entry.key, isCorrect, new Date());
+          StorageService.saveProgress(this.progress).catch(() => {});
+          return result;
+        },
+        onClose: (answered) => {
+          if (answered) {
+            step();
+          } else {
+            // Aborted mid-session: remaining entries stay scheduled.
+            finishSession();
+          }
+        }
+      });
+    };
+
+    step();
   }
 
   renderTreasureBox(container) {

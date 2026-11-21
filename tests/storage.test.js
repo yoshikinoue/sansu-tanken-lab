@@ -18,7 +18,10 @@ import storage, {
   normalizeTransferCode,
   generateTransferCode,
   restoreFromTransferCode,
-  resetStorageState
+  resetStorageState,
+  DIAGNOSIS_LOG_LIMIT,
+  sanitizeDiagnosisLog,
+  appendDiagnosisLogEntry
 } from '../src/services/storage-service.js';
 
 /**
@@ -451,5 +454,72 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
       assert.equal(typeof storage.restoreFromTransferCode, 'function');
       assert.equal(typeof storage.normalizeTransferCode, 'function');
     });
+  });
+});
+
+describe('Issue #21: diagnosis log persistence', () => {
+  const entry = (category, at) => ({ category, worldId: 2, stageId: 'stage-4', at });
+
+  it('default progress starts with an empty diagnosis log', () => {
+    assert.deepEqual(createDefaultProgress().diagnosisLog, []);
+  });
+
+  it('normalizeProgressData backfills diagnosisLog for legacy saves without one', () => {
+    const legacy = createDefaultProgress();
+    delete legacy.diagnosisLog;
+    const normalized = normalizeProgressData(legacy);
+    assert.deepEqual(normalized.diagnosisLog, []);
+  });
+
+  it('normalizeProgressData drops malformed entries and keeps well-formed ones', () => {
+    const data = createDefaultProgress();
+    data.diagnosisLog = [
+      entry('carry_forgotten', '2026-11-20T00:00:00.000Z'),
+      { category: '', at: '2026-11-20T00:00:00.000Z' },
+      { category: 'shift_forgotten', at: 'garbage' },
+      { at: '2026-11-20T00:00:00.000Z' },
+      null,
+      'junk'
+    ];
+    const normalized = normalizeProgressData(data);
+    assert.equal(normalized.diagnosisLog.length, 1);
+    assert.deepEqual(normalized.diagnosisLog[0], {
+      category: 'carry_forgotten', worldId: 2, stageId: 'stage-4', at: '2026-11-20T00:00:00.000Z'
+    });
+  });
+
+  it('sanitizeDiagnosisLog caps the log at DIAGNOSIS_LOG_LIMIT keeping the latest entries', () => {
+    const many = [];
+    for (let i = 0; i < DIAGNOSIS_LOG_LIMIT + 25; i++) {
+      many.push(entry(`cat_${i}`, '2026-11-20T00:00:00.000Z'));
+    }
+    const cleaned = sanitizeDiagnosisLog(many);
+    assert.equal(cleaned.length, DIAGNOSIS_LOG_LIMIT);
+    assert.equal(cleaned[0].category, 'cat_25');
+    assert.equal(cleaned[cleaned.length - 1].category, `cat_${DIAGNOSIS_LOG_LIMIT + 24}`);
+    assert.deepEqual(sanitizeDiagnosisLog('nope'), []);
+    assert.deepEqual(sanitizeDiagnosisLog(undefined), []);
+  });
+
+  it('appendDiagnosisLogEntry creates the log on legacy progress and appends entries', () => {
+    const progress = createDefaultProgress();
+    delete progress.diagnosisLog;
+    appendDiagnosisLogEntry(progress, entry('quotient_too_small', '2026-11-21T00:00:00.000Z'));
+    assert.equal(progress.diagnosisLog.length, 1);
+    assert.equal(progress.diagnosisLog[0].category, 'quotient_too_small');
+    // Invalid entries are ignored
+    appendDiagnosisLogEntry(progress, { category: '', at: '2026-11-21T00:00:00.000Z' });
+    appendDiagnosisLogEntry(progress, null);
+    assert.equal(progress.diagnosisLog.length, 1);
+    assert.equal(appendDiagnosisLogEntry(null, entry('x', '2026-11-21T00:00:00.000Z')), null);
+  });
+
+  it('appendDiagnosisLogEntry caps the log at DIAGNOSIS_LOG_LIMIT', () => {
+    const progress = createDefaultProgress();
+    for (let i = 0; i < DIAGNOSIS_LOG_LIMIT + 5; i++) {
+      appendDiagnosisLogEntry(progress, entry(`cat_${i}`, '2026-11-20T00:00:00.000Z'));
+    }
+    assert.equal(progress.diagnosisLog.length, DIAGNOSIS_LOG_LIMIT);
+    assert.equal(progress.diagnosisLog[0].category, 'cat_5');
   });
 });
