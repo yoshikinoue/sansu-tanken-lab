@@ -12,6 +12,7 @@
 import * as StorageService from '../services/storage-service.js';
 import * as SoundEffects from '../services/sound-effects.js';
 import * as GamificationEngine from '../services/gamification-engine.js';
+import { summarizeDiagnosisLog } from '../services/curriculum-engine.js';
 import { showToast } from './toast-feedback.js';
 
 // --- PURE HELPER FUNCTIONS (HEADLESS COMPATIBLE) ---
@@ -560,6 +561,65 @@ export class ParentBoard {
       ${radarRowsHtml}
     `;
     dashboard.appendChild(radarCard);
+
+    // Diagnosis Pattern Stats Card (Issue #21)
+    const diagnosisCard = document.createElement('div');
+    diagnosisCard.className = 'card-dark diagnosis-stats-card';
+    diagnosisCard.style.padding = '24px';
+    diagnosisCard.style.borderRadius = 'var(--radius-xl)';
+    diagnosisCard.style.border = '1px solid var(--color-card-border)';
+
+    const diagnosisSummary = summarizeDiagnosisLog(this.progress?.diagnosisLog, new Date());
+    let diagnosisBodyHtml = '';
+    if (diagnosisSummary.totalEntries === 0) {
+      diagnosisBodyHtml = `
+        <p style="font-size:0.9rem; color:var(--color-text-muted); margin:0;">
+          まだ記録がありません。まちがえた問題のつまずきパターンが、ここに自動で記録されます。
+        </p>
+      `;
+    } else {
+      const patternRow = (label, detail) => `
+        <div class="diagnosis-pattern-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 12px; background:rgba(0,0,0,0.25); border-radius:var(--radius-md); margin-top:8px;">
+          <span style="font-weight:700; font-size:0.95rem;">${label}</span>
+          <span style="font-size:0.85rem; color:var(--color-text-muted);">${detail}</span>
+        </div>
+      `;
+      const focusHtml = diagnosisSummary.focusPatterns.length > 0
+        ? diagnosisSummary.focusPatterns
+          .map((p) => patternRow(p.label, `直近30日で ${p.recent30} 回（これまで ${p.total} 回）`))
+          .join('')
+        : `
+          <p style="font-size:0.9rem; color:var(--color-text-muted); margin:8px 0 0;">
+            直近30日につまずいた記録はありません。
+          </p>
+        `;
+      const resolvedHtml = diagnosisSummary.resolvedPatterns.length > 0
+        ? `
+          <div style="font-size:0.9rem; font-weight:700; color:var(--color-emerald-success); margin-top:20px;">
+            ✅ 解消したパターン
+          </div>
+          ${diagnosisSummary.resolvedPatterns
+            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近14日は出ていません）`))
+            .join('')}
+        `
+        : '';
+      diagnosisBodyHtml = `
+        <div style="font-size:0.9rem; font-weight:700; color:var(--color-amber-warm);">
+          🎯 今の重点パターン
+        </div>
+        ${focusHtml}
+        ${resolvedHtml}
+      `;
+    }
+
+    diagnosisCard.innerHTML = `
+      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+        <span>🧩</span>
+        <span>つまずきパターンの記録</span>
+      </h3>
+      ${diagnosisBodyHtml}
+    `;
+    dashboard.appendChild(diagnosisCard);
 
     // Cheer Stamp Sender Section
     const cheerCard = document.createElement('div');
