@@ -536,7 +536,7 @@ export class MathLabApp {
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
         onSound: (snd) => SoundEffects.playSound(snd),
-        onSubmit: (value) => this.handleArenaSubmit(value)
+        onSubmit: (value, state) => this.handleArenaSubmit(value, state)
       }).mount(keypadContainer);
     }
 
@@ -636,12 +636,22 @@ export class MathLabApp {
     }
   }
 
-  handleArenaSubmit(answerValue) {
+  handleArenaSubmit(answerValue, keypadState = null) {
     const session = this.currentSession;
     if (!session || session.isAdvancing) return;
 
     const prob = session.problems[session.currentIndex];
     if (!prob) return;
+
+    // Issue #21: the keypad submits 0 for an untouched input, which the
+    // value alone cannot distinguish from an entered "0". The keypad state
+    // can: both text fields empty means 決定 was pressed with no input.
+    // Such empty submissions must not pile up general_recheck entries in
+    // the diagnosis log. Programmatic calls without keypad state are
+    // treated as real submissions.
+    const isEmptySubmission = Boolean(keypadState)
+      && (keypadState.quotientText ?? '') === ''
+      && (keypadState.remainderText ?? '') === '';
 
     const result = CurriculumEngine.evaluateAnswer(prob, answerValue);
 
@@ -736,11 +746,13 @@ export class MathLabApp {
 
       // Issue #21: record the diagnosis pattern so the parent board can
       // aggregate つまずきパターン later. Persisted by the save below.
-      if (this.progress) {
+      // Empty submissions (no keypad input) are not real mistakes, so
+      // they are not recorded.
+      if (this.progress && !isEmptySubmission) {
         StorageService.appendDiagnosisLogEntry(this.progress, {
           category: diagnosis?.reasonCategory || 'general_recheck',
-          worldId: prob.worldId || session.worldId || null,
-          stageId: session.stageId || null,
+          worldId: prob.worldId ?? session.worldId ?? null,
+          stageId: session.stageId ?? null,
           at: new Date().toISOString()
         });
       }
@@ -748,6 +760,12 @@ export class MathLabApp {
       // Quarantine problem in Power-Up Treasure Box
       if (this.progress?.treasureBox) {
         addTreasureItem(this.progress.treasureBox, prob);
+      }
+
+      // Issue #21: persist on every wrong answer, not only when a
+      // treasure box exists — otherwise the diagnosis log entry above is
+      // silently lost for saves without one.
+      if (this.progress) {
         StorageService.saveProgress(this.progress).catch(() => {});
       }
 

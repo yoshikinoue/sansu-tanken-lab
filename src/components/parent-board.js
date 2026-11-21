@@ -599,7 +599,7 @@ export class ParentBoard {
             ✅ 解消したパターン
           </div>
           ${diagnosisSummary.resolvedPatterns
-            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近14日は出ていません）`))
+            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近30日は出ていません）`))
             .join('')}
         `
         : '';

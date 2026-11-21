@@ -182,6 +182,9 @@ export function validateProgressData(data) {
   if (data.stageProgress !== undefined && (typeof data.stageProgress !== 'object' || data.stageProgress === null)) {
     return { valid: false, error: 'stageProgress形式が不正です' };
   }
+  if (data.diagnosisLog !== undefined && !Array.isArray(data.diagnosisLog)) {
+    return { valid: false, error: 'diagnosisLog形式が不正です' };
+  }
   return { valid: true };
 }
 
@@ -391,6 +394,15 @@ function writeToLocalStorageSafe(storage, key, userData) {
   } catch (err) {
     if (isQuotaExceededError(err)) {
       const pruned = pruneProgressForQuota(userData);
+      // Issue #21: pruneProgressForQuota works on a clone, so without this
+      // step the caller's in-memory progress keeps the un-trimmed diagnosis
+      // log and diverges from what was actually persisted (later saves or
+      // server syncs would resurrect the dropped entries). Reflect the
+      // trimmed log back onto the passed object by mutation.
+      if (Array.isArray(userData.diagnosisLog) && Array.isArray(pruned.diagnosisLog)
+          && pruned.diagnosisLog.length < userData.diagnosisLog.length) {
+        userData.diagnosisLog = pruned.diagnosisLog;
+      }
       const prunedSerialized = JSON.stringify(pruned);
       try {
         storage.setItem(key, prunedSerialized);

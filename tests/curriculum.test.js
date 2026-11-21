@@ -728,7 +728,10 @@ describe('Issue #21: diagnosis log summary for the parent board', () => {
     assert.equal(byCat.carry_forgotten.recent14, 3);
     assert.equal(byCat.borrow_forgotten.total, 3);
     assert.equal(byCat.borrow_forgotten.recent30, 0);
-    assert.equal(byCat.mystery_cat.label, 'その他のつまずき');
+    // Unknown categories are aggregated into a single bucket
+    assert.equal(byCat.mystery_cat, undefined);
+    assert.equal(byCat.unknown.total, 1);
+    assert.equal(byCat.unknown.label, 'その他のつまずき');
 
     // Focus: top 2 by last-30-days count
     assert.deepEqual(
@@ -737,9 +740,48 @@ describe('Issue #21: diagnosis log summary for the parent board', () => {
     );
     assert.equal(summary.focusPatterns[0].label, '位のずれ・0の立て忘れ');
 
-    // Resolved: >=3 total and none in the last 14 days
+    // Resolved: >=3 total and none in the last 30 days
     assert.deepEqual(summary.resolvedPatterns.map((p) => p.category), ['borrow_forgotten']);
     assert.equal(summary.resolvedPatterns[0].total, 3);
+  });
+
+  it('a pattern last seen 20 days ago is focus-only, never both focus and resolved', () => {
+    // Regression: with a 14-day resolved window this category (3 entries,
+    // all 20 days old) matched BOTH focus (recent30 > 0) and resolved
+    // (recent14 === 0), so the board showed it as 重点 and 解消済み at once.
+    const log = [entry('carry_forgotten', 20), entry('carry_forgotten', 20), entry('carry_forgotten', 20)];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.deepEqual(summary.focusPatterns.map((p) => p.category), ['carry_forgotten']);
+    assert.equal(summary.focusPatterns[0].recent30, 3);
+    assert.deepEqual(summary.resolvedPatterns, []);
+  });
+
+  it('treats future timestamps as recent instead of misclassifying them as resolved', () => {
+    const future = new Date(NOW.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const log = [
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future },
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future },
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future }
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    const byCat = Object.fromEntries(summary.byCategory.map((s) => [s.category, s]));
+    assert.equal(byCat.borrow_forgotten.recent30, 3);
+    assert.deepEqual(summary.focusPatterns.map((p) => p.category), ['borrow_forgotten']);
+    assert.deepEqual(summary.resolvedPatterns, []);
+  });
+
+  it('merges multiple unknown categories into one その他のつまずき bucket', () => {
+    const log = [
+      entry('mystery_a', 1), entry('mystery_a', 2),
+      entry('mystery_b', 3),
+      entry('carry_forgotten', 1)
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    const unknownRows = summary.byCategory.filter((s) => s.label === 'その他のつまずき');
+    assert.equal(unknownRows.length, 1);
+    assert.equal(unknownRows[0].category, 'unknown');
+    assert.equal(unknownRows[0].total, 3);
+    assert.equal(unknownRows[0].recent30, 3);
   });
 
   it('a pattern seen recently is not resolved even with a high total', () => {
