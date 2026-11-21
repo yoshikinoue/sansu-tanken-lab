@@ -107,6 +107,7 @@ export class TreasureBox {
     this.rootEl = null;
     this.reviewModalEl = null;
     this.reviewTimer = null;
+    this.reviewSessionTimer = null;
     // BUG-010: set when a review attempt changed an item's mastery state.
     // The list behind the modal must be re-rendered when the modal closes,
     // no matter how it is closed.
@@ -516,10 +517,203 @@ export class TreasureBox {
     (numeratorInput || quotientInput || singleInput)?.focus?.();
   }
 
+  /**
+   * Issue #20: 復習キュー（間隔反復）専用の類題モーダル。
+   * 宝箱の類題特訓と同じ問題表示・判定フローを使うが、こちらは「定着を測る」
+   * ため1問につき1回だけ解答する。結果は宝箱の卒業条件には影響せず、
+   * onResult 経由で復習スケジュール側にだけ伝わる。
+   * @param {object} entry 復習エントリ（originalProblem を保持）
+   * @param {{ onResult?: (isCorrect: boolean) => ({ outcome?: string, entry?: object }|void),
+   *           onClose?: (answered: boolean) => void }} callbacks
+   */
+  launchScheduledReviewModal(entry, callbacks = {}) {
+    if (typeof document === 'undefined' || !entry) return;
+    const onResult = typeof callbacks.onResult === 'function' ? callbacks.onResult : null;
+    const onClose = typeof callbacks.onClose === 'function' ? callbacks.onClose : null;
+
+    if (this.reviewModalEl && this.reviewModalEl.parentNode) {
+      this.reviewModalEl.parentNode.removeChild(this.reviewModalEl);
+      this.reviewModalEl = null;
+    }
+
+    const variation = CurriculumEngine.generateVariationProblem(entry.originalProblem);
+    this.currentVariation = variation;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+    this.reviewModalEl = overlay;
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '500px';
+
+    card.innerHTML = `
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📅</span>
+          <span>今日の復習チャレンジ！</span>
+        </div>
+        <button type="button" class="btn btn-secondary modal-close-btn" aria-label="閉じる">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center; padding:24px;">
+        <p style="color:var(--color-text-muted); margin-bottom:12px;">時間をおいてもう一度！おぼえているか確かめよう。1回だけのチャレンジだよ。</p>
+        <div style="font-size:1.8rem; font-weight:700; font-family:monospace; margin:16px 0; background:rgba(0,0,0,0.3); padding:16px; border-radius:var(--radius-lg);">
+          ${variation.prompt || `${variation.operands?.[0]} ${variation.operator} ${variation.operands?.[1]} = ?`}
+        </div>
+
+        <div style="margin:20px 0;">
+          ${variation.hasRemainder
+            ? `<div style="display:flex; gap:12px; justify-content:center;">
+                 <input type="number" class="review-quotient-input" placeholder="商" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+                 <span style="font-size:1.3rem; align-self:center;">あまり</span>
+                 <input type="number" class="review-remainder-input" placeholder="余り" style="font-size:1.3rem; width:100px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">
+               </div>`
+            : `<input type="number" class="review-answer-input" placeholder="こたえ" style="font-size:1.5rem; width:180px; padding:10px; text-align:center; border-radius:var(--radius-md); border:1px solid var(--color-card-border); background:var(--color-card-dark); color:white;">`
+          }
+        </div>
+
+        <div class="review-feedback" style="display:none; padding:10px; font-weight:700; border-radius:var(--radius-md); margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:12px;">
+        <button type="button" class="btn btn-secondary review-cancel-btn">やめる</button>
+        <button type="button" class="btn btn-primary review-submit-btn">決定！ 👉</button>
+      </div>
+    `;
+
+    const closeBtn = card.querySelector('.modal-close-btn');
+    const cancelBtn = card.querySelector('.review-cancel-btn');
+    const submitBtn = card.querySelector('.review-submit-btn');
+    const feedbackBox = card.querySelector('.review-feedback');
+    const singleInput = card.querySelector('.review-answer-input');
+    const quotientInput = card.querySelector('.review-quotient-input');
+    const remainderInput = card.querySelector('.review-remainder-input');
+
+    let answered = false;
+    let closed = false;
+
+    const closeModal = () => {
+      if (closed) return;
+      closed = true;
+      if (this.reviewSessionTimer) {
+        clearTimeout(this.reviewSessionTimer);
+        this.reviewSessionTimer = null;
+      }
+      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      if (this.reviewModalEl === overlay) {
+        this.reviewModalEl = null;
+      }
+      if (onClose) onClose(answered);
+    };
+
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+
+    const handleSubmitReview = () => {
+      if (answered) return;
+
+      let answerVal;
+      if (variation.hasRemainder) {
+        const qRaw = String(quotientInput?.value ?? '').trim();
+        const rRaw = String(remainderInput?.value ?? '').trim();
+        if (qRaw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 商（こたえ）の数字を入力してから「決定！」をおしてね！';
+          }
+          quotientInput?.focus?.();
+          return;
+        }
+        answerVal = { quotient: Number(qRaw), remainder: rRaw === '' ? 0 : Number(rRaw) };
+      } else {
+        const raw = String(singleInput?.value ?? '').trim();
+        if (raw === '') {
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+            feedbackBox.style.color = 'var(--color-amber-warm)';
+            feedbackBox.innerHTML = '💡 数字を入力してから「決定！」をおしてね！';
+          }
+          singleInput?.focus?.();
+          return;
+        }
+        answerVal = Number(raw);
+      }
+
+      answered = true;
+      const evalResult = CurriculumEngine.evaluateAnswer(variation, answerVal);
+      const result = onResult ? onResult(evalResult.isCorrect) : null;
+      const outcome = result?.outcome;
+
+      if (evalResult.isCorrect) {
+        if (outcome === 'mastered') {
+          SoundEffects.playSound('stage_clear');
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(16,185,129,0.2)';
+            feedbackBox.style.color = 'var(--color-emerald-success)';
+            feedbackBox.innerHTML = '🎉 時間をおいても正解！この問題は「定着」したよ！';
+          }
+          showToast(null, 'success', '定着達成！時間をおいても解けました！');
+        } else {
+          SoundEffects.playSound('correct');
+          let nextMsg = '✨ 正解！また時間をおいて出題するよ！';
+          const dueAt = result?.entry?.dueAt;
+          if (dueAt) {
+            const days = Math.max(1, Math.round((Date.parse(dueAt) - Date.now()) / (24 * 60 * 60 * 1000)));
+            nextMsg = `✨ 正解！次の復習は${days}日後だよ！`;
+          }
+          if (feedbackBox) {
+            feedbackBox.style.display = 'block';
+            feedbackBox.style.background = 'rgba(14,165,233,0.2)';
+            feedbackBox.style.color = 'var(--color-accent-cyan)';
+            feedbackBox.innerHTML = nextMsg;
+          }
+        }
+        this.reviewSessionTimer = setTimeout(closeModal, 1500);
+      } else {
+        SoundEffects.playSound('near_miss');
+        const diag = evalResult.diagnosis || CurriculumEngine.diagnoseError(variation, answerVal);
+        if (feedbackBox) {
+          feedbackBox.style.display = 'block';
+          feedbackBox.style.background = 'rgba(234,179,8,0.2)';
+          feedbackBox.style.color = 'var(--color-amber-warm)';
+          feedbackBox.innerHTML = `💡 ${diag?.adviceMessage || 'おしい！'} また時間をおいてチャレンジしよう！`;
+        }
+        this.reviewSessionTimer = setTimeout(closeModal, 2000);
+      }
+    };
+
+    if (submitBtn) {
+      submitBtn.onclick = handleSubmitReview;
+    }
+
+    [singleInput, quotientInput, remainderInput].forEach((inp) => {
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault?.();
+            e.stopPropagation?.();
+            handleSubmitReview();
+          }
+        });
+      }
+    });
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    (quotientInput || singleInput)?.focus?.();
+  }
+
   destroy() {
     if (this.reviewTimer) {
       clearTimeout(this.reviewTimer);
       this.reviewTimer = null;
+    }
+    if (this.reviewSessionTimer) {
+      clearTimeout(this.reviewSessionTimer);
+      this.reviewSessionTimer = null;
     }
     if (this.reviewModalEl && this.reviewModalEl.parentNode) {
       this.reviewModalEl.parentNode.removeChild(this.reviewModalEl);

@@ -17,6 +17,7 @@ export const TRANSFER_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 export const DEFAULT_DEBOUNCE_MS = 1000;
 // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
 export const TOTAL_STAGES = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
+export const DIAGNOSIS_LOG_LIMIT = 500;
 
 // In-memory storage fallback for Node.js or restricted browser environments
 const memoryStore = new Map();
@@ -136,6 +137,10 @@ export function createDefaultProgress() {
     treasureBox: {
       items: []
     },
+    reviewQueue: {
+      entries: []
+    },
+    diagnosisLog: [],
     parentCheer: {
       parentPinHash: '1234',
       pinConfigured: false,
@@ -184,6 +189,58 @@ export function validateProgressData(data) {
     return { valid: false, error: 'stageProgress形式が不正です' };
   }
   return { valid: true };
+}
+
+/**
+ * Sanitize a raw diagnosis log: keep only well-formed entries
+ * ({ category: string, at: parseable date string }) and cap to the latest
+ * DIAGNOSIS_LOG_LIMIT entries. Issue #21.
+ * @param {any} rawLog
+ * @returns {Array<{category: string, worldId: any, stageId: any, at: string}>}
+ */
+export function sanitizeDiagnosisLog(rawLog) {
+  if (!Array.isArray(rawLog)) return [];
+  const cleaned = [];
+  for (const entry of rawLog) {
+    if (!entry || typeof entry !== 'object') continue;
+    if (typeof entry.category !== 'string' || entry.category === '') continue;
+    if (typeof entry.at !== 'string' || !Number.isFinite(Date.parse(entry.at))) continue;
+    cleaned.push({
+      category: entry.category,
+      worldId: entry.worldId ?? null,
+      stageId: entry.stageId ?? null,
+      at: entry.at
+    });
+  }
+  return cleaned.slice(-DIAGNOSIS_LOG_LIMIT);
+}
+
+/**
+ * Append one diagnosis entry to progress.diagnosisLog, creating the log when
+ * missing (legacy saves) and capping it to the latest DIAGNOSIS_LOG_LIMIT
+ * entries. Mutates and returns the progress object. Issue #21.
+ * @param {object} progress
+ * @param {{category: string, worldId?: any, stageId?: any, at?: string}} entry
+ * @returns {object} progress
+ */
+export function appendDiagnosisLogEntry(progress, entry) {
+  if (!progress || typeof progress !== 'object') return progress;
+  if (!entry || typeof entry.category !== 'string' || entry.category === '') return progress;
+  if (!Array.isArray(progress.diagnosisLog)) {
+    progress.diagnosisLog = [];
+  }
+  progress.diagnosisLog.push({
+    category: entry.category,
+    worldId: entry.worldId ?? null,
+    stageId: entry.stageId ?? null,
+    at: typeof entry.at === 'string' && Number.isFinite(Date.parse(entry.at))
+      ? entry.at
+      : new Date().toISOString()
+  });
+  if (progress.diagnosisLog.length > DIAGNOSIS_LOG_LIMIT) {
+    progress.diagnosisLog = progress.diagnosisLog.slice(-DIAGNOSIS_LOG_LIMIT);
+  }
+  return progress;
 }
 
 /**
@@ -250,6 +307,14 @@ export function normalizeProgressData(data) {
         ? [...cloned.treasureBox.items]
         : []
     },
+    reviewQueue: {
+      entries: Array.isArray(cloned.reviewQueue?.entries)
+        ? cloned.reviewQueue.entries
+            .filter(e => e && typeof e === 'object' && typeof e.key === 'string')
+            .map(e => ({ ...e }))
+        : []
+    },
+    diagnosisLog: sanitizeDiagnosisLog(cloned.diagnosisLog),
     parentCheer: {
       ...base.parentCheer,
       ...rawParentCheer,
@@ -298,6 +363,9 @@ function pruneProgressForQuota(userData) {
   }
   if (pruned.parentCheer && Array.isArray(pruned.parentCheer.cheerMessages)) {
     pruned.parentCheer.cheerMessages = pruned.parentCheer.cheerMessages.slice(-10);
+  }
+  if (Array.isArray(pruned.diagnosisLog)) {
+    pruned.diagnosisLog = pruned.diagnosisLog.slice(-100);
   }
   return pruned;
 }
@@ -1028,9 +1096,12 @@ export const StorageService = {
   TRANSFER_TTL_MS,
   DEFAULT_DEBOUNCE_MS,
   TOTAL_STAGES,
+  DIAGNOSIS_LOG_LIMIT,
   createDefaultProgress,
   validateProgressData,
   normalizeProgressData,
+  sanitizeDiagnosisLog,
+  appendDiagnosisLogEntry,
   readLocalProgress,
   resolveProgressConflict,
   loadProgress,
