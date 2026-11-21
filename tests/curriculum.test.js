@@ -18,14 +18,14 @@ import CurriculumEngine, {
 import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
-  describe('1. Worlds & Stages Metadata (7 Worlds, 21 Stages, Mini-Lessons)', () => {
-    it('exports all 7 worlds and 21 stages with complete metadata and 3-card mini-lessons', () => {
+  describe('1. Worlds & Stages Metadata (8 Worlds, 24 Stages, Mini-Lessons)', () => {
+    it('exports all 8 worlds and 24 stages with complete metadata and 3-card mini-lessons', () => {
       const worlds = getWorldsMetadata();
-      assert.equal(worlds.length, 7);
-      assert.equal(WORLDS_METADATA.length, 7);
+      assert.equal(worlds.length, 8);
+      assert.equal(WORLDS_METADATA.length, 8);
 
       let totalStages = 0;
-      for (let w = 1; w <= 7; w++) {
+      for (let w = 1; w <= 8; w++) {
         const world = worlds[w - 1];
         assert.equal(world.worldId, w);
         assert.ok(world.title.length > 0);
@@ -51,7 +51,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.equal(stage.miniLesson.cards[2].type, 'summary');
         }
       }
-      assert.equal(totalStages, 21);
+      assert.equal(totalStages, 24);
     });
 
     it('falls back safely to World 1 Stage 1 for out-of-range worldId or stageId', () => {
@@ -87,9 +87,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
   });
 
-  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 21 Stages', () => {
-    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 21 stages', () => {
-      for (let w = 1; w <= 7; w++) {
+  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 24 Stages', () => {
+    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 24 stages', () => {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, {
             questionIndex: 3,
@@ -347,8 +347,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
   });
 
   describe('5. Review Variation Generator (Power-Up Treasure Box)', () => {
-    it('generates number-varied problems preserving cognitive traps across all 21 stages', () => {
-      for (let w = 1; w <= 7; w++) {
+    it('generates number-varied problems preserving cognitive traps across all 24 stages', () => {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const orig = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const varied = generateVariationProblem(orig);
@@ -406,7 +406,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     it('detects specific buggy rules and never emits forbidden negative or X symbols', () => {
       const forbiddenPattern = /[×✕❌✖]|バツ|不正解|ダメ|失敗/;
 
-      for (let w = 1; w <= 7; w++) {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const trapInput =
@@ -706,13 +706,13 @@ describe('Issue #16: World 6 小数ラボ (decimals)', () => {
       globalStageNumber: 17
     });
     // Out-of-range values still fall back to World 1 Stage 1
-    // (World 7 / stage-19..21 became valid with Issue #17, so use 8 / stage-22)
-    assert.deepEqual(normalizeWorldAndStage(8, 1), {
+    // (World 8 / stage-22..24 became valid with Issue #18, so use 9 / stage-25)
+    assert.deepEqual(normalizeWorldAndStage(9, 1), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
     });
-    assert.deepEqual(normalizeWorldAndStage(null, 'stage-22'), {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-25'), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
@@ -1234,5 +1234,187 @@ describe('Issue #17: World 7 分数パーク (fractions)', () => {
       sampled++;
     }
     assert.ok(sampled > 0, 'expected at least one sampled problem');
+  });
+});
+
+describe('Issue #18: World 8 大きな数とがい数ラボ (large numbers & rounding)', () => {
+  const digitAt = (n, place) => Math.floor(n / place) % 10;
+  const roundTo = (n, place) => Math.round(n / place) * place;
+
+  it('normalizes World 8 stages and keeps stage-1..21 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-22'), {
+      worldId: 8,
+      stageId: 1,
+      globalStageNumber: 22
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-23'), {
+      worldId: 8,
+      stageId: 2,
+      globalStageNumber: 23
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-24'), {
+      worldId: 8,
+      stageId: 3,
+      globalStageNumber: 24
+    });
+    assert.deepEqual(normalizeWorldAndStage(8, 2), {
+      worldId: 8,
+      stageId: 2,
+      globalStageNumber: 23
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 21; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 8 metadata with 3 stages and 3-card mini-lessons', () => {
+    assert.equal(getStageMetadata(8, 1).globalId, 'stage-22');
+    assert.equal(getStageMetadata(8, 2).globalId, 'stage-23');
+    assert.equal(getStageMetadata(8, 3).globalId, 'stage-24');
+    const world8 = getWorldsMetadata()[7];
+    assert.equal(world8.title, '大きな数とがい数ラボ');
+    assert.equal(world8.stages.length, 3);
+  });
+
+  it('generates arithmetically exact large-number structure problems across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 1, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        if (p.patternType === 'large_place_digit') {
+          assert.equal(p.correctAnswer.value, digitAt(o0, o1), p.expression);
+          assert.ok(o1 >= 10000, 'place must be 万の位 or higher');
+        } else if (p.patternType === 'large_unit_count') {
+          assert.equal(o0 % o1, 0, p.expression);
+          assert.equal(o0 / o1, p.correctAnswer.value, p.expression);
+        } else if (p.patternType === 'large_times_ten') {
+          const expect = p.trapMetadata.timesMode === 'times'
+            ? o0 * p.trapMetadata.scaleFactor
+            : o0 / 10;
+          assert.equal(p.correctAnswer.value, expect, p.expression);
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        // final step of the guide always lands on the answer
+        const last = p.stepGuide[p.stepGuide.length - 1];
+        assert.equal(last.expectedStepValue, p.correctAnswer.value);
+      }
+    }
+  });
+
+  it('rounds exactly to the requested place / significant digits / range', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 2, { difficultyLevel: diff });
+        const [o0] = p.operands;
+        if (p.patternType === 'round_to_place') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, p.trapMetadata.roundPlace), p.expression);
+        } else if (p.patternType === 'round_significant') {
+          const digits = String(o0).length;
+          const unit = Math.pow(10, digits - p.trapMetadata.sigDigits);
+          assert.equal(p.correctAnswer.value, roundTo(o0, unit), p.expression);
+        } else if (p.patternType === 'round_range') {
+          const place = p.trapMetadata.roundPlace;
+          // the answer itself rounds to the target value...
+          assert.equal(roundTo(p.correctAnswer.value, place), o0, p.expression);
+          // ...and it is exactly the boundary of the range
+          if (p.trapMetadata.rangeWhich === 'min') {
+            assert.notEqual(roundTo(p.correctAnswer.value - 1, place), o0, p.expression);
+          } else {
+            assert.notEqual(roundTo(p.correctAnswer.value + 1, place), o0, p.expression);
+          }
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('estimates with rounded prices instead of exact calculation', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 3, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        const place = p.trapMetadata.estimatePlace;
+        if (p.patternType === 'estimate_add') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, place) + roundTo(o1, place), p.expression);
+          assert.notEqual(p.correctAnswer.value, o0 + o1, 'estimate must differ from exact sum');
+        } else if (p.patternType === 'estimate_sub') {
+          assert.equal(p.correctAnswer.value, o0 - roundTo(o1, place), p.expression);
+          assert.ok(p.correctAnswer.value > 0);
+        } else if (p.patternType === 'estimate_mult') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, 100) * o1, p.expression);
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('diagnoses the classic large-number and rounding traps', () => {
+    for (let i = 0; i < 60; i++) {
+      // unit count: answering with one zero too few is the zero-count slip
+      const p = generateProblem(8, 1, { difficultyLevel: 'standard' });
+      const diag = diagnoseError(p, p.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true, p.expression);
+      if (p.patternType === 'large_unit_count') {
+        assert.equal(diag.reasonCategory, 'zero_count_slip');
+      }
+
+      // rounding: the designed trap is always diagnosed
+      const r = generateProblem(8, 2, { difficultyLevel: 'hurdle' });
+      const rDiag = diagnoseError(r, r.commonTrap.mistakeValue);
+      assert.equal(rDiag.matched, true, r.expression);
+      assert.ok(
+        ['round_place_misread', 'round_direction_slip', 'round_range_boundary'].includes(
+          rDiag.reasonCategory
+        ),
+        `${r.expression}: ${rDiag.reasonCategory}`
+      );
+
+      // estimation: answering with the exact calculation is diagnosed
+      const e = generateProblem(8, 3, { difficultyLevel: 'standard' });
+      const eDiag = diagnoseError(e, e.commonTrap.mistakeValue);
+      assert.equal(eDiag.matched, true, e.expression);
+      assert.equal(eDiag.reasonCategory, 'estimate_exact_calc');
+    }
+  });
+
+  it('generates World 8 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(8, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 8);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+    }
+    // Compact format without trapMetadata still yields a World 8 variation
+    const compact = { worldId: 8, stageId: 2, num1: 356789, num2: 1000, operator: 'mixed', answer: 357000 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 8);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('serves full 5-problem World 8 stage sets', () => {
+    for (let s = 1; s <= 3; s++) {
+      const problems = generateStageProblems(8, s, []);
+      assert.equal(problems.length, 5);
+      const expressions = new Set(problems.map((p) => p.expression));
+      assert.equal(expressions.size, 5);
+      for (const p of problems) {
+        assert.equal(p.worldId, 8);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
   });
 });
