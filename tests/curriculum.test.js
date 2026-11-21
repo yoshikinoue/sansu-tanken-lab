@@ -25,14 +25,14 @@ import CurriculumEngine, {
 import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
-  describe('1. Worlds & Stages Metadata (8 Worlds, 24 Stages, Mini-Lessons)', () => {
-    it('exports all 8 worlds and 24 stages with complete metadata and 3-card mini-lessons', () => {
+  describe('1. Worlds & Stages Metadata (9 Worlds, 27 Stages, Mini-Lessons)', () => {
+    it('exports all 9 worlds and 27 stages with complete metadata and 3-card mini-lessons', () => {
       const worlds = getWorldsMetadata();
-      assert.equal(worlds.length, 8);
-      assert.equal(WORLDS_METADATA.length, 8);
+      assert.equal(worlds.length, 9);
+      assert.equal(WORLDS_METADATA.length, 9);
 
       let totalStages = 0;
-      for (let w = 1; w <= 8; w++) {
+      for (let w = 1; w <= 9; w++) {
         const world = worlds[w - 1];
         assert.equal(world.worldId, w);
         assert.ok(world.title.length > 0);
@@ -58,7 +58,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.equal(stage.miniLesson.cards[2].type, 'summary');
         }
       }
-      assert.equal(totalStages, 24);
+      assert.equal(totalStages, 27);
     });
 
     it('falls back safely to World 1 Stage 1 for out-of-range worldId or stageId', () => {
@@ -94,9 +94,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
   });
 
-  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 24 Stages', () => {
-    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 24 stages', () => {
-      for (let w = 1; w <= 8; w++) {
+  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 27 Stages', () => {
+    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 27 stages', () => {
+      for (let w = 1; w <= 9; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, {
             questionIndex: 3,
@@ -354,8 +354,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
   });
 
   describe('5. Review Variation Generator (Power-Up Treasure Box)', () => {
-    it('generates number-varied problems preserving cognitive traps across all 24 stages', () => {
-      for (let w = 1; w <= 8; w++) {
+    it('generates number-varied problems preserving cognitive traps across all 27 stages', () => {
+      for (let w = 1; w <= 9; w++) {
         for (let s = 1; s <= 3; s++) {
           const orig = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const varied = generateVariationProblem(orig);
@@ -880,13 +880,13 @@ describe('Issue #16: World 6 小数ラボ (decimals)', () => {
       globalStageNumber: 17
     });
     // Out-of-range values still fall back to World 1 Stage 1
-    // (World 8 / stage-22..24 became valid with Issue #18, so use 9 / stage-25)
-    assert.deepEqual(normalizeWorldAndStage(9, 1), {
+    // (World 9 / stage-25..27 became valid with Issue #19, so use 10 / stage-28)
+    assert.deepEqual(normalizeWorldAndStage(10, 1), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
     });
-    assert.deepEqual(normalizeWorldAndStage(null, 'stage-25'), {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-28'), {
       worldId: 1,
       stageId: 1,
       globalStageNumber: 1
@@ -1801,6 +1801,195 @@ describe('Issue #21: diagnosis log summary for the parent board', () => {
       assert.deepEqual(summary.byCategory, []);
       assert.deepEqual(summary.focusPatterns, []);
       assert.deepEqual(summary.resolvedPatterns, []);
+    }
+  });
+});
+
+describe('Issue #19: World 9 文章題ラボ (word problems)', () => {
+  it('normalizes World 9 stages and keeps stage-1..24 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-25'), {
+      worldId: 9,
+      stageId: 1,
+      globalStageNumber: 25
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-26'), {
+      worldId: 9,
+      stageId: 2,
+      globalStageNumber: 26
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-27'), {
+      worldId: 9,
+      stageId: 3,
+      globalStageNumber: 27
+    });
+    assert.deepEqual(normalizeWorldAndStage(9, 2), {
+      worldId: 9,
+      stageId: 2,
+      globalStageNumber: 26
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 24; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 9 metadata with 3 stages and 3-card mini-lessons', () => {
+    assert.equal(getStageMetadata(9, 1).globalId, 'stage-25');
+    assert.equal(getStageMetadata(9, 2).globalId, 'stage-26');
+    assert.equal(getStageMetadata(9, 3).globalId, 'stage-27');
+    const world9 = getWorldsMetadata()[8];
+    assert.equal(world9.title, '文章題ラボ');
+    assert.equal(world9.stages.length, 3);
+  });
+
+  it('builds the correct expression for word problems across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(9, 1, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        if (p.patternType === 'word_add') {
+          assert.equal(p.correctAnswer.value, o0 + o1, p.prompt);
+        } else if (p.patternType === 'word_sub') {
+          assert.equal(p.correctAnswer.value, o0 - o1, p.prompt);
+          assert.ok(p.correctAnswer.value > 0, p.prompt);
+        } else if (p.patternType === 'word_mult') {
+          assert.equal(p.correctAnswer.value, o0 * o1, p.prompt);
+        } else if (p.patternType === 'word_div') {
+          assert.equal(o0 % o1, 0, p.prompt);
+          assert.equal(p.correctAnswer.value, o0 / o1, p.prompt);
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        // The numbers in the story text must match the operands
+        assert.ok(p.prompt.includes(String(o0)), `prompt missing ${o0}: ${p.prompt}`);
+        assert.ok(p.prompt.includes(String(o1)), `prompt missing ${o1}: ${p.prompt}`);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        const last = p.stepGuide[p.stepGuide.length - 1];
+        assert.equal(last.expectedStepValue, p.correctAnswer.value);
+      }
+    }
+  });
+
+  it('judges remainders by context (round up / round down / remainder itself)', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(9, 2, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        const q = Math.floor(o0 / o1);
+        const r = o0 % o1;
+        assert.ok(r > 0, `remainder problems must have a remainder: ${p.prompt}`);
+        assert.equal(p.trapMetadata.divQuotient, q, p.prompt);
+        assert.equal(p.trapMetadata.divRemainder, r, p.prompt);
+        if (p.trapMetadata.remainderMode === 'up') {
+          assert.equal(p.correctAnswer.value, q + 1, p.prompt);
+        } else if (p.trapMetadata.remainderMode === 'down') {
+          assert.equal(p.correctAnswer.value, q, p.prompt);
+        } else if (p.trapMetadata.remainderMode === 'value') {
+          assert.equal(p.correctAnswer.value, r, p.prompt);
+        } else {
+          assert.fail(`unexpected mode ${p.trapMetadata.remainderMode}`);
+        }
+        assert.ok(p.prompt.includes(String(o0)), `prompt missing ${o0}: ${p.prompt}`);
+        assert.ok(p.prompt.includes(String(o1)), `prompt missing ${o1}: ${p.prompt}`);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        const last = p.stepGuide[p.stepGuide.length - 1];
+        assert.equal(last.expectedStepValue, p.correctAnswer.value);
+      }
+    }
+  });
+
+  it('converts units before calculating in unit word problems', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(9, 3, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        const factor = p.trapMetadata.convertFactor;
+        assert.ok(factor === 100 || factor === 1000, p.prompt);
+        const subtype = p.trapMetadata.unitSubtype;
+        if (subtype === 0) {
+          assert.equal(p.correctAnswer.value, o0 * factor + o1, p.prompt);
+        } else if (subtype === 1) {
+          assert.equal(p.correctAnswer.value, o0 * factor - o1, p.prompt);
+          assert.ok(p.correctAnswer.value > 0, p.prompt);
+        } else if (subtype === 2) {
+          assert.equal((o0 * factor) % o1, 0, p.prompt);
+          assert.equal(p.correctAnswer.value, (o0 * factor) / o1, p.prompt);
+        } else {
+          assert.fail(`unexpected subtype ${subtype}`);
+        }
+        assert.ok(p.prompt.includes(String(o0)), `prompt missing ${o0}: ${p.prompt}`);
+        assert.ok(p.prompt.includes(String(o1)), `prompt missing ${o1}: ${p.prompt}`);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        // first step of the guide is always the unit conversion
+        assert.equal(p.stepGuide[0].expectedStepValue, o0 * factor, p.prompt);
+        const last = p.stepGuide[p.stepGuide.length - 1];
+        assert.equal(last.expectedStepValue, p.correctAnswer.value);
+      }
+    }
+  });
+
+  it('diagnoses the classic word-problem traps', () => {
+    for (let i = 0; i < 60; i++) {
+      // wrong operation choice in expression building
+      const p = generateProblem(9, 1, { difficultyLevel: 'hurdle' });
+      const diag = diagnoseError(p, p.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true, p.prompt);
+      assert.equal(diag.reasonCategory, 'word_wrong_operation', p.prompt);
+
+      // remainder judgment traps follow the mode
+      const rp = generateProblem(9, 2, { difficultyLevel: 'standard' });
+      const rDiag = diagnoseError(rp, rp.commonTrap.mistakeValue);
+      assert.equal(rDiag.matched, true, rp.prompt);
+      const expectedCategory = {
+        up: 'remainder_needs_round_up',
+        down: 'remainder_needs_round_down',
+        value: 'remainder_quotient_confusion'
+      }[rp.trapMetadata.remainderMode];
+      assert.equal(rDiag.reasonCategory, expectedCategory, rp.prompt);
+
+      // unit traps: no conversion for join/subtract, wrong factor for division
+      const up = generateProblem(9, 3, { difficultyLevel: 'challenge' });
+      const uDiag = diagnoseError(up, up.commonTrap.mistakeValue);
+      assert.equal(uDiag.matched, true, up.prompt);
+      assert.equal(
+        uDiag.reasonCategory,
+        up.trapMetadata.unitSubtype === 2 ? 'unit_wrong_factor' : 'unit_not_converted',
+        up.prompt
+      );
+    }
+  });
+
+  it('generates World 9 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(9, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 9);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+    }
+    // Compact format without trapMetadata still yields a World 9 variation
+    const compact = { worldId: 9, stageId: 1, num1: 100, num2: 50, operator: 'mixed', answer: 150 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 9);
+    assert.equal(compactVar.stageId, 1);
+    assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('serves full 5-problem World 9 stage sets', () => {
+    for (let s = 1; s <= 3; s++) {
+      const problems = generateStageProblems(9, s, []);
+      assert.equal(problems.length, 5);
+      const expressions = new Set(problems.map((p) => p.expression));
+      assert.equal(expressions.size, 5);
+      for (const p of problems) {
+        assert.equal(p.worldId, 9);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
     }
   });
 });
