@@ -1,7 +1,7 @@
 /**
  * @file curriculum-engine.js
  * @description 小学4年生向け 四則演算ステップアップ学習Webアプリ (算数探検ラボ)
- * 全5ワールド・15ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
+ * 全8ワールド・24ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
  */
 
 let problemSequenceCounter = 1;
@@ -32,7 +32,7 @@ function pickRandom(arr, rng = Math.random) {
 }
 
 /**
- * 全5ワールド・15ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
+ * 全ワールド・全ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
  */
 export const WORLDS_METADATA = [
   {
@@ -734,6 +734,433 @@ export const WORLDS_METADATA = [
         }
       }
     ]
+  },
+  {
+    worldId: 6,
+    id: 'world-6',
+    title: '小数ラボ',
+    subtitle: '小数の仕組み・たし算・ひき算',
+    themeColor: '#009688',
+    icon: '💧',
+    description: '0.1や0.01の世界を探検！小数点の位置をそろえて計算する力を身につけよう！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 6,
+        globalStageNumber: 16,
+        globalId: 'stage-16',
+        title: '小数の仕組み',
+        subtitle: '0.1が何こ分？ 位の数字を読もう',
+        description: '0.1が10こ集まると1になるよ。数を位に分けて、小数の正体をつかもう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        usesDecimal: true,
+        answerLabel: 'こたえ',
+        miniLesson: {
+          title: '小数の仕組み（0.1と0.01）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】0.1が10こ集まると「1」！',
+              body: '1を10等分した1つ分が「0.1」。0.1が10こ集まると1になるよ。さらに0.1を10等分すると「0.01」。3.47は「0.1が34こ」と「0.01が7こ」に分けて考えられるね！',
+              ttsText: '0.1が10こ集まると1になるよ。0.1を10等分すると0.01。小数は位に分けると正体がわかるよ！',
+              visualType: 'decimal_structure'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】0.1が何こ分？',
+              question: '0.1 が 23 こ集まった数はいくつ？',
+              choices: [
+                { id: 'A', label: '23', isCorrect: false, feedback: 'おしい！0.1は「1を10等分した1つ分」だよ。23こ集まると1をこえるかな？' },
+                { id: 'B', label: '2.3', isCorrect: true, feedback: 'ピンポン！大正解！0.1が20こで2、0.1が3こで0.3。合わせて2.3だね！' }
+              ],
+              hint: '0.1が10こで1。20こなら2になるね！',
+              ttsText: '0.1が23こ集まった数はいくつかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【0.1が10こで1、0.01が10こで0.1！】位に分けると小数の大きさが見えてくる！',
+              ttsText: '今日の必殺技！0.1が10こで1！位に分けて考えると小数はこわくないよ！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 6,
+        globalStageNumber: 17,
+        globalId: 'stage-17',
+        title: '小数のたし算',
+        subtitle: '小数点をそろえて位ごとに計算',
+        description: '小数点をたてにそろえるのが鉄則！0.01の位から順に計算して、くり上がりをメモしよう。',
+        operator: '+',
+        displayFormat: 'column',
+        usesDecimal: true,
+        miniLesson: {
+          title: '小数のたし算（小数点をそろえる）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】小数点はたてにピシッとそろえる！',
+              body: '小数のたし算は、小数点の位置をそろえて位ごとに計算するよ。3.25 + 1.48 なら、0.01の位は 5 + 8 = 13 で「3を書いて1くり上がり」。整数の筆算と同じだけど、小数点を落とさないのが一番のコツ！',
+              ttsText: '小数のたし算は小数点をそろえるのが鉄則！位ごとに計算して、答えにも小数点を書こう！',
+              visualType: 'decimal_add'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】くり上がりの確認',
+              question: '0.7 + 0.5 の 0.1の位は 7 + 5 = 12。答えの 0.1の位に書く数字はどっち？',
+              choices: [
+                { id: 'A', label: '2', isCorrect: true, feedback: 'ピンポン！大正解！12の「2」を書いて、1は一の位へくり上がり。答えは1.2だね！' },
+                { id: 'B', label: '12', isCorrect: false, feedback: 'おしい！1つの位に書ける数字は1つだけ。10のまとまりは左の位へお引っ越しだよ！' }
+              ],
+              hint: '12は「0.1が12こ」=「1と0.2」。一の位に送るのはいくつかな？',
+              ttsText: '0.7たす0.5の計算、0.1の位に書く数字はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【小数点をそろえて位ごとに計算、答えにも小数点！】小数点を無視して整数みたいにしない！',
+              ttsText: '今日の必殺技！小数点をそろえて計算、答えにも小数点を忘れずに！ミッションスタート！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 6,
+        globalStageNumber: 18,
+        globalId: 'stage-18',
+        title: '小数のひき算',
+        subtitle: 'くり下がりと0からのひき算',
+        description: '引けない時は上の位から借りてくる！1 - 0.37 のような、整数から小数を引く計算も攻略しよう。',
+        operator: '-',
+        displayFormat: 'column',
+        usesDecimal: true,
+        miniLesson: {
+          title: '小数のひき算（くり下がり）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】引けない時は「10」を借りる（小数でも同じ）！',
+              body: '0.52 - 0.27 の 0.01の位は 2 - 7 で引けない。そんな時は0.1の位から「10」を借りて 12 - 7 = 5。借りた0.1の位は1減るよ。1 - 0.37 のような計算は、1を「0.1が10こ、0.01が100こ」と見ると考えやすいね！',
+              ttsText: '小数のひき算も、引けない時は上の位から十を借りてくるよ。整数から引く時は位に分けて考えよう！',
+              visualType: 'decimal_sub'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】借りたあとの位',
+              question: '0.5 - 0.27 で 0.01の位が引けないので、0.1の位の5から10を借りたよ。0.1の位の計算はどっち？',
+              choices: [
+                { id: 'A', label: '5 - 2', isCorrect: false, feedback: 'おしい！10を貸したから、0.1の位は5ではなく4になっているよ！' },
+                { id: 'B', label: '4 - 2', isCorrect: true, feedback: 'ピンポン！大正解！貸した分を引いて4 - 2 = 2。答えは0.23だね！' }
+              ],
+              hint: 'となりに貸したら、自分の位は1減るんだったね！',
+              ttsText: '0.5ひく0.27の計算、借りたあとの0.1の位はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【引けない時は10を借りる、貸した位は1減らす！】小数点をそろえるのも忘れずに！',
+              ttsText: '今日の必殺技！引けない時は十を借りる！貸した位が1減るのを忘れないでね！'
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    worldId: 7,
+    id: 'world-7',
+    title: '分数パーク',
+    subtitle: '分数の仕組み・同分母のたし算・ひき算',
+    themeColor: '#ff5722',
+    icon: '🍕',
+    description: 'ピザを等分すると分数の世界！分母と分子の意味をつかんで、同分母のたし算・ひき算を攻略しよう！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 7,
+        globalStageNumber: 19,
+        globalId: 'stage-19',
+        title: '分数の仕組み',
+        subtitle: '分母と分子・単位分数',
+        description: '1を等分したうちの何こ分か。分母は等分した数、分子は何こ分かを読み取ろう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '分数の仕組み（分母と分子）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】分母は「等分した数」、分子は「何こ分」！',
+              body: '1を7等分した1つ分が「1/7」。分数の下の数（分母）は1を何等分したか、上の数（分子）はその何こ分か表すよ。3/7 は 1/7 が3こ分という意味だね！',
+              ttsText: '分母は1を何等分したか、分子はその何こ分か表すよ。3/7は1/7が3こ分だね！',
+              visualType: 'fraction_structure'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】単位分数の数',
+              question: '5/9 は 1/9 が何こ分？',
+              choices: [
+                { id: 'A', label: '9', isCorrect: false, feedback: 'おしい！9は分母で「9等分した」という意味だよ。何こ分かは上の数を見てみよう！' },
+                { id: 'B', label: '5', isCorrect: true, feedback: 'ピンポン！大正解！分子の5が、1/9 が5こ分という意味だね！' }
+              ],
+              hint: '分子は「何こ分」、分母は「何等分したか」だね！',
+              ttsText: '5/9は1/9が何こ分かな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【分母＝等分した数、分子＝何こ分！】単位分数が何こ分かで分数を読む！',
+              ttsText: '今日の必殺技！分母は等分した数、分子は何こ分！単位分数で分数を読もう！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 7,
+        globalStageNumber: 20,
+        globalId: 'stage-20',
+        title: '同分母のたし算',
+        subtitle: '分母はそのまま・分子だけ足す',
+        description: '分母が同じ分数のたし算は、単位分数の数を合わせるだけ。分母同士を足さないのが最大のコツ！',
+        operator: '+',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '同分母のたし算（分母はそのまま）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】分母はそのまま、分子だけを足す！',
+              body: '2/7 + 3/7 は、1/7 が「2こ」と「3こ」で合わせて5こ分。だから答えは 5/7 だよ。分母の7は「7等分した」という意味だから変わらない。分母同士を足して14にしないのが一番のコツ！',
+              ttsText: '同分母のたし算は、分母はそのままで分子だけを足すよ。分母同士は足さないでね！',
+              visualType: 'fraction_add'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】答えの分母',
+              question: '3/8 + 2/8 の答えの分母はどっち？',
+              choices: [
+                { id: 'A', label: '16', isCorrect: false, feedback: 'おしい！分母同士を足してしまったね。分母は「8等分した」のままで変わらないよ！' },
+                { id: 'B', label: '8', isCorrect: true, feedback: 'ピンポン！大正解！分母は8のまま、分子は 3 + 2 = 5。答えは5/8だね！' }
+              ],
+              hint: '分母は「何等分したか」。たし算でも等分の数は変わらないね！',
+              ttsText: '3/8たす2/8の答えの分母はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【分母はそのまま、分子だけ足す！】分母同士は絶対に足さない！',
+              ttsText: '今日の必殺技！分母はそのまま、分子だけ足す！ミッションスタート！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 7,
+        globalStageNumber: 21,
+        globalId: 'stage-21',
+        title: '同分母のひき算',
+        subtitle: '帯分数と借りる計算',
+        description: '分母が同じ分数のひき算も分子だけを引くよ。引けない時は帯分数を仮分数に直してから計算しよう！',
+        operator: '-',
+        displayFormat: 'horizontal',
+        usesFraction: true,
+        miniLesson: {
+          title: '同分母のひき算（仮分数に直す）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】引けない時は帯分数を仮分数に直す！',
+              body: '1と2/7 - 4/7 は、分子の 2 - 4 が引けないね。そんな時は 1と2/7 を仮分数の 9/7 に直してから引くと 5/7 になるよ。整数の1は「1/7 が7こ分」に変身できるのがポイント！',
+              ttsText: '引けない時は帯分数を仮分数に直してから引くよ。整数の1は分母の数こ分に変身できるよ！',
+              visualType: 'fraction_sub'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】仮分数の分子',
+              question: '1と1/5 を仮分数に直すと、分子はどっち？',
+              choices: [
+                { id: 'A', label: '5', isCorrect: false, feedback: 'おしい！5は「1を1/5が5こ分に変身させた数」。もとの分子の1を足すのを忘れていないかな？' },
+                { id: 'B', label: '6', isCorrect: true, feedback: 'ピンポン！大正解！1は1/5が5こ分、それに1こ分を足して6。答えは6/5だね！' }
+              ],
+              hint: '1 = 5/5 だから、1/5 が「5 + 1」こ分だね！',
+              ttsText: '1と1/5を仮分数に直すと、分子はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【引けない時は仮分数に直して、分子だけ引く！】分母はひき算でもそのまま！',
+              ttsText: '今日の必殺技！引けない時は仮分数に直す！分母はそのままで分子だけ引こう！'
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    worldId: 8,
+    id: 'world-8',
+    title: '大きな数とがい数ラボ',
+    subtitle: '大きな数の位取り・四捨五入・概算',
+    themeColor: '#5e35b1',
+    icon: '🚀',
+    description: '億や兆の大きな数と、がい数・概算をマスター！数の大きさを見抜く力を身につけよう！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 8,
+        globalStageNumber: 22,
+        globalId: 'stage-22',
+        title: '大きな数の仕組み',
+        subtitle: '万・億・兆の位取りと10倍の関係',
+        description: '位取り表で大きな数を読もう。10倍・100倍・1/10で0がどう変わるかも攻略！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: '大きな数の仕組み（万・億・兆）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】数は「万・億・兆」のまとまりで読む！',
+              body: '大きな数は、右から4桁ずつ区切ると読みやすいよ。一万、十万、百万、千万の次が一億。一億は一万が10000こ分！位の名前は「一、十、百、千」が万・億・兆のまとまりごとに繰り返されるよ。',
+              ttsText: '大きな数は右から4桁ずつ区切って、万・億・兆のまとまりで読もう。一億は一万が10000こ分だよ！',
+              visualType: 'large_place_value'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】一億は何こ分？',
+              question: '1億は、1万が何こ分？',
+              choices: [
+                { id: 'A', label: '1000', isCorrect: false, feedback: 'おしい！1万→10万→100万→1000万→1億と、10倍が4回分だよ。0の数を数えてみよう！' },
+                { id: 'B', label: '10000', isCorrect: true, feedback: 'ピンポン！大正解！1億は1万の10000倍。0が4こ分ちがうね！' }
+              ],
+              hint: '1万に0を4こつけると1億になるね！',
+              ttsText: '1億は、1万が何こ分かな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【位は右から数える！】4桁ずつのまとまりで万・億・兆をつかむ！',
+              ttsText: '今日の必殺技！位は右から数える！4桁ずつのまとまりで大きな数を読もう！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 8,
+        globalStageNumber: 23,
+        globalId: 'stage-23',
+        title: 'がい数と四捨五入',
+        subtitle: '〜の位までのがい数・上から○桁のがい数',
+        description: '四捨五入は「1つ下の位」を見るのが鉄則。がい数になる数の範囲も考えよう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: 'がい数と四捨五入（見る位がカギ）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】四捨五入は「1つ下の位」を見る！',
+              body: '百の位までのがい数にする時は、十の位の数字を見よう。4以下なら切り捨て、5以上なら切り上げ。どの位までのがい数にするかと、見る位をまちがえないのが一番のコツだよ！',
+              ttsText: '四捨五入は、残したい位の1つ下の数字を見るよ。4以下は切り捨て、5以上は切り上げだね！',
+              visualType: 'rounding_place'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】がい数に直そう',
+              question: '3,567 を百の位までのがい数にすると？',
+              choices: [
+                { id: 'A', label: '3,500', isCorrect: false, feedback: 'おしい！十の位は6で、5以上だから切り上げるよ。百の位の5が6になるね！' },
+                { id: 'B', label: '3,600', isCorrect: true, feedback: 'ピンポン！大正解！十の位の6を見て切り上げて3,600だね！' }
+              ],
+              hint: '百の位まで残すから、見るのは十の位の「6」だね！',
+              ttsText: '3,567を百の位までのがい数にするとどうなるかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【見るのは1つ下の位、5以上で切り上げ！】どの位までのがい数か先に確認！',
+              ttsText: '今日の必殺技！四捨五入は1つ下の位を見る！5以上で切り上げだよ！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 8,
+        globalStageNumber: 24,
+        globalId: 'stage-24',
+        title: '概算（見積もり）',
+        subtitle: 'がい数を使った買い物の見積もり',
+        description: '値段をがい数に直してから計算すると、合計の見当がすぐにつくよ！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: '概算（がい数で見積もる）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】見積もりは「がい数にしてから計算」！',
+              body: '298円は約300円、512円は約500円。値段をがい数に直してから足すと、暗算で合計の見当がつくよ。正確な計算の前に見積もると、大きな計算まちがいに気づけるのが研究員の技！',
+              ttsText: '買い物の見積もりは、値段をがい数に直してから計算するよ。見当をつけてから正確に計算しよう！',
+              visualType: 'estimation_shopping'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】りんごの見積もり',
+              question: '198円のりんごを4こ買います。百の位までのがい数にして見積もると、約何円？',
+              choices: [
+                { id: 'A', label: '約800円', isCorrect: true, feedback: 'ピンポン！大正解！198円は約200円。200 × 4 = 800円だね！' },
+                { id: 'B', label: '792円', isCorrect: false, feedback: 'おしい！それは正確な計算の答えだね。見積もりでは、まず198円を約200円に直してからかけ算しよう！' }
+              ],
+              hint: '198円を百の位までのがい数にすると約200円だね！',
+              ttsText: '198円のりんごを4こ買う見積もりは、約何円かな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【がい数に直してから計算！】見積もってから正確に計算するとまちがいに気づける！',
+              ttsText: '今日の必殺技！がい数に直してから計算！見積もり上手になろう！'
+            }
+          ]
+        }
+      }
+    ]
   }
 ];
 
@@ -744,6 +1171,10 @@ export const WORLDS_METADATA = [
  * @returns {{ worldId: number, stageId: number, globalStageNumber: number }}
  */
 export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
+  // ワールド数・総ステージ数はメタデータから導出する（ワールド追加に追随）
+  const totalWorlds = WORLDS_METADATA.length;
+  const stagesPerWorld = WORLDS_METADATA[0]?.stages.length || 3;
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
   let w = Number(worldIdInput);
   let s = Number(stageIdInput);
 
@@ -752,9 +1183,9 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
     const wsMatch = worldIdInput.match(/^w(\d+)[_-]s(\d+)$/i);
     if (stageMatch) {
       const globalNum = parseInt(stageMatch[1], 10);
-      if (globalNum >= 1 && globalNum <= 15) {
-        w = Math.ceil(globalNum / 3);
-        s = ((globalNum - 1) % 3) + 1;
+      if (globalNum >= 1 && globalNum <= totalStages) {
+        w = Math.ceil(globalNum / stagesPerWorld);
+        s = ((globalNum - 1) % stagesPerWorld) + 1;
       }
     } else if (wsMatch) {
       w = parseInt(wsMatch[1], 10);
@@ -766,22 +1197,22 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
     const stageMatch = stageIdInput.match(/^stage-(\d+)$/i);
     if (stageMatch) {
       const globalNum = parseInt(stageMatch[1], 10);
-      if (globalNum >= 1 && globalNum <= 15) {
-        w = Math.ceil(globalNum / 3);
-        s = ((globalNum - 1) % 3) + 1;
+      if (globalNum >= 1 && globalNum <= totalStages) {
+        w = Math.ceil(globalNum / stagesPerWorld);
+        s = ((globalNum - 1) % stagesPerWorld) + 1;
       }
     }
   }
 
-  // If worldId was 1..5 and stageId was given as global 1..15 (e.g., (2, 5))
-  if (Number.isInteger(w) && w >= 1 && w <= 5 && Number.isInteger(s) && s >= 4 && s <= 15) {
-    const expectedWorld = Math.ceil(s / 3);
+  // If worldId was valid and stageId was given as a global stage number (e.g., (2, 5))
+  if (Number.isInteger(w) && w >= 1 && w <= totalWorlds && Number.isInteger(s) && s >= 4 && s <= totalStages) {
+    const expectedWorld = Math.ceil(s / stagesPerWorld);
     if (expectedWorld === w) {
-      s = ((s - 1) % 3) + 1;
+      s = ((s - 1) % stagesPerWorld) + 1;
     }
   }
 
-  if (!Number.isInteger(w) || w < 1 || w > 5 || !Number.isInteger(s) || s < 1 || s > 3) {
+  if (!Number.isInteger(w) || w < 1 || w > totalWorlds || !Number.isInteger(s) || s < 1 || s > stagesPerWorld) {
     w = 1;
     s = 1;
   }
@@ -789,7 +1220,7 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
   return {
     worldId: w,
     stageId: s,
-    globalStageNumber: (w - 1) * 3 + s
+    globalStageNumber: (w - 1) * stagesPerWorld + s
   };
 }
 
@@ -799,6 +1230,23 @@ export function normalizeWorldAndStage(worldIdInput, stageIdInput) {
  */
 export function getWorldsMetadata() {
   return WORLDS_METADATA;
+}
+
+/**
+ * グローバルステージ番号 (1..総ステージ数) から所属ワールドIDを引く
+ * ワールドごとのステージ数は WORLDS_METADATA から導出する (ワールド追加に追随)
+ * @param {number} globalStageNumber
+ * @returns {number} ワールドID (1未満は先頭ワールド、超過分は最終ワールド)
+ */
+export function getWorldIdByGlobalStage(globalStageNumber) {
+  const n = Number(globalStageNumber);
+  if (!Number.isInteger(n) || n < 1) return WORLDS_METADATA[0]?.worldId ?? 1;
+  let acc = 0;
+  for (const world of WORLDS_METADATA) {
+    acc += world.stages.length;
+    if (n <= acc) return world.worldId;
+  }
+  return WORLDS_METADATA[WORLDS_METADATA.length - 1]?.worldId ?? 1;
 }
 
 /**
@@ -915,6 +1363,7 @@ function buildMathProblem({
   operands,
   operator,
   hasRemainder = false,
+  hasFraction = false,
   quotient,
   remainder = 0,
   stepMode,
@@ -974,6 +1423,7 @@ function buildMathProblem({
     num2: operands[1],
     operator,
     hasRemainder,
+    hasFraction: Boolean(hasFraction),
     expectedAnswer,
     correctAnswer,
     answer: quotient,
@@ -988,7 +1438,7 @@ function buildMathProblem({
 }
 
 // ============================================================================
-// Stage Generators (15 Stages)
+// Stage Generators (24 Stages)
 // ============================================================================
 
 /**
@@ -3206,6 +3656,2778 @@ function generateStage5_3({ questionIndex, level, difficultyLevel, rng, variatio
   });
 }
 
+// ============================================================================
+// World 6: 小数 (Decimal) Helpers & Stage Generators
+// 小数は浮動小数点誤差を避けるため、内部では整数にスケーリングして生成する
+// (例: scale=100 のとき 325 が 3.25 を表す)
+// ============================================================================
+
+/**
+ * スケーリング済み整数を表示用文字列にする (例: (325, 100) -> "3.25", (70, 100) -> "0.7")
+ * 浮動小数点の文字列表現に頼らず、整数演算だけで組み立てる
+ */
+function formatDecimal(scaledInt, scale) {
+  const sign = scaledInt < 0 ? '-' : '';
+  const abs = Math.abs(Math.trunc(scaledInt));
+  const intPart = Math.floor(abs / scale);
+  const fracDigits = String(scale).length - 1; // 10 -> 1桁, 100 -> 2桁
+  const frac = String(abs % scale).padStart(fracDigits, '0').replace(/0+$/, '');
+  return frac ? `${sign}${intPart}.${frac}` : `${sign}${intPart}`;
+}
+
+/**
+ * スケーリング済み整数を位ごとの数字配列にする (下の位から)
+ * 例: (325, 100) -> [5, 2, 3] (0.01の位, 0.1の位, 一の位)
+ */
+function splitPlaces(scaledInt, scale) {
+  const placeCount = String(scale).length; // scale=10 -> 2位, scale=100 -> 3位
+  const digits = [];
+  let rest = Math.trunc(scaledInt);
+  for (let i = 0; i < placeCount; i++) {
+    digits.push(rest % 10);
+    rest = Math.floor(rest / 10);
+  }
+  if (rest > 0) digits.push(rest);
+  return digits;
+}
+
+/**
+ * 問題が小数問題なら、そのスケール (10 | 100) を返す。整数問題は 0
+ */
+function getDecimalScale(problem) {
+  const scale = Number(problem?.trapMetadata?.decimalScale);
+  return scale === 10 || scale === 100 ? scale : 0;
+}
+
+/**
+ * 小数の等値判定 (浮動小数点誤差の影響を受けない厳密比較)
+ * 両値をスケールした結果が「整数 (誤差の範囲内)」であり、かつ一致する場合のみ true。
+ * Math.round 同士の比較だけだと、スケールより細かい入力 (例: 答え 7.3 への 7.301) が
+ * 丸めで一致して正解扱いになってしまうため、整数性もあわせて要求する。
+ */
+function scaledValueEquals(a, b, scale) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  if (!scale) return a === b;
+  const scaledA = a * scale;
+  const scaledB = b * scale;
+  const roundedA = Math.round(scaledA);
+  const roundedB = Math.round(scaledB);
+  const tolerance = 1e-6;
+  if (Math.abs(scaledA - roundedA) > tolerance) return false;
+  if (Math.abs(scaledB - roundedB) > tolerance) return false;
+  return roundedA === roundedB;
+}
+
+/**
+ * Stage 6-1 (pattern A): 0.1 が n こ集まると いくつ？
+ */
+function buildDecimalTenthsCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const ranges = {
+    warmup: [3, 15],
+    remedial: [3, 15],
+    standard: [11, 39],
+    hurdle: [21, 59],
+    challenge: [41, 99]
+  };
+  const [lo, hi] = ranges[difficultyLevel] || ranges.standard;
+  let n = 14;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    n = randInt(lo, hi, rng);
+    if (n % 10 === 0) continue; // ちょうど整数になるケースは位の練習にならない
+    if (!variationTarget || variationTarget.operands?.[1] !== n) break;
+  }
+
+  const ones = Math.floor(n / 10);
+  const tenths = n % 10;
+  const answer = n / 10;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'ones',
+      title: '一の位の数字',
+      actionName: 'かぞえる',
+      explanation: `0.1 が 10 こで 1 だよ。0.1 が ${n} こあるとき、1 のまとまりは何こできる？`,
+      blankPosition: 'ones',
+      expectedStepValue: ones,
+      digit: ones,
+      hint: `10 こずつまとめていくと、1 のまとまりが ${ones} こできるよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'tenths',
+      title: '0.1の位の数字',
+      actionName: 'かぞえる',
+      explanation: '1 のまとまりに入りきらなかった 0.1 は何こ残る？',
+      blankPosition: 'tenths',
+      expectedStepValue: tenths,
+      digit: tenths,
+      hint: `${n} こから 10 こずつ取りのぞくと、${tenths} こ残るよ！`
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '小数の答え',
+      actionName: 'かぞえる',
+      explanation: `一の位が ${ones}、0.1の位が ${tenths}。0.1 が ${n} こ集まった数はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: '一の位と 0.1の位の間に小数点を書いてみよう！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `0.1 が ${n} こ集まると いくつ？`,
+    expression: `0.1 × ${n}`,
+    displayFormat: 'horizontal',
+    operands: [0.1, n],
+    operator: '×',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: n,
+      reasonCategory: 'decimal_point_position',
+      diagnosis: '0.1 が 10 こ集まると 1 だよ！そのまま整数で答えていないかな？',
+      hintMessage: '0.1 を 10 こずつまとめて、一の位と 0.1の位に分けてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: n,
+        reasonCategory: 'decimal_point_position',
+        adviceMessage: `0.1 が ${n} こは、1 のまとまり ${ones} こと 0.1 が ${tenths} こ分だよ！`
+      },
+      {
+        predictedErrorValue: n / 100,
+        reasonCategory: 'decimal_point_position',
+        adviceMessage: '小数点の位置が1つずれているかも！0.1 が 10 こで 1 になるよ！'
+      }
+    ],
+    patternType: 'decimal_tenths_count',
+    trapMetadata: { decimalScale: 10, count: n }
+  });
+}
+
+/**
+ * Stage 6-1 (pattern B): 「x は 0.1 (0.01) が何こ分？」
+ */
+function buildDecimalCountOf(patternType, { questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const isHundredths = patternType === 'decimal_count_of_hundredths';
+  const unit = isHundredths ? 100 : 10;
+  const unitText = isHundredths ? '0.01' : '0.1';
+
+  let count = isHundredths ? 347 : 34;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    count = isHundredths ? randInt(120, 989, rng) : randInt(13, 59, rng);
+    if (count % 10 === 0) continue;
+    if (!variationTarget || Math.round((variationTarget.operands?.[0] ?? -1) * unit) !== count) break;
+  }
+
+  const valueText = formatDecimal(count, unit);
+  // splitPlaces は下の位から返す (例: 347, scale=100 -> [7, 4, 3])
+  const digitsAsc = splitPlaces(count, unit);
+  const placeNameFor = (i) => {
+    if (i === digitsAsc.length - 1) return '一の位';
+    return unit === 100 && i === 0 ? '0.01の位' : '0.1の位';
+  };
+  const placeIdFor = (i) => {
+    if (i === digitsAsc.length - 1) return 'ones';
+    return unit === 100 && i === 0 ? 'hundredths' : 'tenths';
+  };
+  // 大きい位から順にステップ化する (例: 347 なら 一の位=300こ, 0.1の位=40こ, 0.01の位=7こ)
+  const placeIndexes = digitsAsc.map((_, i) => i).reverse();
+  const onesContribution = digitsAsc[digitsAsc.length - 1] * Math.pow(10, digitsAsc.length - 1);
+
+  const steps = placeIndexes.map((i, order) => ({
+    stepNumber: order + 1,
+    id: placeIdFor(i),
+    title: `${placeNameFor(i)}の分`,
+    actionName: 'かぞえる',
+    explanation: `${valueText} の ${placeNameFor(i)}の数字は ${digitsAsc[i]}。${unitText} が何こ分？`,
+    blankPosition: placeIdFor(i),
+    expectedStepValue: digitsAsc[i] * Math.pow(10, i),
+    hint: `${placeNameFor(i)}の 1 は ${unitText} が ${Math.pow(10, i)} こ分だよ！`
+  }));
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: 'ぜんぶの数',
+    actionName: 'かぞえる',
+    explanation: `位ごとの分をぜんぶ合わせると、${valueText} は ${unitText} が何こ分？`,
+    blankPosition: 'final',
+    expectedStepValue: count,
+    hint: '位ごとの数を大きい位から順に足し合わせよう！'
+  });
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${valueText} は ${unitText} が何こ分？`,
+    expression: `${valueText} ÷ ${unitText}`,
+    displayFormat: 'horizontal',
+    operands: [count / unit, 1 / unit],
+    operator: '÷',
+    quotient: count,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: count / unit,
+      reasonCategory: 'decimal_structure',
+      diagnosis: '位に分けて考えよう！一の位の数字は 0.1 が 10 こ分 (0.01 なら 100 こ分) だよ！',
+      hintMessage: '一の位・0.1の位・0.01の位に分けて、それぞれ何こ分か数えてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: onesContribution,
+        reasonCategory: 'decimal_structure',
+        adviceMessage: '一の位の分だけを数えていないかな？小さい位の分も合わせよう！'
+      },
+      {
+        predictedErrorValue: count / unit,
+        reasonCategory: 'decimal_structure',
+        adviceMessage: `${valueText} そのままの数ではなく、${unitText} が何こ分か数える問題だよ！`
+      }
+    ],
+    patternType,
+    trapMetadata: { decimalScale: unit, count }
+  });
+}
+
+/**
+ * Stage 6-1 (pattern C): 小数の位の数字を読む
+ */
+function buildDecimalPlaceDigit({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const targetPlace =
+    variationTarget?.trapMetadata?.targetPlace ??
+    (difficultyLevel === 'challenge' ? 'hundredths' : pickRandom(['tenths', 'hundredths'], rng));
+
+  let m = 528;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const cand = randInt(123, 987, rng);
+    const co = Math.floor(cand / 100);
+    const ct = Math.floor(cand / 10) % 10;
+    const ch = cand % 10;
+    // 位の混同トラップが成立するよう、3つの位の数字はすべて異なる正の数にする
+    if (co === 0 || ct === 0 || ch === 0 || co === ct || ct === ch || co === ch) continue;
+    m = cand;
+    if (!variationTarget || Math.round((variationTarget.operands?.[0] ?? -1) * 100) !== m) break;
+  }
+  const digits = [m % 10, Math.floor(m / 10) % 10, Math.floor(m / 100)];
+
+  const [h, t, o] = digits;
+  const valueText = formatDecimal(m, 100);
+  const isTenths = targetPlace === 'tenths';
+  const targetDigit = isTenths ? t : h;
+  const trapDigit = isTenths ? o : t;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'ones',
+      title: '一の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の小数点の左側、一の位の数字は？`,
+      blankPosition: 'ones',
+      expectedStepValue: o,
+      digit: o,
+      hint: '小数点のすぐ左が一の位だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'tenths',
+      title: '0.1の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の小数点のすぐ右、0.1の位の数字は？`,
+      blankPosition: 'tenths',
+      expectedStepValue: t,
+      digit: t,
+      hint: '小数点のすぐ右が 0.1の位だよ！'
+    }
+  ];
+  if (!isTenths) {
+    steps.push({
+      stepNumber: 3,
+      id: 'hundredths',
+      title: '0.01の位の数字',
+      actionName: 'よむ',
+      explanation: `${valueText} の 0.1の位の次、0.01の位の数字は？`,
+      blankPosition: 'hundredths',
+      expectedStepValue: h,
+      digit: h,
+      hint: '0.1の位の右どなりが 0.01の位だよ！'
+    });
+  }
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '小数を組み立てる',
+    actionName: 'よむ',
+    explanation: `一の位が ${o}、0.1の位が ${t}、0.01の位が ${h}。位を組み立てた小数はいくつ？`,
+    blankPosition: 'final',
+    expectedStepValue: m / 100,
+    hint: '一の位と 0.1の位の間に小数点を書いて、位の順に数字を並べよう！'
+  });
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${valueText} の ${isTenths ? '0.1' : '0.01'} の位の数字は？`,
+    expression: `${valueText} の ${isTenths ? '0.1' : '0.01'}の位`,
+    displayFormat: 'horizontal',
+    operands: [m / 100, isTenths ? 0.1 : 0.01],
+    operator: 'mixed',
+    quotient: targetDigit,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: trapDigit,
+      reasonCategory: 'decimal_place_read',
+      diagnosis: '小数点のすぐ右が 0.1の位、その次が 0.01の位だよ！位の順番を確かめよう！',
+      hintMessage: '一の位 → 0.1の位 → 0.01の位の順に、指でたどってみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: trapDigit,
+        reasonCategory: 'decimal_place_read',
+        adviceMessage: `それは ${isTenths ? '一の位' : '0.1の位'} の数字だよ。${isTenths ? '0.1' : '0.01'} の位は小数点から数えてみよう！`
+      }
+    ],
+    patternType: 'decimal_place_digit',
+    trapMetadata: { decimalScale: 100, targetPlace }
+  });
+}
+
+/**
+ * Stage 6-1: 小数の仕組み (0.1・0.01 の位の理解)
+ */
+function generateStage6_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'decimal_tenths_count';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['decimal_tenths_count', 'decimal_count_of_tenths'], args.rng);
+    } else if (args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['decimal_count_of_tenths', 'decimal_place_digit'], args.rng);
+    } else {
+      patternType = pickRandom(['decimal_count_of_hundredths', 'decimal_place_digit'], args.rng);
+    }
+  }
+
+  if (patternType === 'decimal_count_of_tenths' || patternType === 'decimal_count_of_hundredths') {
+    return buildDecimalCountOf(patternType, args);
+  }
+  if (patternType === 'decimal_place_digit') {
+    return buildDecimalPlaceDigit(args);
+  }
+  return buildDecimalTenthsCount(args);
+}
+
+/**
+ * Stage 6-2: 小数のたし算 (小数第1位・第2位、くり上がり含む)
+ */
+function generateStage6_2({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let scale = variationTarget?.trapMetadata?.decimalScale;
+  if (!scale) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') scale = 10;
+    else if (difficultyLevel === 'standard') scale = rng() < 0.5 ? 10 : 100;
+    else scale = 100;
+  }
+  const needDoubleCarry = difficultyLevel === 'challenge' && scale === 100;
+
+  let aInt = 325;
+  let bInt = 148;
+  let da = splitPlaces(aInt, scale);
+  let db = splitPlaces(bInt, scale);
+  let carries = [];
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (scale === 10) {
+      aInt = randInt(12, 89, rng);
+      bInt = randInt(12, 89, rng);
+    } else {
+      aInt = randInt(112, 989, rng);
+      bInt = randInt(112, 989, rng);
+    }
+    da = splitPlaces(aInt, scale);
+    db = splitPlaces(bInt, scale);
+    carries = [];
+    let carryIn = 0;
+    for (let i = 0; i < da.length; i++) {
+      const s = da[i] + db[i] + carryIn;
+      carries.push(s >= 10);
+      carryIn = Math.floor(s / 10);
+    }
+    // 主題は最下位のくり上がり。challenge では 2 位連続のくり上がりを要求する
+    if (!carries[0]) continue;
+    if (needDoubleCarry && !carries[1]) continue;
+    if (!variationTarget) break;
+    const tScale = variationTarget.trapMetadata?.decimalScale || scale;
+    if (
+      Math.round((variationTarget.operands?.[0] ?? -1) * tScale) !== aInt &&
+      Math.round((variationTarget.operands?.[1] ?? -1) * tScale) !== bInt
+    ) {
+      break;
+    }
+  }
+
+  const sumInt = aInt + bInt;
+  const aText = formatDecimal(aInt, scale);
+  const bText = formatDecimal(bInt, scale);
+  const placeNames = scale === 100 ? ['0.01の位', '0.1の位', '一の位'] : ['0.1の位', '一の位'];
+  const placeIds = scale === 100 ? ['hundredths', 'tenths', 'ones'] : ['tenths', 'ones'];
+
+  const steps = [];
+  let carryIn = 0;
+  for (let i = 0; i < da.length; i++) {
+    const s = da[i] + db[i] + carryIn;
+    const carryOut = Math.floor(s / 10);
+    steps.push({
+      stepNumber: i + 1,
+      id: placeIds[i],
+      title: `${placeNames[i]}の計算`,
+      actionName: 'くりあがり',
+      explanation: carryIn > 0
+        ? `${placeNames[i]}を計算しよう: くり上がりの ${carryIn} + ${da[i]} + ${db[i]} はいくつ？`
+        : `${placeNames[i]}を計算しよう: ${da[i]} + ${db[i]} はいくつ？`,
+      blankPosition: placeIds[i],
+      expectedStepValue: s,
+      carry: carryOut,
+      digit: s % 10,
+      hint: carryIn > 0
+        ? `下の位からくり上がった ${carryIn} を忘れずに足そう！`
+        : `${da[i]} + ${db[i]} を計算しよう！10 をこえたら左の位へ 1 くり上がるよ。`
+    });
+    carryIn = carryOut;
+  }
+  if (carryIn > 0) {
+    const topName = '十の位';
+    steps.push({
+      stepNumber: steps.length + 1,
+      id: 'tens',
+      title: `${topName}の計算`,
+      actionName: 'くりあがり',
+      explanation: `一番上の位へくり上がった ${carryIn} がそのまま ${topName}の数字になるよ。${topName}の数字は？`,
+      blankPosition: 'tens',
+      expectedStepValue: carryIn,
+      carry: 0,
+      digit: carryIn,
+      hint: 'くり上がった 1 を新しい位に書こう！'
+    });
+  }
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '筆算の答え',
+    actionName: 'くりあがり',
+    explanation: `小数点をそろえて、${aText} + ${bText} の答えは？`,
+    blankPosition: 'final',
+    expectedStepValue: sumInt / scale,
+    hint: '答えにも小数点を書くのを忘れないでね！位をそろえて数字を並べよう。'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: sumInt,
+      reasonCategory: 'decimal_point_ignored',
+      adviceMessage: '小数点を無視して整数のように計算していないかな？答えにも小数点を書こう！'
+    },
+    {
+      predictedErrorValue: (sumInt * 10) / scale,
+      reasonCategory: 'decimal_point_position',
+      adviceMessage: '小数点の位置が1つずれているかも！位をそろえて確認しよう！'
+    }
+  ];
+  if (carries[0]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (sumInt - 10) / scale,
+      reasonCategory: 'carry_forgotten',
+      adviceMessage: `${placeNames[1]}へのくり上がりの「1」を足し忘れていないかな？`
+    });
+  }
+  if (scale === 100 && carries[1]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (sumInt - 100) / scale,
+      reasonCategory: 'carry_forgotten',
+      adviceMessage: '一の位へのくり上がりの「1」を足し忘れていないかな？'
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${aText} + ${bText} = ?`,
+    expression: `${aText} + ${bText}`,
+    displayFormat: 'column',
+    operands: [aInt / scale, bInt / scale],
+    operator: '+',
+    quotient: sumInt / scale,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: sumInt,
+      reasonCategory: 'decimal_point_ignored',
+      diagnosis: '小数点を無視して整数のように計算していないかな？小数点の位置をチェック！',
+      hintMessage: '小数点をたてにそろえて、位ごとに計算してみよう！'
+    },
+    errorDiagnostics,
+    patternType: `dec_add_${scale === 10 ? 'tenths' : 'hundredths'}`,
+    trapMetadata: { decimalScale: scale }
+  });
+}
+
+/**
+ * Stage 6-3: 小数のひき算 (くり下がり・整数からのひき算含む)
+ */
+function generateStage6_3({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let scale = variationTarget?.trapMetadata?.decimalScale;
+  if (!scale) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') scale = 10;
+    else if (difficultyLevel === 'standard') scale = rng() < 0.5 ? 10 : 100;
+    else scale = 100;
+  }
+  const fromRound =
+    variationTarget?.trapMetadata?.fromRound ??
+    (difficultyLevel !== 'warmup' && difficultyLevel !== 'remedial' && rng() < 0.4);
+  const needDoubleBorrow = difficultyLevel === 'challenge' && scale === 100;
+
+  let aInt = scale === 10 ? 52 : 502;
+  let bInt = scale === 10 ? 28 : 268;
+  let da = splitPlaces(aInt, scale);
+  let db = splitPlaces(bInt, scale);
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (fromRound) {
+      aInt = randInt(1, 4, rng) * scale;
+      bInt = scale === 10 ? randInt(12, 89, rng) : randInt(112, 989, rng);
+    } else if (scale === 10) {
+      aInt = randInt(23, 95, rng);
+      bInt = randInt(12, 89, rng);
+    } else {
+      aInt = randInt(213, 995, rng);
+      bInt = randInt(112, 989, rng);
+    }
+    da = splitPlaces(aInt, scale);
+    db = splitPlaces(bInt, scale);
+    if (aInt <= bInt) continue;
+    // 主題は最下位のくり下がり
+    if (!(da[0] < db[0])) continue;
+    if (needDoubleBorrow) {
+      const effTens = da[1] - 1;
+      if (!(effTens < db[1])) continue;
+    }
+    if (!variationTarget) break;
+    const tScale = variationTarget.trapMetadata?.decimalScale || scale;
+    if (
+      Math.round((variationTarget.operands?.[0] ?? -1) * tScale) !== aInt &&
+      Math.round((variationTarget.operands?.[1] ?? -1) * tScale) !== bInt
+    ) {
+      break;
+    }
+  }
+
+  // 位ごとのくり下がりをシミュレーション
+  const resDigits = [];
+  const borrowIns = [];
+  let borrow = 0;
+  for (let i = 0; i < da.length; i++) {
+    borrowIns.push(borrow);
+    let d = da[i] - borrow - db[i];
+    if (d < 0) {
+      d += 10;
+      borrow = 1;
+    } else {
+      borrow = 0;
+    }
+    resDigits.push(d);
+  }
+  let diffInt = 0;
+  for (let i = resDigits.length - 1; i >= 0; i--) {
+    diffInt = diffInt * 10 + resDigits[i];
+  }
+
+  const aText = formatDecimal(aInt, scale);
+  const bText = formatDecimal(bInt, scale);
+  const placeNames = scale === 100 ? ['0.01の位', '0.1の位', '一の位'] : ['0.1の位', '一の位'];
+  const placeIds = scale === 100 ? ['hundredths', 'tenths', 'ones'] : ['tenths', 'ones'];
+
+  const steps = da.map((aDigit, i) => {
+    const borrowIn = borrowIns[i];
+    const effA = aDigit - borrowIn;
+    const bDigit = db[i];
+    let explanation;
+    if (effA < 0) {
+      // この位が 0 で下の位に 1 貸したケース: 負の数を出さず、借りてきた 10 から
+      // 貸した 1 を引いた数 (effA + 10) で計算する形で説明する (期待値は変えない)
+      explanation = `${placeNames[i]}を計算しよう: 0 しかないので、上の位から 10 を借りてこよう。下の位に貸した 1 を引くと ${effA + 10} になるよ。${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (effA < bDigit) {
+      explanation = borrowIn > 0
+        ? `${placeNames[i]}を計算しよう: 貸した分を引くと ${effA}。${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`
+        : `${placeNames[i]}を計算しよう: ${effA} から ${bDigit} は引けないので、上の位から 10 を借りて ${effA + 10} - ${bDigit} はいくつ？`;
+    } else if (borrowIn > 0) {
+      explanation = `${placeNames[i]}を計算しよう: 下の位に貸した分を引いて ${effA} - ${bDigit} はいくつ？`;
+    } else {
+      explanation = `${placeNames[i]}を計算しよう: ${effA} - ${bDigit} はいくつ？`;
+    }
+    return {
+      stepNumber: i + 1,
+      id: placeIds[i],
+      title: `${placeNames[i]}の計算`,
+      actionName: 'ひく',
+      explanation,
+      blankPosition: placeIds[i],
+      expectedStepValue: resDigits[i],
+      digit: resDigits[i],
+      hint: effA < bDigit
+        ? '引けない時は、上の位から 10 を借りてこよう！'
+        : '貸した分を引いた数字で計算するのがコツだよ！'
+    };
+  });
+  steps.push({
+    stepNumber: steps.length + 1,
+    id: 'final',
+    title: '筆算の答え',
+    actionName: 'ひく',
+    explanation: `小数点をそろえて、${aText} - ${bText} の答えは？`,
+    blankPosition: 'final',
+    expectedStepValue: diffInt / scale,
+    hint: '答えにも小数点を書くのを忘れないでね！くり下がりのメモを確かめよう。'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: diffInt,
+      reasonCategory: 'decimal_point_ignored',
+      adviceMessage: '小数点を無視して整数のように計算していないかな？答えにも小数点を書こう！'
+    }
+  ];
+  if (borrowIns[1] === 1) {
+    errorDiagnostics.push({
+      predictedErrorValue: (diffInt + 10) / scale,
+      reasonCategory: 'borrow_forgotten',
+      adviceMessage: `${placeNames[1]}に「1」貸した分を引くのを忘れていないかな？`
+    });
+  }
+  if (da[0] < db[0]) {
+    errorDiagnostics.push({
+      predictedErrorValue: (diffInt - resDigits[0] + Math.abs(da[0] - db[0])) / scale,
+      reasonCategory: 'borrow_forgotten',
+      adviceMessage: `${placeNames[0]}は引けない時は下の数字から引かずに、上の位から 10 を借りてこよう！`
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 6,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${aText} - ${bText} = ?`,
+    expression: `${aText} - ${bText}`,
+    displayFormat: 'column',
+    operands: [aInt / scale, bInt / scale],
+    operator: '-',
+    quotient: diffInt / scale,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: diffInt,
+      reasonCategory: 'decimal_point_ignored',
+      diagnosis: '小数点を無視して整数のように計算していないかな？小数点の位置をチェック！',
+      hintMessage: '小数点をたてにそろえて、引けない時は上の位から 10 を借りてみよう！'
+    },
+    errorDiagnostics,
+    patternType: `dec_sub_${scale === 10 ? 'tenths' : 'hundredths'}${fromRound ? '_from_round' : ''}`,
+    trapMetadata: { decimalScale: scale, fromRound }
+  });
+}
+
+// ============================================================================
+// World 7: 分数 (Fraction) Helpers & Stage Generators
+// 分数の答えは { numerator, denominator } の整数ペアで厳密に扱う。
+// correctAnswer.value には表示・照合用の数値 (numerator / denominator) を入れるが、
+// 正解判定は evaluateAnswer が整数ペアの完全一致で行う (浮動小数点誤差の影響なし)
+// ============================================================================
+
+/**
+ * 問題が分数解答なら、その正解 { numerator, denominator } を返す。それ以外は null
+ */
+function getFractionAnswer(problem) {
+  const fa = problem?.trapMetadata?.fractionAnswer;
+  if (
+    fa &&
+    Number.isInteger(fa.numerator) &&
+    Number.isInteger(fa.denominator) &&
+    fa.denominator > 0
+  ) {
+    return { numerator: fa.numerator, denominator: fa.denominator };
+  }
+  return null;
+}
+
+/**
+ * 分数の誤答診断の予測値が、正解や他の予測値と重ならないかを整数の
+ * クロス乗算で判定する。予測値どうしが重なる組では、先に一致した診断が
+ * 常に選ばれて片方に到達できなくなり、誤答の原因を誤って説明してしまう
+ * ため、生成側では重なる被演算子の組を再抽選する。
+ * @param {[number, number]} answerPair 正解の [分子, 分母]
+ * @param {Array<[number, number]>} predictedPairs 予測値の [分子, 分母] 一覧
+ * @returns {boolean} 重なりがあれば true
+ */
+function fractionDiagnosticsCollide(answerPair, predictedPairs) {
+  const pairs = [answerPair, ...predictedPairs];
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      if (pairs[i][0] * pairs[j][1] === pairs[j][0] * pairs[i][1]) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Stage 7-1 (pattern A): 「n/d は 1/d が何こ分？」(答えは整数)
+ */
+function buildFractionUnitCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = 7;
+  let num = 3;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    den = difficultyLevel === 'challenge' ? randInt(6, 12, rng) : randInt(3, 9, rng);
+    num = randInt(2, den - 1, rng);
+    // 診断の予測値 (分母 den / 1こ分) が正解 (分子 num) と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, 1], [[den, 1], [1, 1]])) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracDen === den && t.fracNum === num)) break;
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'denominator',
+      title: '分母の意味',
+      actionName: 'よむ',
+      explanation: `分数の下の数（分母）は、1を何等分したかを表すよ。${num}/${den} では、1を何等分している？`,
+      blankPosition: 'denominator',
+      expectedStepValue: den,
+      hint: '分母は線の下の数だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'numerator',
+      title: '分子の意味',
+      actionName: 'よむ',
+      explanation: `分数の上の数（分子）は、1/${den} が何こ分か表すよ。${num}/${den} の分子はいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: num,
+      hint: '分子は線の上の数だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '単位分数の数',
+      actionName: 'かぞえる',
+      explanation: `${num}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'final',
+      expectedStepValue: num,
+      hint: '分子の数が、そのまま「何こ分」になるよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${num}/${den} は 1/${den} が何こ分？`,
+    expression: `${num}/${den} は 1/${den} が何こ分`,
+    displayFormat: 'horizontal',
+    operands: [num, den],
+    operator: 'mixed',
+    quotient: num,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: den,
+      reasonCategory: 'fraction_part_mixup',
+      diagnosis: '分母の数を答えてしまったかも！聞かれているのは「1つ分が何こ分か」だよ！',
+      hintMessage: '分子が「何こ分」、分母が「何等分したか」だよ。分子を見てみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: den,
+        reasonCategory: 'fraction_part_mixup',
+        adviceMessage: `それは分母の数だね。${num}/${den} は 1/${den} が「分子の数」こ分だよ！`
+      },
+      {
+        predictedErrorValue: 1,
+        reasonCategory: 'fraction_unit_miss',
+        adviceMessage: `${num}/${den} は 1/${den} が ${num} こ分だよ。1つ分だけではないよ！`
+      }
+    ],
+    patternType: 'frac_unit_count',
+    trapMetadata: { fracDen: den, fracNum: num }
+  });
+}
+
+/**
+ * Stage 7-1 (pattern B): 「1を d 等分したうちの n こ分」を分数で表す (答えは分数)
+ */
+function buildFractionPartsToFraction({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = 7;
+  let num = 3;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    den = difficultyLevel === 'challenge' ? randInt(4, 12, rng) : randInt(3, 9, rng);
+    num = randInt(1, den - 1, rng);
+    // 診断の予測値 (上下反転 den/num / 同じ数 1) が正解 num/den と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, den], [[den, num], [1, 1]])) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracDen === den && t.fracNum === num)) break;
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'denominator',
+      title: '分母を決める',
+      actionName: 'かぞえる',
+      explanation: `1を ${den} 等分したよ。答えの分母（何等分したか）はいくつ？`,
+      blankPosition: 'denominator',
+      expectedStepValue: den,
+      hint: '等分した数が分母になるよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'numerator',
+      title: '分子を決める',
+      actionName: 'かぞえる',
+      explanation: `そのうちの ${num} こ分だよ。答えの分子（何こ分か）はいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: num,
+      hint: '何こ分か、が分子になるよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '分数の完成',
+      actionName: 'かぞえる',
+      explanation: `答えは ${num}/${den} だよ。もう一度、分子はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: num,
+      hint: '上が分子、下が分母だよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `1を ${den} 等分したうちの ${num} こ分は、分数で表すといくつ？`,
+    expression: `1を${den}等分したうちの${num}こ分`,
+    displayFormat: 'horizontal',
+    operands: [num, den],
+    operator: 'mixed',
+    hasFraction: true,
+    quotient: num / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: den / num,
+      reasonCategory: 'fraction_inverted',
+      diagnosis: '分子と分母が反対になっているかも！分母は「何等分したか」だよ！',
+      hintMessage: '下が分母（等分した数）、上が分子（何こ分）だよ！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: den / num,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: `上下が反対かも！${den} 等分した数が分母で下、${num} こ分が分子で上だよ！`
+      },
+      {
+        predictedErrorValue: 1,
+        reasonCategory: 'fraction_same_numbers',
+        adviceMessage: `分母と分子を同じ数にしていないかな？分母は ${den}、分子は ${num} だよ！`
+      }
+    ],
+    patternType: 'frac_parts_to_fraction',
+    trapMetadata: {
+      fractionAnswer: { numerator: num, denominator: den },
+      fracDen: den,
+      fracNum: num
+    }
+  });
+}
+
+/**
+ * Stage 7-1 (pattern C): 帯分数を仮分数に直す (答えは分数)
+ */
+function buildFractionMixedToImproper({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let whole = 1;
+  let den = 5;
+  let num = 2;
+  for (let attempt = 0; attempt < 50; attempt++) {
+    whole = difficultyLevel === 'challenge' ? randInt(2, 3, rng) : randInt(1, 2, rng);
+    den = randInt(3, 9, rng);
+    num = randInt(1, den - 1, rng);
+    // 診断の予測値 (整数部分 whole / 上下反転) が正解の仮分数と重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [whole * den + num, den],
+        [[whole, 1], [den, whole * den + num]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracWhole === whole && t.fracDen === den && t.fracNum === num)) break;
+  }
+  const improperNum = whole * den + num;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit',
+      title: '1の変身',
+      actionName: 'かぞえる',
+      explanation: `1 は 1/${den} が何こ分？`,
+      blankPosition: 'unit',
+      expectedStepValue: den,
+      hint: `1を ${den} 等分すると、1つ分は 1/${den} だね！`
+    },
+    {
+      stepNumber: 2,
+      id: 'whole',
+      title: '整数部分の変身',
+      actionName: 'かぞえる',
+      explanation: `${whole} は 1/${den} が何こ分？（${den} × ${whole}）`,
+      blankPosition: 'whole',
+      expectedStepValue: whole * den,
+      hint: '1が「分母の数」こ分だから、整数の分だけかけ算しよう！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子を合わせる',
+      actionName: 'たす',
+      explanation: `もとの ${num}/${den} と合わせると、分子は ${whole * den} + ${num} でいくつ？`,
+      blankPosition: 'numerator',
+      expectedStepValue: improperNum,
+      hint: '変身させた数に、もとの分子を足そう！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${improperNum}/${den} だよ。答えの分母はいくつ？`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '仮分数に直しても、分母は変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${whole}と${num}/${den} を仮分数で表すといくつ？`,
+    expression: `${whole}と${num}/${den} を仮分数に`,
+    displayFormat: 'horizontal',
+    operands: [whole, num, den],
+    operator: 'mixed',
+    hasFraction: true,
+    quotient: improperNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: whole,
+      reasonCategory: 'fraction_mixed_convert',
+      diagnosis: `整数の部分だけを直して、もとの分子 ${num} を足し忘れているかも！`,
+      hintMessage: '整数を変身させた数に、もとの分子を足すのを忘れずに！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: whole,
+        reasonCategory: 'fraction_mixed_convert',
+        adviceMessage: `${whole} は 1/${den} が ${whole * den} こ分。もとの分子 ${num} を足して ${improperNum} が答えの分子だよ！`
+      },
+      {
+        predictedErrorValue: den / improperNum,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！仮分数の分子は分母より大きくなるよ！'
+      }
+    ],
+    patternType: 'frac_mixed_to_improper',
+    trapMetadata: {
+      fractionAnswer: { numerator: improperNum, denominator: den },
+      fracDen: den,
+      fracNum: num,
+      fracWhole: whole
+    }
+  });
+}
+
+/**
+ * Stage 7-1: 分数の仕組み (分母・分子と単位分数)
+ */
+function generateStage7_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'frac_unit_count';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['frac_unit_count', 'frac_parts_to_fraction'], args.rng);
+    } else if (args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['frac_parts_to_fraction', 'frac_mixed_to_improper'], args.rng);
+    } else {
+      patternType = pickRandom(['frac_mixed_to_improper', 'frac_parts_to_fraction'], args.rng);
+    }
+  }
+
+  if (patternType === 'frac_parts_to_fraction') {
+    return buildFractionPartsToFraction(args);
+  }
+  if (patternType === 'frac_mixed_to_improper') {
+    return buildFractionMixedToImproper(args);
+  }
+  return buildFractionUnitCount(args);
+}
+
+/**
+ * Stage 7-2: 同分母のたし算 (分母はそのまま、分子だけ足す)
+ * challenge では和が1を超える仮分数の答えまで扱う
+ */
+function generateStage7_2({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const isChallenge = difficultyLevel === 'challenge';
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') den = randInt(4, 7, rng);
+    else if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let a = 2;
+  let b = 3;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = randInt(1, den - 1, rng);
+    b = randInt(1, den - 1, rng);
+    if (isChallenge ? a + b <= den : a + b >= den) continue;
+    // 診断の予測値どうしが重なる組は再抽選する。重なると先に一致した診断が
+    // 常に選ばれ、もう一方の原因を説明できなくなる
+    // (例: 1/6+3/6 では「分母も足した」4/12 と「引いてしまった」2/6 が同じ 1/3)
+    const predictedPairs = [[a + b, 2 * den], [den, a + b]];
+    if (a !== b) predictedPairs.push([Math.abs(a - b), den]);
+    if (fractionDiagnosticsCollide([a + b, den], predictedPairs)) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[2] === b)) break;
+  }
+  const sum = a + b;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit_a',
+      title: '1つ目の分数',
+      actionName: 'かぞえる',
+      explanation: `${a}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_a',
+      expectedStepValue: a,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '2つ目の分数',
+      actionName: 'かぞえる',
+      explanation: `${b}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: b,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を足す',
+      actionName: 'たす',
+      explanation: sum > den
+        ? `分子同士を足すと何こ分？ ${a} + ${b} = ?（分母より大きくなったら仮分数だね！）`
+        : `分子同士を足すと何こ分？ ${a} + ${b} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: sum,
+      hint: '単位分数の数を合わせるだけだよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${sum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。たし算でも変わらないよ！'
+    }
+  ];
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: sum / (2 * den),
+      reasonCategory: 'fraction_denominator_added',
+      adviceMessage: `分母同士を足していないかな？分母は ${den} のままだよ！`
+    },
+    {
+      predictedErrorValue: den / sum,
+      reasonCategory: 'fraction_inverted',
+      adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+    }
+  ];
+  if (a !== b) {
+    errorDiagnostics.push({
+      predictedErrorValue: Math.abs(a - b) / den,
+      reasonCategory: 'fraction_subtracted_instead',
+      adviceMessage: 'たし算なのに、分子を引いてしまっていないかな？'
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${a}/${den} + ${b}/${den} = ?`,
+    expression: `${a}/${den} + ${b}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [a, den, b, den],
+    operator: '+',
+    hasFraction: true,
+    quotient: sum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: sum / (2 * den),
+      reasonCategory: 'fraction_denominator_added',
+      diagnosis: '分母同士も足してしまったかも！分母は「何等分したか」だから変わらないよ！',
+      hintMessage: '分母はそのまま。分子だけを足してみよう！'
+    },
+    errorDiagnostics,
+    patternType: 'frac_add_same_den',
+    trapMetadata: {
+      fractionAnswer: { numerator: sum, denominator: den },
+      fracDen: den,
+      fracA: a,
+      fracB: b
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern A): 同分母のひき算 (真分数 − 真分数)
+ */
+function buildFractionSubSameDen({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') den = randInt(4, 7, rng);
+    else if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let a = 5;
+  let b = 2;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = randInt(2, den - 1, rng);
+    b = randInt(1, a - 1, rng);
+    // 診断の予測値どうし (足してしまう / 上下反転 / 分母も計算) が重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [a - b, den],
+        [[a + b, den], [den, a - b], [a - b, 2 * den]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[2] === b)) break;
+  }
+  const diff = a - b;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'unit_a',
+      title: 'はじめの分数',
+      actionName: 'かぞえる',
+      explanation: `${a}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_a',
+      expectedStepValue: a,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '引く分数',
+      actionName: 'かぞえる',
+      explanation: `${b}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: b,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${a} - ${b} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: diff,
+      hint: '単位分数の数だけを引くよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${diff}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${a}/${den} - ${b}/${den} = ?`,
+    expression: `${a}/${den} - ${b}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [a, den, b, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: diff / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: (a + b) / den,
+      reasonCategory: 'fraction_added_instead',
+      diagnosis: 'ひき算なのに、分子を足してしまったかも！',
+      hintMessage: '分子同士を引いてみよう。分母はそのままだよ！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: (a + b) / den,
+        reasonCategory: 'fraction_added_instead',
+        adviceMessage: 'ひき算なのに分子を足していないかな？分子同士を引いてみよう！'
+      },
+      {
+        predictedErrorValue: den / diff,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+      },
+      {
+        predictedErrorValue: diff / (2 * den),
+        reasonCategory: 'fraction_denominator_added',
+        adviceMessage: `分母まで計算してしまったかも！分母は ${den} のままだよ！`
+      }
+    ],
+    patternType: 'frac_sub_same_den',
+    trapMetadata: {
+      fractionAnswer: { numerator: diff, denominator: den },
+      fracDen: den,
+      fracA: a,
+      fracB: b
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern B): 帯分数 (1とn/d) − 真分数 (m/d)、分子が引けないので借りる
+ */
+function buildFractionSubMixedBorrow({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) {
+    if (difficultyLevel === 'standard') den = randInt(4, 9, rng);
+    else if (difficultyLevel === 'hurdle') den = randInt(5, 10, rng);
+    else den = randInt(6, 12, rng);
+  }
+
+  let n = 1;
+  let m = den - 1;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    n = randInt(1, den - 2, rng);
+    m = randInt(n + 1, den - 1, rng);
+    // 借り忘れトラップ (m - n) が正解 (den + n - m) と一致する組は避ける
+    if (den === 2 * (m - n)) continue;
+    // 診断の予測値どうしが重なる組も避ける (例: 1と2/4-3/4 では「借り忘れ」
+    // 1/4 と「整数部分の足し忘れ」1/4 が一致し、後者に到達できなくなる)
+    const borrowPredicted = [[m - n, den], [den, den + n - m]];
+    if (den - m > 0 && den - m !== den + n - m) borrowPredicted.push([den - m, den]);
+    if (fractionDiagnosticsCollide([den + n - m, den], borrowPredicted)) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracNum === n && t.fracSub === m)) break;
+  }
+  const improperNum = den + n;
+  const resultNum = improperNum - m;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'convert',
+      title: '仮分数に直す',
+      actionName: 'かぞえる',
+      explanation: `1と${n}/${den} を仮分数に直そう。1 は 1/${den} が ${den} こ分だから、分子は ${den} + ${n} でいくつ？`,
+      blankPosition: 'convert',
+      expectedStepValue: improperNum,
+      hint: '整数の1を「分母の数こ分」に変身させて、もとの分子と合わせよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'unit_b',
+      title: '引く分数',
+      actionName: 'かぞえる',
+      explanation: `${m}/${den} は 1/${den} が何こ分？`,
+      blankPosition: 'unit_b',
+      expectedStepValue: m,
+      hint: '分子の数が「何こ分」だよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${improperNum} - ${m} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: resultNum,
+      hint: '仮分数に直したから、そのまま引けるよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${resultNum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: (m - n) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      adviceMessage: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！小さい方から引いてしまっているかも！'
+    },
+    {
+      predictedErrorValue: den / resultNum,
+      reasonCategory: 'fraction_inverted',
+      adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+    }
+  ];
+  if (den - m > 0 && den - m !== resultNum) {
+    errorDiagnostics.push({
+      predictedErrorValue: (den - m) / den,
+      reasonCategory: 'fraction_mixed_convert',
+      adviceMessage: `1を ${den} こ分に直したあと、もとの分子 ${n} を足し忘れているかも！`
+    });
+  }
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `1と${n}/${den} - ${m}/${den} = ?`,
+    expression: `1と${n}/${den} - ${m}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [improperNum, den, m, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: resultNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: (m - n) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      diagnosis: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！小さい方から引いてしまっているかも！',
+      hintMessage: '1と書かれた数を仮分数に直してから、分子同士を引いてみよう！'
+    },
+    errorDiagnostics,
+    patternType: 'frac_sub_mixed_borrow',
+    trapMetadata: {
+      fractionAnswer: { numerator: resultNum, denominator: den },
+      fracDen: den,
+      fracNum: n,
+      fracSub: m
+    }
+  });
+}
+
+/**
+ * Stage 7-3 (pattern C): 帯分数 − 帯分数 (借りが必要、答えは真分数)
+ */
+function buildFractionSubMixedMixed({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let den = variationTarget?.trapMetadata?.fracDen;
+  if (!den) den = randInt(6, 12, rng);
+
+  let wholeA = 2;
+  let n = 1;
+  let m = den - 1;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    wholeA = randInt(2, 3, rng);
+    n = randInt(1, den - 2, rng);
+    m = randInt(n + 1, den - 1, rng);
+    // 診断の予測値どうし (別々に引く den+m-n / 上下反転) が正解 (分子 den+n-m)
+    // や相互に重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [den + n - m, den],
+        [[den + m - n, den], [den, den + n - m]]
+      )
+    ) {
+      continue;
+    }
+    if (!variationTarget) break;
+    const t = variationTarget.trapMetadata || {};
+    if (!(t.fracWhole === wholeA && t.fracNum === n && t.fracSub === m)) break;
+  }
+  const wholeB = wholeA - 1;
+  const improperA = wholeA * den + n;
+  const improperB = wholeB * den + m;
+  const resultNum = improperA - improperB;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'convert_a',
+      title: 'はじめの帯分数を直す',
+      actionName: 'かぞえる',
+      explanation: `${wholeA}と${n}/${den} を仮分数に直そう。分子は ${wholeA} × ${den} + ${n} でいくつ？`,
+      blankPosition: 'convert_a',
+      expectedStepValue: improperA,
+      hint: '整数の分は「分母の数こ分」に変身させるよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'convert_b',
+      title: '引く帯分数を直す',
+      actionName: 'かぞえる',
+      explanation: `${wholeB}と${m}/${den} を仮分数に直そう。分子は ${wholeB} × ${den} + ${m} でいくつ？`,
+      blankPosition: 'convert_b',
+      expectedStepValue: improperB,
+      hint: 'こちらも同じように変身させよう！'
+    },
+    {
+      stepNumber: 3,
+      id: 'numerator',
+      title: '分子同士を引く',
+      actionName: 'ひく',
+      explanation: `分子同士を引くと何こ分？ ${improperA} - ${improperB} = ?`,
+      blankPosition: 'numerator',
+      expectedStepValue: resultNum,
+      hint: '両方とも仮分数に直したから、そのまま引けるよ！'
+    },
+    {
+      stepNumber: 4,
+      id: 'final',
+      title: '分母の確認',
+      actionName: 'かぞえる',
+      explanation: `答えは ${resultNum}/${den} だよ。答えの分母はいくつ？（分母は変わらないよ）`,
+      blankPosition: 'final',
+      expectedStepValue: den,
+      hint: '分母は「何等分したか」。ひき算でも変わらないよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 7,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${wholeA}と${n}/${den} - ${wholeB}と${m}/${den} = ?`,
+    expression: `${wholeA}と${n}/${den} - ${wholeB}と${m}/${den}`,
+    displayFormat: 'horizontal',
+    operands: [improperA, den, improperB, den],
+    operator: '-',
+    hasFraction: true,
+    quotient: resultNum / den,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: ((wholeA - wholeB) * den + (m - n)) / den,
+      reasonCategory: 'fraction_borrow_forgotten',
+      diagnosis: '分子が引けない時は、帯分数を仮分数に直してから引くんだったね！整数部分と分子を別々に引いてしまっているかも！',
+      hintMessage: '両方とも仮分数に直してから、分子同士を引いてみよう！'
+    },
+    errorDiagnostics: [
+      {
+        predictedErrorValue: ((wholeA - wholeB) * den + (m - n)) / den,
+        reasonCategory: 'fraction_borrow_forgotten',
+        adviceMessage: '整数部分と分子を別々に計算して、分子を小さい方から引いてしまっているかも！仮分数に直してから引こう！'
+      },
+      {
+        predictedErrorValue: den / resultNum,
+        reasonCategory: 'fraction_inverted',
+        adviceMessage: '分子と分母が反対になっているかも！上が分子、下が分母だよ！'
+      }
+    ],
+    patternType: 'frac_sub_mixed_mixed',
+    trapMetadata: {
+      fractionAnswer: { numerator: resultNum, denominator: den },
+      fracDen: den,
+      fracNum: n,
+      fracSub: m,
+      fracWhole: wholeA
+    }
+  });
+}
+
+/**
+ * Stage 7-3: 同分母のひき算 (帯分数からの借りを含む)
+ */
+function generateStage7_3(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'frac_sub_same_den';
+    } else if (args.difficultyLevel === 'standard' || args.difficultyLevel === 'hurdle') {
+      patternType = pickRandom(['frac_sub_same_den', 'frac_sub_mixed_borrow'], args.rng);
+    } else {
+      patternType = pickRandom(['frac_sub_mixed_borrow', 'frac_sub_mixed_mixed'], args.rng);
+    }
+  }
+
+  if (patternType === 'frac_sub_mixed_borrow') {
+    return buildFractionSubMixedBorrow(args);
+  }
+  if (patternType === 'frac_sub_mixed_mixed') {
+    return buildFractionSubMixedMixed(args);
+  }
+  return buildFractionSubSameDen(args);
+}
+
+// ============================================================================
+// Stage 8-x Helpers: 大きな数とがい数 (位取り・四捨五入・概算)
+// ============================================================================
+
+const LARGE_PLACES = [
+  { value: 1, name: '一の位' },
+  { value: 10, name: '十の位' },
+  { value: 100, name: '百の位' },
+  { value: 1000, name: '千の位' },
+  { value: 10000, name: '万の位' },
+  { value: 100000, name: '十万の位' },
+  { value: 1000000, name: '百万の位' },
+  { value: 10000000, name: '千万の位' },
+  { value: 100000000, name: '億の位' },
+  { value: 1000000000, name: '十億の位' },
+  { value: 10000000000, name: '百億の位' },
+  { value: 100000000000, name: '千億の位' },
+  { value: 1000000000000, name: '兆の位' }
+];
+
+function largePlaceName(placeValue) {
+  const found = LARGE_PLACES.find((p) => p.value === placeValue);
+  return found ? found.name : '一の位';
+}
+
+/** 一の位から数えた位の順番 (一の位=1, 十の位=2, ..., 兆の位=13) */
+function largePlacePosition(placeValue) {
+  return LARGE_PLACES.findIndex((p) => p.value === placeValue) + 1;
+}
+
+function digitAtPlace(n, placeValue) {
+  return Math.floor(n / placeValue) % 10;
+}
+
+/** 3桁区切り表記 (例: 1234567 → '1,234,567')。桁を数えやすくするための表示用 */
+function formatComma(n) {
+  return String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** 万・億・兆のまとまりで読む表記 (例: 456000000 → '4億5600万', 30000000 → '3000万') */
+function formatUnitReading(n) {
+  if (n === 0) return '0';
+  const groups = [
+    { unit: '兆', size: 1000000000000 },
+    { unit: '億', size: 100000000 },
+    { unit: '万', size: 10000 },
+    { unit: '', size: 1 }
+  ];
+  let rest = n;
+  let out = '';
+  for (const g of groups) {
+    const v = Math.floor(rest / g.size);
+    if (v > 0) {
+      out += `${v}${g.unit}`;
+      rest -= v * g.size;
+    }
+  }
+  return out;
+}
+
+/** place の位までのがい数にする (四捨五入。0.5 は切り上げ) */
+function roundToPlace(n, place) {
+  return Math.round(n / place) * place;
+}
+
+/**
+ * 切り上げで「残す位」の 9 が 0 に繰り上がってしまう組み合わせか
+ * (例: 19,643 を千の位まで → 20,000、9,668 を上から1桁 → 10,000)。
+ * この場合ステップ「残す位の数字」の期待値が 0 になり、答えと食い違う
+ */
+function roundingCarriesPastKeptDigit(n, place) {
+  return digitAtPlace(n, place) === 9 && digitAtPlace(n, place / 10) >= 5;
+}
+
+function countTrailingZeros(n) {
+  let count = 0;
+  let rest = Math.abs(Math.trunc(n));
+  while (rest > 0 && rest % 10 === 0) {
+    count++;
+    rest = Math.floor(rest / 10);
+  }
+  return count;
+}
+
+/**
+ * Stage 8-1 (pattern A): 大きな数の位の数字を読む
+ */
+function buildLargePlaceDigit({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let placePool;
+  if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+    placePool = [10000, 100000, 1000000, 10000000, 100000000];
+  } else if (difficultyLevel === 'standard') {
+    placePool = [100000, 1000000, 10000000, 100000000, 1000000000, 10000000000];
+  } else if (difficultyLevel === 'hurdle') {
+    placePool = [1000000, 10000000, 100000000, 1000000000, 10000000000, 100000000000];
+  } else {
+    placePool = [10000000, 100000000, 1000000000, 10000000000, 100000000000, 1000000000000];
+  }
+  let place = variationTarget?.trapMetadata?.placeValue;
+  if (!placePool.includes(place) && !LARGE_PLACES.some((p) => p.value === place && place >= 10000)) {
+    place = pickRandom(placePool, rng);
+  }
+
+  let n = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const topPlace = Math.min(place * Math.pow(10, randInt(0, 2, rng)), 1000000000000);
+    n = 0;
+    for (const p of LARGE_PLACES) {
+      if (p.value > topPlace) break;
+      const d = p.value === topPlace ? randInt(1, 9, rng) : randInt(0, 9, rng);
+      n += d * p.value;
+    }
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[0] !== n) break;
+  }
+
+  const digit = digitAtPlace(n, place);
+  const position = largePlacePosition(place);
+  const placeName = largePlaceName(place);
+  const nText = formatComma(n);
+
+  const leftDigit = place < 1000000000000 ? digitAtPlace(n, place * 10) : null;
+  const rightDigit = place > 1 ? digitAtPlace(n, place / 10) : null;
+
+  const errorDiagnostics = [];
+  if (leftDigit !== null && leftDigit !== digit) {
+    errorDiagnostics.push({
+      predictedErrorValue: leftDigit,
+      reasonCategory: 'large_place_neighbor',
+      adviceMessage: `それは1つ左の${largePlaceName(place * 10)}の数字だね。${placeName}は右から${position}番目だよ！`
+    });
+  }
+  if (rightDigit !== null && rightDigit !== digit && rightDigit !== leftDigit) {
+    errorDiagnostics.push({
+      predictedErrorValue: rightDigit,
+      reasonCategory: 'large_place_neighbor',
+      adviceMessage: `それは1つ右の${largePlaceName(place / 10)}の数字だね。${placeName}は右から${position}番目だよ！`
+    });
+  }
+  let mistakeValue;
+  let trapPlaceName = '';
+  if (leftDigit !== null && leftDigit !== digit) {
+    mistakeValue = leftDigit;
+    trapPlaceName = largePlaceName(place * 10);
+  } else if (rightDigit !== null && rightDigit !== digit) {
+    mistakeValue = rightDigit;
+    trapPlaceName = largePlaceName(place / 10);
+  } else {
+    mistakeValue = (digit + 1) % 10;
+  }
+  if (errorDiagnostics.length === 0) {
+    errorDiagnostics.push({
+      predictedErrorValue: mistakeValue,
+      reasonCategory: 'large_digit_slip',
+      adviceMessage: '位取り表で、右から1つずつ数えて確かめてみよう！'
+    });
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'position',
+      title: '位の場所',
+      actionName: 'かぞえる',
+      explanation: `位取り表で確かめよう。${placeName}は、一の位から数えて何番目の位？`,
+      blankPosition: 'position',
+      expectedStepValue: position,
+      hint: '右から「一、十、百、千、万、十万…」と順に数えてみよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'digit',
+      title: '位の数字',
+      actionName: 'よむ',
+      explanation: `${nText} を右から数えて、${position}番目（${placeName}）の数字は？`,
+      blankPosition: 'digit',
+      expectedStepValue: digit,
+      hint: '右から4桁ずつ区切ると「万・億」のまとまりで読みやすいよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '位の数字の答え',
+      actionName: 'よむ',
+      explanation: `${nText} の ${placeName}の数字は？`,
+      blankPosition: 'final',
+      expectedStepValue: digit,
+      hint: `${placeName}は右から${position}番目だよ！`
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${nText} の ${placeName}の数字は？`,
+    expression: `${nText} の ${placeName}`,
+    displayFormat: 'horizontal',
+    operands: [n, place],
+    operator: 'mixed',
+    quotient: digit,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue,
+      reasonCategory: 'large_place_neighbor',
+      diagnosis: trapPlaceName
+        ? `となりの${trapPlaceName}の数字とまちがえているかも！${placeName}は右から${position}番目だよ！`
+        : '位取り表で、右から数えて確かめてみよう！',
+      hintMessage: `右から「一、十、百、千、万…」と数えて、${position}番目の数字を見つけよう！`
+    },
+    errorDiagnostics,
+    patternType: 'large_place_digit',
+    trapMetadata: { placeValue: place }
+  });
+}
+
+/**
+ * Stage 8-1 (pattern B): 「○億は、1万が何こ分？」単位の換算
+ */
+function buildLargeUnitCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let unitBase = variationTarget?.trapMetadata?.unitBase || null;
+  let lead = 3;
+  let exp10 = 2;
+  let count = 300;
+  let target = 3000000;
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (!unitBase) {
+      if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') unitBase = 10000;
+      else if (difficultyLevel === 'standard') unitBase = pickRandom([10000, 100000000], rng);
+      else unitBase = pickRandom([10000, 1000000, 100000000], rng);
+    }
+    lead = randInt(2, 9, rng);
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') exp10 = randInt(1, 2, rng);
+    else if (difficultyLevel === 'challenge') exp10 = randInt(3, 4, rng);
+    else exp10 = randInt(2, 3, rng);
+    count = lead * Math.pow(10, exp10);
+    target = unitBase * count;
+    if (target >= 10000000000000) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === target && t[1] === unitBase)) break;
+  }
+
+  const unitText = formatUnitReading(unitBase);
+  const targetText = formatUnitReading(target);
+  const groupValue = unitBase * lead;
+  const groupText = formatUnitReading(groupValue);
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'group',
+      title: 'まとまりの数',
+      actionName: 'かぞえる',
+      explanation: `${unitText} が ${lead} こ集まると ${groupText} だね。その数はいくつ？`,
+      blankPosition: 'group',
+      expectedStepValue: groupValue,
+      hint: `${unitText} の ${lead} 倍だよ。0の数に注目しよう！`
+    },
+    {
+      stepNumber: 2,
+      id: 'ten_ladder',
+      title: '10倍の階段',
+      actionName: 'かぞえる',
+      explanation: `${groupText} を10倍ずつ大きくしていくと ${targetText} になるよ。10倍は全部で何回分？`,
+      blankPosition: 'ten_ladder',
+      expectedStepValue: exp10,
+      hint: '10倍するたびに、右に0が1こ増えるよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '何こ分の答え',
+      actionName: 'かぞえる',
+      explanation: `${targetText}（${formatComma(target)}）は、${unitText} が何こ分？`,
+      blankPosition: 'final',
+      expectedStepValue: count,
+      hint: `${lead} こ分のまとまりが、さらに10を${exp10}回かけた分あるよ！`
+    }
+  ];
+
+  // exp10 === 1 のとき count / 10 === lead となり、zero_count_slip と
+  // large_count_partial の予測値が重複して後者が到達不能になるため、重複を除く
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: count / 10,
+      reasonCategory: 'zero_count_slip',
+      adviceMessage: '0の数が1つ足りないかも！10倍の階段をもう一度数えてみよう！'
+    },
+    {
+      predictedErrorValue: count * 10,
+      reasonCategory: 'zero_count_slip',
+      adviceMessage: '0を1つ多く数えているかも！位の差を確かめよう！'
+    },
+    {
+      predictedErrorValue: lead,
+      reasonCategory: 'large_count_partial',
+      adviceMessage: `それは最初のまとまり（${lead}こ分）だけの数だね。10倍の分も合わせよう！`
+    }
+  ].filter((d, i, arr) => arr.findIndex((o) => o.predictedErrorValue === d.predictedErrorValue) === i);
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${targetText}（${formatComma(target)}）は、${unitText}が何こ分？`,
+    expression: `${formatComma(target)} は ${unitText} が何こ分`,
+    displayFormat: 'horizontal',
+    operands: [target, unitBase],
+    operator: 'mixed',
+    quotient: count,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: count / 10,
+      reasonCategory: 'zero_count_slip',
+      diagnosis: '0の数が1つ足りないかも！10倍の回数を数え直してみよう！',
+      hintMessage: `${unitText} から ${targetText} まで、10倍が何回分か指で数えてみよう！`
+    },
+    errorDiagnostics,
+    patternType: 'large_unit_count',
+    trapMetadata: { unitBase, unitCount: count }
+  });
+}
+
+/**
+ * Stage 8-1 (pattern C): 10倍・100倍・1/10で0がどう変わるか
+ */
+function buildLargeTimesTen({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let mode = variationTarget?.trapMetadata?.timesMode || null;
+  let factor = variationTarget?.trapMetadata?.scaleFactor || null;
+  if (mode !== 'times' && mode !== 'tenth') {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      mode = 'times';
+      factor = 10;
+    } else if (difficultyLevel === 'standard') {
+      mode = 'times';
+      factor = pickRandom([10, 100], rng);
+    } else if (rng() < 0.5) {
+      mode = 'times';
+      factor = 100;
+    } else {
+      mode = 'tenth';
+      factor = 10;
+    }
+  }
+  if (mode === 'times' && factor !== 10 && factor !== 100) factor = 10;
+  if (mode === 'tenth') factor = 10;
+
+  let n = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    let zeros;
+    if (mode === 'tenth') zeros = randInt(2, 5, rng);
+    else if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') zeros = 3;
+    else if (difficultyLevel === 'standard') zeros = randInt(3, 4, rng);
+    else zeros = randInt(4, 5, rng);
+    n = randInt(12, 9999, rng) * Math.pow(10, zeros);
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[0] !== n) break;
+  }
+
+  const answer = mode === 'times' ? n * factor : n / 10;
+  const zeroChange = mode === 'times' ? (factor === 10 ? 1 : 2) : 1;
+  const answerZeros = countTrailingZeros(answer);
+  const nText = formatComma(n);
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'zero_change',
+      title: '0の変化',
+      actionName: 'かぞえる',
+      explanation: mode === 'times'
+        ? `${factor}倍すると、数の右に0が何こ増える？`
+        : '1/10にすると、数の右の0が何こ減る？',
+      blankPosition: 'zero_change',
+      expectedStepValue: zeroChange,
+      hint: mode === 'times'
+        ? '10倍で0が1こ、100倍で0が2こ増えるよ！'
+        : '1/10にすると、右の0が1こ取れるよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'trailing',
+      title: '答えの0の数',
+      actionName: 'かぞえる',
+      explanation: `答えの末尾の0は、全部で何こになる？`,
+      blankPosition: 'trailing',
+      expectedStepValue: answerZeros,
+      hint: 'もとの数の0の数と、増える（減る）0の数を合わせよう！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '答え',
+      actionName: 'かぞえる',
+      explanation: mode === 'times' ? `${nText} の${factor}倍は？` : `${nText} を 1/10 にすると？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: '数字の並びはそのままで、0の数だけが変わるよ！'
+    }
+  ];
+
+  let mistakeValue;
+  let trapDiagnosis;
+  const errorDiagnostics = [];
+  if (mode === 'times' && factor === 10) {
+    mistakeValue = n * 100;
+    trapDiagnosis = '0を1つ多くつけてしまったかも！10倍では0は1こだけ増えるよ！';
+    errorDiagnostics.push(
+      { predictedErrorValue: n * 100, reasonCategory: 'zero_count_slip', adviceMessage: '0を1つ多くつけているかも！10倍では0は1こ増えるだけだよ！' },
+      { predictedErrorValue: n, reasonCategory: 'times_ten_unchanged', adviceMessage: 'そのままの数になっているよ。10倍すると0が1こ増えるよ！' }
+    );
+  } else if (mode === 'times') {
+    mistakeValue = n * 10;
+    trapDiagnosis = '0が1つ足りないかも！100倍では0が2こ増えるよ！';
+    errorDiagnostics.push(
+      { predictedErrorValue: n * 10, reasonCategory: 'zero_count_slip', adviceMessage: '0が1つ足りないかも！100倍では0が2こ増えるよ！' },
+      { predictedErrorValue: n * 1000, reasonCategory: 'zero_count_slip', adviceMessage: '0を1つ多くつけているかも！100倍では0は2こ増えるよ！' }
+    );
+  } else {
+    mistakeValue = n;
+    trapDiagnosis = '0を取り忘れているかも！1/10にすると、右の0が1こ減るよ！';
+    errorDiagnostics.push(
+      { predictedErrorValue: n, reasonCategory: 'times_ten_unchanged', adviceMessage: 'そのままの数になっているよ。1/10にすると0が1こ減るよ！' },
+      { predictedErrorValue: n / 100, reasonCategory: 'zero_count_slip', adviceMessage: '0を2こ取ってしまったかも！1/10では0は1こだけ減るよ！' }
+    );
+  }
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 1,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: mode === 'times' ? `${nText} の${factor}倍は？` : `${nText} を 1/10 にすると？`,
+    expression: mode === 'times' ? `${nText} × ${factor}` : `${nText} ÷ 10`,
+    displayFormat: 'horizontal',
+    operands: [n, factor],
+    operator: 'mixed',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue,
+      reasonCategory: 'zero_count_slip',
+      diagnosis: trapDiagnosis,
+      hintMessage: '数字の並びはそのまま。0の数がどう変わるかだけに注目しよう！'
+    },
+    errorDiagnostics,
+    patternType: 'large_times_ten',
+    trapMetadata: { timesMode: mode, scaleFactor: factor }
+  });
+}
+
+/**
+ * Stage 8-1: 大きな数の仕組み (位取り・単位換算・10倍関係)
+ */
+function generateStage8_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = pickRandom(['large_place_digit', 'large_place_digit', 'large_unit_count'], args.rng);
+    } else {
+      patternType = pickRandom(['large_place_digit', 'large_unit_count', 'large_times_ten'], args.rng);
+    }
+  }
+  if (patternType === 'large_unit_count') return buildLargeUnitCount(args);
+  if (patternType === 'large_times_ten') return buildLargeTimesTen(args);
+  return buildLargePlaceDigit(args);
+}
+
+/**
+ * Stage 8-2 (pattern A): 〜の位までのがい数 (四捨五入)
+ * place は「残す一番小さい位」= がい数の刻み (例: place=1000 → 千の位まで)
+ */
+function buildRoundToPlace({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let placePool;
+  if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') placePool = [100, 1000];
+  else if (difficultyLevel === 'standard') placePool = [1000, 10000];
+  else if (difficultyLevel === 'hurdle') placePool = [10000, 100000];
+  else placePool = [100000, 1000000];
+  let place = variationTarget?.trapMetadata?.roundPlace;
+  if (!place) place = pickRandom(placePool, rng);
+
+  let n = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    n = randInt(11, 99, rng) * place + randInt(1, place - 1, rng);
+    // 切り上げで残す位の 9 が繰り上がる組み合わせは生成から除外する
+    if (roundingCarriesPastKeptDigit(n, place)) continue;
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[0] !== n) break;
+  }
+
+  let answer = roundToPlace(n, place);
+  // 乱数が偏って繰り上がりの候補しか引けなかった場合に備え、刻みを下げて確実に解消する
+  while (roundingCarriesPastKeptDigit(n, place)) {
+    n -= place;
+    answer = roundToPlace(n, place);
+  }
+  const lookPlace = place / 10;
+  const lookDigit = digitAtPlace(n, lookPlace);
+  const roundsUp = lookDigit >= 5;
+  const placeName = largePlaceName(place);
+  const lookName = largePlaceName(lookPlace);
+  const nText = formatComma(n);
+
+  const wrongPlace = roundToPlace(n, place * 10);
+  const directionValue = roundsUp ? Math.floor(n / place) * place : Math.ceil(n / place) * place;
+
+  const errorDiagnostics = [];
+  if (wrongPlace !== answer) {
+    errorDiagnostics.push({
+      predictedErrorValue: wrongPlace,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: `四捨五入する位が1つずれているかも！「${placeName}まで」だから、見るのは${lookName}だよ！`
+    });
+  }
+  errorDiagnostics.push({
+    predictedErrorValue: directionValue,
+    reasonCategory: 'round_direction_slip',
+    adviceMessage: roundsUp
+      ? `${lookName}は${lookDigit}で5以上だから、切り上げよう！`
+      : `${lookName}は${lookDigit}で4以下だから、切り捨てよう！`
+  });
+
+  const usePlaceTrap = wrongPlace !== answer;
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'look',
+      title: '見る位',
+      actionName: 'よむ',
+      explanation: `${placeName}までのがい数にするには、1つ下の${lookName}の数字を見るよ。${nText} の ${lookName}の数字は？`,
+      blankPosition: 'look',
+      expectedStepValue: lookDigit,
+      hint: `見るのは${placeName}の右となりの位だよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'decide',
+      title: '切り上げ・切り捨て',
+      actionName: '四捨五入',
+      explanation: roundsUp
+        ? `${lookDigit} は5以上だから切り上げ！${placeName}の数字はいくつになる？`
+        : `${lookDigit} は4以下だから切り捨て！${placeName}の数字はそのままだといくつ？`,
+      blankPosition: 'decide',
+      expectedStepValue: digitAtPlace(answer, place),
+      hint: roundsUp ? '切り上げると、残す位の数字が1つ増えるよ！' : '切り捨てると、残す位の数字は変わらないよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: 'がい数の答え',
+      actionName: '四捨五入',
+      explanation: `${nText} を ${placeName}までのがい数にすると？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: `${placeName}より下の位は全部0になるよ！`
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${nText} を、${placeName}までのがい数にすると？`,
+    expression: `${nText} を ${placeName}までのがい数に`,
+    displayFormat: 'horizontal',
+    operands: [n, place],
+    operator: 'mixed',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: usePlaceTrap ? wrongPlace : directionValue,
+      reasonCategory: usePlaceTrap ? 'round_place_misread' : 'round_direction_slip',
+      diagnosis: usePlaceTrap
+        ? `四捨五入する位を取り違えているかも！「${placeName}まで」のがい数だよ！`
+        : roundsUp
+          ? '切り上げを忘れているかも！5以上は切り上げるよ！'
+          : '切り捨てのはずが切り上げているかも！4以下は切り捨てるよ！',
+      hintMessage: `まず${lookName}の数字を見て、4以下か5以上かで決めよう！`
+    },
+    errorDiagnostics,
+    patternType: 'round_to_place',
+    trapMetadata: { roundPlace: place }
+  });
+}
+
+/**
+ * Stage 8-2 (pattern B): 上から○桁のがい数
+ */
+function buildRoundSignificant({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let sig = variationTarget?.trapMetadata?.sigDigits;
+  if (!sig) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') sig = 1;
+    else if (difficultyLevel === 'standard') sig = pickRandom([1, 2], rng);
+    else if (difficultyLevel === 'hurdle') sig = 2;
+    else sig = pickRandom([2, 3], rng);
+  }
+
+  let n = 0;
+  let unit = 100;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const digits = sig + randInt(2, 3, rng);
+    unit = Math.pow(10, digits - sig);
+    n = randInt(Math.pow(10, digits - 1), Math.pow(10, digits) - 1, rng);
+    if (n % unit === 0) continue;
+    // 切り上げで残す桁の 9 が繰り上がる組み合わせは生成から除外する
+    if (roundingCarriesPastKeptDigit(n, unit)) continue;
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[0] !== n) break;
+  }
+
+  let answer = roundToPlace(n, unit);
+  // 乱数が偏って繰り上がりの候補しか引けなかった場合に備え、刻みを下げて確実に解消する
+  while (roundingCarriesPastKeptDigit(n, unit)) {
+    n -= unit;
+    answer = roundToPlace(n, unit);
+  }
+  const lookDigit = digitAtPlace(n, unit / 10);
+  const roundsUp = lookDigit >= 5;
+  const nText = formatComma(n);
+
+  const keptTooMany = roundToPlace(n, unit / 10);
+  const keptTooFew = roundToPlace(n, unit * 10);
+  const directionValue = roundsUp ? Math.floor(n / unit) * unit : Math.ceil(n / unit) * unit;
+
+  const errorDiagnostics = [];
+  if (keptTooMany !== answer) {
+    errorDiagnostics.push({
+      predictedErrorValue: keptTooMany,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: `上から${sig}桁まで残すはずだよ。1桁多く残しているかも！`
+    });
+  }
+  if (sig >= 2 && keptTooFew !== answer && keptTooFew !== keptTooMany) {
+    errorDiagnostics.push({
+      predictedErrorValue: keptTooFew,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: `上から${sig}桁まで残すはずだよ。残す桁が少なすぎるかも！`
+    });
+  }
+  errorDiagnostics.push({
+    predictedErrorValue: directionValue,
+    reasonCategory: 'round_direction_slip',
+    adviceMessage: roundsUp
+      ? `上から${sig + 1}桁目は${lookDigit}で5以上だから、切り上げよう！`
+      : `上から${sig + 1}桁目は${lookDigit}で4以下だから、切り捨てよう！`
+  });
+
+  const useCountTrap = keptTooMany !== answer;
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'look',
+      title: '見る桁',
+      actionName: 'よむ',
+      explanation: `上から${sig}桁のがい数にするには、上から${sig + 1}桁目の数字を見るよ。${nText} の上から${sig + 1}桁目は？`,
+      blankPosition: 'look',
+      expectedStepValue: lookDigit,
+      hint: '左から1つずつ指で数えてみよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'decide',
+      title: '切り上げ・切り捨て',
+      actionName: '四捨五入',
+      explanation: roundsUp
+        ? `${lookDigit} は5以上だから切り上げ！上から${sig}桁目の数字はいくつになる？`
+        : `${lookDigit} は4以下だから切り捨て！上から${sig}桁目の数字はそのままだといくつ？`,
+      blankPosition: 'decide',
+      expectedStepValue: digitAtPlace(answer, unit),
+      hint: roundsUp ? '切り上げると、残す最後の桁が1つ増えるよ！' : '切り捨てると、残す桁は変わらないよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: 'がい数の答え',
+      actionName: '四捨五入',
+      explanation: `${nText} を、上から${sig}桁のがい数にすると？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: `上から${sig}桁だけ残して、あとは全部0だよ！`
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${nText} を、上から${sig}桁のがい数にすると？`,
+    expression: `${nText} を 上から${sig}桁のがい数に`,
+    displayFormat: 'horizontal',
+    operands: [n, sig],
+    operator: 'mixed',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: useCountTrap ? keptTooMany : directionValue,
+      reasonCategory: useCountTrap ? 'round_place_misread' : 'round_direction_slip',
+      diagnosis: useCountTrap
+        ? `残す桁の数がずれているかも！「上から${sig}桁」までだよ！`
+        : roundsUp
+          ? '切り上げを忘れているかも！5以上は切り上げるよ！'
+          : '切り捨てのはずが切り上げているかも！4以下は切り捨てるよ！',
+      hintMessage: `まず上から${sig + 1}桁目の数字を見てみよう！`
+    },
+    errorDiagnostics,
+    patternType: 'round_significant',
+    trapMetadata: { sigDigits: sig }
+  });
+}
+
+/**
+ * Stage 8-2 (pattern C): がい数になる数の範囲 (以上・未満の考え方)
+ * place はがい数の刻み。四捨五入して place の位までのがい数で V になる範囲を問う
+ */
+function buildRoundRange({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let place = variationTarget?.trapMetadata?.roundPlace;
+  if (!place) {
+    place = difficultyLevel === 'challenge'
+      ? pickRandom([1000, 10000], rng)
+      : pickRandom([100, 1000], rng);
+  }
+  let which = variationTarget?.trapMetadata?.rangeWhich;
+  if (which !== 'min' && which !== 'max') which = pickRandom(['min', 'max'], rng);
+
+  let v = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    v = randInt(12, 98, rng) * place;
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[0] !== v) break;
+  }
+
+  const half = place / 2;
+  const answer = which === 'min' ? v - half : v + half - 1;
+  const placeName = largePlaceName(place);
+  const lookName = largePlaceName(place / 10);
+  const vText = formatComma(v);
+
+  const steps = which === 'min'
+    ? [
+        {
+          stepNumber: 1,
+          id: 'boundary',
+          title: '切り上がる境界',
+          actionName: '四捨五入',
+          explanation: `${vText} になるのは、${lookName}が5以上で切り上がる数からだよ。${vText} よりいくつ小さい数までなら、四捨五入して ${vText} になる？`,
+          blankPosition: 'boundary',
+          expectedStepValue: half,
+          hint: `刻みの半分（${formatComma(place)}の半分）までだよ！`
+        },
+        {
+          stepNumber: 2,
+          id: 'final',
+          title: 'いちばん小さい数',
+          actionName: '四捨五入',
+          explanation: `四捨五入して ${placeName}までのがい数にすると ${vText} になる整数のうち、いちばん小さい数は？`,
+          blankPosition: 'final',
+          expectedStepValue: answer,
+          hint: `${vText} から ${formatComma(half)} を引いてみよう！`
+        }
+      ]
+    : [
+        {
+          stepNumber: 1,
+          id: 'boundary',
+          title: '切り捨ての境界',
+          actionName: '四捨五入',
+          explanation: `${vText} より大きい数でも、${lookName}が4以下なら切り捨てで ${vText} になるよ。${vText} よりいくつ大きい数までなら、四捨五入して ${vText} になる？`,
+          blankPosition: 'boundary',
+          expectedStepValue: half - 1,
+          hint: `刻みの半分より1小さい数までだよ。${formatComma(half)} を足すと切り上がってしまうよ！`
+        },
+        {
+          stepNumber: 2,
+          id: 'final',
+          title: 'いちばん大きい数',
+          actionName: '四捨五入',
+          explanation: `四捨五入して ${placeName}までのがい数にすると ${vText} になる整数のうち、いちばん大きい数は？`,
+          blankPosition: 'final',
+          expectedStepValue: answer,
+          hint: `${vText} に ${formatComma(half - 1)} を足してみよう！`
+        }
+      ];
+
+  const errorDiagnostics = which === 'min'
+    ? [
+        {
+          predictedErrorValue: v - place,
+          reasonCategory: 'round_range_boundary',
+          adviceMessage: '下がりすぎかも！切り上がって同じがい数になるのは、刻みの半分までだよ！'
+        },
+        {
+          predictedErrorValue: v - half - 1,
+          reasonCategory: 'round_range_boundary',
+          adviceMessage: `その数は${lookName}が4になって切り捨てられてしまうよ。境界は${formatComma(half)}引いた数までだよ！`
+        }
+      ]
+    : [
+        {
+          predictedErrorValue: v + half,
+          reasonCategory: 'round_range_boundary',
+          adviceMessage: `その数は${lookName}が5になって切り上がってしまうよ！境界は1小さい数までだよ！`
+        },
+        {
+          predictedErrorValue: v + place - 1,
+          reasonCategory: 'round_range_boundary',
+          adviceMessage: '行きすぎかも！切り捨てで同じがい数になるのは、刻みの半分より1小さい数までだよ！'
+        }
+      ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 2,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `四捨五入して ${placeName}までのがい数にすると ${vText} になる整数のうち、いちばん${which === 'min' ? '小さい' : '大きい'}数は？`,
+    expression: `がい数が ${vText} になる${which === 'min' ? '最小' : '最大'}の整数`,
+    displayFormat: 'horizontal',
+    operands: [v, place],
+    operator: 'mixed',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: which === 'min' ? v - place : v + half,
+      reasonCategory: 'round_range_boundary',
+      diagnosis: which === 'min'
+        ? '範囲が広すぎるかも！切り上がるのは刻みの半分までだよ！'
+        : `境界の${formatComma(half)}を足した数は、切り上がって次の数になってしまうよ！`,
+      hintMessage: '刻み（がい数の1目もり）の半分が境界だよ！'
+    },
+    errorDiagnostics,
+    patternType: 'round_range',
+    trapMetadata: { roundPlace: place, rangeWhich: which }
+  });
+}
+
+/**
+ * Stage 8-2: がい数と四捨五入
+ */
+function generateStage8_2(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'round_to_place';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['round_to_place', 'round_significant'], args.rng);
+    } else {
+      patternType = pickRandom(['round_to_place', 'round_significant', 'round_range'], args.rng);
+    }
+  }
+  if (patternType === 'round_significant') return buildRoundSignificant(args);
+  if (patternType === 'round_range') return buildRoundRange(args);
+  return buildRoundToPlace(args);
+}
+
+const ESTIMATE_ITEMS = [
+  'えんぴつ', 'ノート', 'りんご', 'みかん', 'ケーキ', 'ボールペン',
+  'ジュース', 'パン', '牛乳', '本', 'クッキー', 'バナナ'
+];
+
+function pickTwoItems(rng) {
+  const first = pickRandom(ESTIMATE_ITEMS, rng);
+  let second = pickRandom(ESTIMATE_ITEMS, rng);
+  for (let i = 0; i < 20 && second === first; i++) {
+    second = pickRandom(ESTIMATE_ITEMS, rng);
+  }
+  return [first, second];
+}
+
+/**
+ * Stage 8-3 (pattern A): がい数で見積もるたし算 (買い物)
+ */
+function buildEstimateAdd({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let place = variationTarget?.trapMetadata?.estimatePlace;
+  if (!place) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') place = 100;
+    else if (difficultyLevel === 'challenge') place = 1000;
+    else place = pickRandom([100, 1000], rng);
+  }
+
+  let a = 298;
+  let b = 512;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (place === 100) {
+      a = randInt(108, 989, rng);
+      b = randInt(108, 989, rng);
+    } else {
+      a = randInt(1108, 9899, rng);
+      b = randInt(1108, 9899, rng);
+    }
+    if (a % place === 0 || b % place === 0) continue;
+    // 正確な合計と概算が一致する組み合わせ (切り上げと切り捨てが相殺) は、
+    // 「そのまま足した」誤答と区別できないため避ける
+    if (a + b === roundToPlace(a, place) + roundToPlace(b, place)) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[1] === b)) break;
+  }
+
+  const [itemA, itemB] = pickTwoItems(rng);
+  const ra = roundToPlace(a, place);
+  const rb = roundToPlace(b, place);
+  const answer = ra + rb;
+  const placeName = largePlaceName(place);
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: a + b,
+      reasonCategory: 'estimate_exact_calc',
+      adviceMessage: '値段をそのまま足してしまったかも！見積もりでは、まずがい数に直してから計算しよう！'
+    },
+    {
+      predictedErrorValue: ra + b,
+      reasonCategory: 'estimate_partial_round',
+      adviceMessage: `片方だけがい数になっているよ。${itemB}の値段も${placeName}までのがい数に直そう！`
+    }
+  ];
+  const wrongPlaceSum = roundToPlace(a, place * 10) + roundToPlace(b, place * 10);
+  if (wrongPlaceSum !== answer && wrongPlaceSum !== a + b) {
+    errorDiagnostics.push({
+      predictedErrorValue: wrongPlaceSum,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: `丸める位がずれているかも！「${placeName}まで」のがい数だよ！`
+    });
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'round_a',
+      title: '1つ目のがい数',
+      actionName: '四捨五入',
+      explanation: `${itemA}の ${formatComma(a)} 円を、${placeName}までのがい数にすると？`,
+      blankPosition: 'round_a',
+      expectedStepValue: ra,
+      hint: `見るのは${largePlaceName(place / 10)}の数字だよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'round_b',
+      title: '2つ目のがい数',
+      actionName: '四捨五入',
+      explanation: `${itemB}の ${formatComma(b)} 円を、${placeName}までのがい数にすると？`,
+      blankPosition: 'round_b',
+      expectedStepValue: rb,
+      hint: `見るのは${largePlaceName(place / 10)}の数字だよ！`
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '見積もりの合計',
+      actionName: 'たす',
+      explanation: `2つのがい数を合わせると、約何円？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: 'がい数同士を足すだけだから、暗算でできるよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${itemA}は ${formatComma(a)} 円、${itemB}は ${formatComma(b)} 円です。${placeName}までのがい数にして見積もると、合わせて約何円？`,
+    expression: `${a} + ${b} の概算`,
+    displayFormat: 'horizontal',
+    operands: [a, b],
+    operator: '+',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: a + b,
+      reasonCategory: 'estimate_exact_calc',
+      diagnosis: '正確な計算をしてしまったかも！見積もりでは、まず値段をがい数に直そう！',
+      hintMessage: '298円は約300円、というように、がい数に直してから足してみよう！'
+    },
+    errorDiagnostics,
+    patternType: 'estimate_add',
+    trapMetadata: { estimatePlace: place }
+  });
+}
+
+/**
+ * Stage 8-3 (pattern B): がい数で見積もるおつり (ひき算)
+ */
+function buildEstimateSub({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  let place = variationTarget?.trapMetadata?.estimatePlace;
+  if (!place) {
+    place = difficultyLevel === 'hurdle' || difficultyLevel === 'challenge' ? 1000 : 100;
+  }
+
+  let budget = place === 100 ? 1000 : 5000;
+  let a = 298;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = place === 100 ? randInt(108, 949, rng) : randInt(1108, 4499, rng);
+    if (a % place === 0) continue;
+    if (!variationTarget) break;
+    if (variationTarget.operands?.[1] !== a) break;
+  }
+
+  const item = pickRandom(ESTIMATE_ITEMS, rng);
+  const ra = roundToPlace(a, place);
+  const answer = budget - ra;
+  const placeName = largePlaceName(place);
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: budget - a,
+      reasonCategory: 'estimate_exact_calc',
+      adviceMessage: '値段をそのまま引いてしまったかも！見積もりでは、まずがい数に直してから計算しよう！'
+    }
+  ];
+  const wrongPlaceChange = budget - roundToPlace(a, place * 10);
+  if (wrongPlaceChange !== answer && wrongPlaceChange !== budget - a) {
+    errorDiagnostics.push({
+      predictedErrorValue: wrongPlaceChange,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: `丸める位がずれているかも！「${placeName}まで」のがい数だよ！`
+    });
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'round_a',
+      title: '値段のがい数',
+      actionName: '四捨五入',
+      explanation: `${item}の ${formatComma(a)} 円を、${placeName}までのがい数にすると？`,
+      blankPosition: 'round_a',
+      expectedStepValue: ra,
+      hint: `見るのは${largePlaceName(place / 10)}の数字だよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'final',
+      title: 'おつりの見積もり',
+      actionName: 'ひく',
+      explanation: `${formatComma(budget)} 円から ${formatComma(ra)} 円を引くと、おつりは約何円？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: 'がい数で引くから、暗算で見当がつくよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `${formatComma(budget)} 円を持って買い物に行きました。${item}（${formatComma(a)} 円）を買います。${placeName}までのがい数にして見積もると、おつりは約何円？`,
+    expression: `${budget} - ${a} の概算`,
+    displayFormat: 'horizontal',
+    operands: [budget, a],
+    operator: '-',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: budget - a,
+      reasonCategory: 'estimate_exact_calc',
+      diagnosis: '正確な計算をしてしまったかも！見積もりでは、まず値段をがい数に直そう！',
+      hintMessage: '値段をがい数に直してから、持っているお金と比べよう！'
+    },
+    errorDiagnostics,
+    patternType: 'estimate_sub',
+    trapMetadata: { estimatePlace: place }
+  });
+}
+
+/**
+ * Stage 8-3 (pattern C): がい数で見積もるかけ算 (単価 × 個数)
+ */
+function buildEstimateMult({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
+  const place = 100;
+  let a = 198;
+  let count = 4;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    a = difficultyLevel === 'challenge' ? randInt(1008, 1989, rng) : randInt(108, 989, rng);
+    count = randInt(3, 9, rng);
+    if (a % place === 0) continue;
+    if (!variationTarget) break;
+    const t = variationTarget.operands || [];
+    if (!(t[0] === a && t[1] === count)) break;
+  }
+
+  const item = pickRandom(ESTIMATE_ITEMS, rng);
+  const ra = roundToPlace(a, place);
+  const answer = ra * count;
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: a * count,
+      reasonCategory: 'estimate_exact_calc',
+      adviceMessage: '値段をそのままかけてしまったかも！見積もりでは、まずがい数に直してから計算しよう！'
+    }
+  ];
+  const tensRoundedProduct = roundToPlace(a, 10) * count;
+  if (tensRoundedProduct !== answer && tensRoundedProduct !== a * count) {
+    errorDiagnostics.push({
+      predictedErrorValue: tensRoundedProduct,
+      reasonCategory: 'round_place_misread',
+      adviceMessage: '丸める位がずれているかも！「百の位まで」のがい数だよ！'
+    });
+  }
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'round_a',
+      title: '値段のがい数',
+      actionName: '四捨五入',
+      explanation: `${item}の ${formatComma(a)} 円を、百の位までのがい数にすると？`,
+      blankPosition: 'round_a',
+      expectedStepValue: ra,
+      hint: '見るのは十の位の数字だよ！'
+    },
+    {
+      stepNumber: 2,
+      id: 'final',
+      title: '見積もりの金額',
+      actionName: 'かける',
+      explanation: `${formatComma(ra)} 円 × ${count} こ で、約何円？`,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: 'がい数だから、かけ算も暗算でできるよ！'
+    }
+  ];
+
+  return buildMathProblem({
+    worldId: 8,
+    stageId: 3,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt: `1こ ${formatComma(a)} 円の${item}を ${count} こ買います。百の位までのがい数にして見積もると、約何円？`,
+    expression: `${a} × ${count} の概算`,
+    displayFormat: 'horizontal',
+    operands: [a, count],
+    operator: '×',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: {
+      mistakeValue: a * count,
+      reasonCategory: 'estimate_exact_calc',
+      diagnosis: '正確な計算をしてしまったかも！見積もりでは、まず値段をがい数に直そう！',
+      hintMessage: '198円は約200円、というように直してからかけ算しよう！'
+    },
+    errorDiagnostics,
+    patternType: 'estimate_mult',
+    trapMetadata: { estimatePlace: place }
+  });
+}
+
+/**
+ * Stage 8-3: 概算 (がい数を使った見積もり計算)
+ */
+function generateStage8_3(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = 'estimate_add';
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['estimate_add', 'estimate_sub'], args.rng);
+    } else {
+      patternType = pickRandom(['estimate_add', 'estimate_sub', 'estimate_mult'], args.rng);
+    }
+  }
+  if (patternType === 'estimate_sub') return buildEstimateSub(args);
+  if (patternType === 'estimate_mult') return buildEstimateMult(args);
+  return buildEstimateAdd(args);
+}
+
 const STAGE_GENERATORS = {
   '1-1': generateStage1_1,
   '1-2': generateStage1_2,
@@ -3221,7 +6443,16 @@ const STAGE_GENERATORS = {
   '4-3': generateStage4_3,
   '5-1': generateStage5_1,
   '5-2': generateStage5_2,
-  '5-3': generateStage5_3
+  '5-3': generateStage5_3,
+  '6-1': generateStage6_1,
+  '6-2': generateStage6_2,
+  '6-3': generateStage6_3,
+  '7-1': generateStage7_1,
+  '7-2': generateStage7_2,
+  '7-3': generateStage7_3,
+  '8-1': generateStage8_1,
+  '8-2': generateStage8_2,
+  '8-3': generateStage8_3
 };
 
 // ============================================================================
@@ -3412,8 +6643,16 @@ export const TRAINING_CATEGORY_LABELS = {
   quotient_too_small: '商が小さい',
   quotient_too_big: '商が大きい',
   remainder_scale: 'あまりの位',
+  calculation_slip: '計算のミス',
+  trap_detected: 'ひっかけポイント',
   general_recheck: '計算ミス'
 };
+
+/**
+ * 追加セッション（発展問題／にがて特訓）の問題数（Issue #23）。
+ * ボタンの文言と生成呼び出しはこの定数を正として揃える。
+ */
+export const EXTRA_SESSION_QUESTION_COUNT = 3;
 
 /**
  * 診断カテゴリの表示名を返す（にがて特訓用）
@@ -3429,13 +6668,16 @@ export function getTrainingCategoryLabel(category) {
  * （発展問題＝チャレンジ／にがて特訓）を出すかどうかを判定する純粋関数（Issue #23）。
  *
  * - チャレンジ: 全問を初回正解（firstTryCount === totalQuestions）したときだけ出す
- * - にがて特訓: 同じ診断カテゴリの誤答が2回以上あったとき、そのカテゴリを対象にする。
+ * - にがて特訓: 同じ診断カテゴリで「異なる問題」を2問以上誤答したとき、そのカテゴリを
+ *   対象にする。同じ問題への複数回の誤答は1問分として数える（問題単位で重複排除）。
+ *   problem 参照を持たない記録は重複排除できないため、それぞれ別の問題として数える。
  *   対象が複数ある場合は「具体的なカテゴリ（general_recheck 以外）を優先 →
- *   誤答回数が多い方 → 最初に現れた方」の順で1つに決める
+ *   誤答した問題数が多い方 → 最初に現れた方」の順で1つに決める
  *
  * @param {{ firstTryCount?: number, totalQuestions?: number,
- *           errorRecords?: Array<{ reasonCategory?: string }> }} [input]
+ *           errorRecords?: Array<{ reasonCategory?: string, problem?: object }> }} [input]
  * @returns {{ showChallenge: boolean, trainingCategory: string|null, trainingErrorCount: number }}
+ *   trainingErrorCount は対象カテゴリで誤答した「異なる問題」の数
  */
 export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5, errorRecords = [] } = {}) {
   const total = Math.max(0, Number(totalQuestions) || 0);
@@ -3447,24 +6689,36 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
     const category = rec?.reasonCategory;
     if (!category || typeof category !== 'string') return;
     if (!stats.has(category)) {
-      stats.set(category, { category, count: 0, firstIndex: idx });
+      stats.set(category, { category, missedProblems: new Set() });
     }
-    stats.get(category).count += 1;
+    const problem = rec?.problem;
+    const problemKey =
+      problem && typeof problem === 'object'
+        ? problem.id || problem.expression || problem
+        : `record-${idx}`;
+    stats.get(category).missedProblems.add(problemKey);
   });
 
   let training = null;
+  let trainingCount = 0;
   for (const entry of stats.values()) {
-    if (entry.count < 2) continue;
+    const count = entry.missedProblems.size;
+    if (count < 2) continue;
     if (!training) {
       training = entry;
+      trainingCount = count;
       continue;
     }
     const entryIsGeneral = entry.category === 'general_recheck';
     const bestIsGeneral = training.category === 'general_recheck';
     if (entryIsGeneral !== bestIsGeneral) {
-      if (!entryIsGeneral) training = entry;
-    } else if (entry.count > training.count) {
+      if (!entryIsGeneral) {
+        training = entry;
+        trainingCount = count;
+      }
+    } else if (count > trainingCount) {
       training = entry;
+      trainingCount = count;
     }
     // Same generality and same count: Map iterates in first-occurrence
     // order, so the earlier category is kept.
@@ -3473,7 +6727,7 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
   return {
     showChallenge,
     trainingCategory: training ? training.category : null,
-    trainingErrorCount: training ? training.count : 0
+    trainingErrorCount: training ? trainingCount : 0
   };
 }
 
@@ -3482,13 +6736,13 @@ export function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5,
  * 指定問数だけ生成する（Issue #23）。式が重複しないよう再試行する。
  * @param {number|string} worldId
  * @param {number|string} stageId
- * @param {number} [count=3]
+ * @param {number} [count=EXTRA_SESSION_QUESTION_COUNT]
  * @param {object} [options={}]
  * @returns {Array<object>} MathProblem 配列
  */
-export function generateChallengeProblems(worldId, stageId, count = 3, options = {}) {
+export function generateChallengeProblems(worldId, stageId, count = EXTRA_SESSION_QUESTION_COUNT, options = {}) {
   const norm = normalizeWorldAndStage(worldId, stageId);
-  const total = Math.max(1, Math.min(5, Number(count) || 3));
+  const total = Math.max(1, Math.min(5, Number(count) || EXTRA_SESSION_QUESTION_COUNT));
   const rng = typeof options.rng === 'function' ? options.rng : Math.random;
 
   const problems = [];
@@ -3520,12 +6774,12 @@ export function generateChallengeProblems(worldId, stageId, count = 3, options =
  * 元問題が問数より少ない場合は元問題を巡回して別の類題を生成する。
  * @param {Array<{ reasonCategory?: string, problem?: object }>} [errorRecords=[]]
  * @param {string|null} [category=null] 対象カテゴリ（null の場合は全カテゴリ）
- * @param {number} [count=3]
+ * @param {number} [count=EXTRA_SESSION_QUESTION_COUNT]
  * @param {object} [options={}]
  * @returns {Array<object>} MathProblem 配列（元問題が無ければ空配列）
  */
-export function selectTrainingProblems(errorRecords = [], category = null, count = 3, options = {}) {
-  const total = Math.max(1, Number(count) || 3);
+export function selectTrainingProblems(errorRecords = [], category = null, count = EXTRA_SESSION_QUESTION_COUNT, options = {}) {
+  const total = Math.max(1, Number(count) || EXTRA_SESSION_QUESTION_COUNT);
   const sources = (Array.isArray(errorRecords) ? errorRecords : []).filter(
     (rec) => rec && rec.problem && (!category || rec.reasonCategory === category)
   );
@@ -3615,6 +6869,54 @@ export function generateVariationProblem(originalProblem, options = {}) {
       originalProblem.remainder ??
       origOperands[0] % origOperands[1];
     trapMetadata.withRemainder = rem > 0;
+  } else if (norm.worldId === 6 && trapMetadata.decimalScale === undefined) {
+    // 小数問題 (compact 形式): operands に小数第2位の端数があるかでスケールを推定
+    const hasHundredths = origOperands.some(
+      (v) => Math.abs(v * 100 - Math.round(v * 100)) < 1e-9 && Math.abs(v * 10 - Math.round(v * 10)) > 1e-9
+    );
+    trapMetadata.decimalScale = hasHundredths ? 100 : 10;
+  } else if (norm.worldId === 7 && trapMetadata.fractionAnswer === undefined) {
+    // 分数問題 (compact 形式): operands は [分子1, 分母, 分子2, 分母] の同分母形式。
+    // 答えの分数と分母を operands から再構築し、類題でも同分母を維持する
+    const [o0, o1, o2, o3] = origOperands;
+    if (Number.isInteger(o0) && Number.isInteger(o1) && o1 > 0) {
+      trapMetadata.fracDen = o1;
+      if (norm.stageId === 1) {
+        // 仕組みステージの分数解答は operands [分子, 分母] そのもの
+        if (originalProblem.hasFraction) {
+          trapMetadata.fractionAnswer = { numerator: o0, denominator: o1 };
+          trapMetadata.fracNum = o0;
+        }
+      } else if (Number.isInteger(o2) && o3 === o1) {
+        const resultNum = originalProblem.operator === '-' ? o0 - o2 : o0 + o2;
+        trapMetadata.fractionAnswer = { numerator: resultNum, denominator: o1 };
+      }
+    }
+  } else if (norm.worldId === 8) {
+    // 大きな数・がい数問題 (compact 形式): operands の第2要素から丸め条件などを復元する
+    const second = origOperands[1];
+    if (norm.stageId === 1) {
+      if (patternType === 'large_place_digit' && Number.isInteger(second)) {
+        trapMetadata.placeValue = second;
+      } else if (patternType === 'large_unit_count' && Number.isInteger(second)) {
+        trapMetadata.unitBase = second;
+      } else if (patternType === 'large_times_ten' && trapMetadata.timesMode === undefined && (second === 10 || second === 100)) {
+        // 元の問題が持つ timesMode ('tenth' = 1/10) を上書きしないよう、未設定のときだけ復元する
+        trapMetadata.timesMode = 'times';
+        trapMetadata.scaleFactor = second;
+      }
+    } else if (norm.stageId === 2) {
+      if (Number.isInteger(second) && second >= 10 && trapMetadata.roundPlace === undefined) {
+        trapMetadata.roundPlace = second;
+      } else if (
+        Number.isInteger(second) && second >= 1 && second <= 3 &&
+        trapMetadata.sigDigits === undefined
+      ) {
+        trapMetadata.sigDigits = second;
+      }
+    }
+    // stageId === 3 (概算) は operands から復元できる条件がなく、
+    // 各ビルダーの難易度既定 (add/sub は位、mult は百の位) に任せる
   }
 
   const targetModel = {
@@ -3672,6 +6974,20 @@ export function normalizeUserAnswer(userAnswer) {
   }
 
   if (typeof userAnswer === 'object') {
+    // 分数形式 { numerator, denominator } (分数ステージの2欄入力)
+    if (userAnswer.numerator !== undefined || userAnswer.denominator !== undefined) {
+      const num = Number(userAnswer.numerator ?? NaN);
+      const den = Number(userAnswer.denominator ?? NaN);
+      const value =
+        Number.isFinite(num) && Number.isFinite(den) && den !== 0 ? num / den : NaN;
+      return {
+        value,
+        remainder: 0,
+        hasExplicitRemainder: false,
+        numerator: num,
+        denominator: den
+      };
+    }
     const val = Number(userAnswer.quotient ?? userAnswer.value ?? userAnswer.answer ?? NaN);
     const hasRem = userAnswer.remainder !== undefined && userAnswer.remainder !== null && userAnswer.remainder !== '';
     const rem = hasRem ? Number(userAnswer.remainder) : 0;
@@ -3688,6 +7004,19 @@ export function normalizeUserAnswer(userAnswer) {
         value: parseInt(remMatch[1], 10),
         remainder: parseInt(remMatch[2], 10),
         hasExplicitRemainder: true
+      };
+    }
+    // 分数形式 "分子/分母"
+    const fracMatch = trimmed.match(/^(-?\d+)\s*\/\s*(-?\d+)$/);
+    if (fracMatch) {
+      const num = parseInt(fracMatch[1], 10);
+      const den = parseInt(fracMatch[2], 10);
+      return {
+        value: den !== 0 ? num / den : NaN,
+        remainder: 0,
+        hasExplicitRemainder: false,
+        numerator: num,
+        denominator: den
       };
     }
     const num = Number(trimmed);
@@ -3707,11 +7036,14 @@ export function diagnoseError(problem, userAnswer) {
   const trueVal = problem?.correctAnswer?.value ?? problem?.answer ?? 0;
   const trueRem = problem?.correctAnswer?.remainder ?? problem?.remainder ?? 0;
   const isDiv = problem?.operator === '÷';
+  const decScale = getDecimalScale(problem);
+  const valueMatches = (candidate) =>
+    decScale ? scaledValueEquals(norm.value, candidate, decScale) : norm.value === candidate;
 
   // First check exact match in problem.errorDiagnostics
   if (Array.isArray(problem?.errorDiagnostics)) {
     for (const diag of problem.errorDiagnostics) {
-      const valMatch = norm.value === diag.predictedErrorValue;
+      const valMatch = valueMatches(diag.predictedErrorValue);
       const remMatch =
         diag.predictedRemainder === undefined || norm.remainder === diag.predictedRemainder;
       if (valMatch && remMatch) {
@@ -3730,7 +7062,7 @@ export function diagnoseError(problem, userAnswer) {
   }
 
   // Check commonTrap
-  if (problem?.commonTrap && norm.value === problem.commonTrap.mistakeValue) {
+  if (problem?.commonTrap && valueMatches(problem.commonTrap.mistakeValue)) {
     if (
       problem.commonTrap.mistakeRemainder === undefined ||
       norm.remainder === problem.commonTrap.mistakeRemainder
@@ -3744,6 +7076,72 @@ export function diagnoseError(problem, userAnswer) {
         feedbackTitle: 'ヒントを発見！おしい！もう一歩！',
         highlightDigitIndex: findDiffDigitIndex(trueVal, norm.value),
         userAnswer: { value: norm.value, remainder: norm.remainder }
+      };
+    }
+  }
+
+  // Fraction dynamic rules (World 7): designed traps above are matched by
+  // value; these cover fraction-shaped answers the trap table did not foresee.
+  const fracAnswer = getFractionAnswer(problem);
+  if (
+    fracAnswer &&
+    Number.isFinite(norm.numerator) &&
+    Number.isFinite(norm.denominator) &&
+    norm.denominator !== 0
+  ) {
+    const fracUserAnswer = { value: norm.value, remainder: norm.remainder };
+    if (
+      norm.numerator === fracAnswer.denominator &&
+      norm.denominator === fracAnswer.numerator &&
+      fracAnswer.numerator !== fracAnswer.denominator
+    ) {
+      return {
+        matched: true,
+        reasonCategory: 'fraction_inverted',
+        diagnosis: '分子と分母が反対になっているかも！',
+        adviceMessage: `下の数が分母（何等分したか）、上の数が分子（何こ分）だよ。答えは ${fracAnswer.numerator}/${fracAnswer.denominator} の形になるよ！`,
+        hintMessage: '分母は「何等分したか」、分子は「何こ分か」を確かめよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
+      };
+    }
+    // 分母が正解と異なる誤答は、先に分母側の診断へ振り分ける。分子だけを
+    // 見る診断に落とすと「分母は合っているよ」と誤った助言になるため。
+    if (norm.denominator !== fracAnswer.denominator) {
+      if (norm.numerator === fracAnswer.numerator) {
+        return {
+          matched: true,
+          reasonCategory: 'fraction_denominator_changed',
+          diagnosis: '分子は合っているよ！分母は変わらないはずだよ！',
+          adviceMessage: `分母は ${fracAnswer.denominator} のままだよ。同分母の計算では、分母は変えないよ！`,
+          hintMessage: '分母は「何等分したか」。計算の途中でも変わらないよ！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: fracUserAnswer
+        };
+      }
+      return {
+        matched: true,
+        reasonCategory: 'fraction_denominator_mismatch',
+        diagnosis: '分母がちがっているみたい！',
+        adviceMessage: `この問題では、分母は ${fracAnswer.denominator} のままだよ。分母を ${fracAnswer.denominator} にそろえてから、分子を計算してみよう！`,
+        hintMessage: '同分母の計算では、分母は変わらないよ。まず分母を確かめよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
+      };
+    }
+    if (norm.numerator !== fracAnswer.numerator) {
+      return {
+        matched: true,
+        reasonCategory: 'fraction_numerator_slip',
+        diagnosis: '分母は合っているよ！分子の計算を確かめよう！',
+        adviceMessage: '分母はそのままで合っているよ。単位分数が何こ分になるか、分子だけを計算し直してみよう！',
+        hintMessage: 'ステップガイドで、分子の計算を1つずつ確かめてみよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
       };
     }
   }
@@ -3796,6 +7194,35 @@ export function diagnoseError(problem, userAnswer) {
       }
     }
   } else {
+    // Decimal dynamic rules (World 6): point ignored / point shifted by one place
+    if (decScale) {
+      const integerValue = Math.round(trueVal * decScale);
+      if (Number.isInteger(norm.value) && norm.value === integerValue && integerValue !== Math.round(trueVal)) {
+        return {
+          matched: true,
+          reasonCategory: 'decimal_point_ignored',
+          diagnosis: '小数点を無視して整数のように計算しているかも！',
+          adviceMessage: '小数点をたてにそろえて位ごとに計算し、答えにも小数点を書いてみよう！',
+          hintMessage: '小数点の位置に注目してステップガイドで確かめてみよう！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: { value: norm.value, remainder: norm.remainder }
+        };
+      }
+      if (scaledValueEquals(norm.value, trueVal * 10, decScale) || scaledValueEquals(norm.value, trueVal / 10, decScale)) {
+        return {
+          matched: true,
+          reasonCategory: 'decimal_point_position',
+          diagnosis: '小数点の位置が1つずれているかも！',
+          adviceMessage: '0.1 が 10 こで 1、0.01 が 10 こで 0.1 だよ。位の大きさを確認してみよう！',
+          hintMessage: '一の位・0.1の位・0.01の位を指でたどって確かめてみよう！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: { value: norm.value, remainder: norm.remainder }
+        };
+      }
+    }
+
     const diff = Math.abs(trueVal - norm.value);
     if (diff === 10 || diff === 100 || diff === 1000) {
       const placeName = diff === 10 ? '十の位' : diff === 100 ? '百の位' : '千の位';
@@ -3883,6 +7310,13 @@ export function getReasonCategoryLabel(category) {
 const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * 未知の reasonCategory を集計時に合算するバケットのキー。
+ * 未知カテゴリが複数あっても「その他のつまずき」行が重複表示されないよう、
+ * 表示名を持つ既知カテゴリ以外はすべてこの1バケットにまとめる。
+ */
+export const UNKNOWN_CATEGORY_BUCKET = 'unknown';
+
+/**
  * 診断ログ（progress.diagnosisLog）を保護者ボード表示用に集計する純粋関数。
  * ログ項目の形式: { category, worldId, stageId, at (ISO文字列) }
  * @param {Array} log 診断ログ（不正な項目は無視される）
@@ -3893,7 +7327,12 @@ const DIAGNOSIS_DAY_MS = 24 * 60 * 60 * 1000;
  *   focusPatterns: Array<{category: string, label: string, total: number, recent30: number}>,
  *   resolvedPatterns: Array<{category: string, label: string, total: number}>
  * }} focusPatterns は直近30日で多い順に最大2件、
- *    resolvedPatterns は累計3回以上かつ直近14日0回のカテゴリ。
+ *    resolvedPatterns は累計3回以上かつ直近30日0回のカテゴリ。
+ *    focus と resolved は直近30日の有無で排他的に決まるため、
+ *    同じカテゴリが両方に現れることはない。
+ *    未来のタイムスタンプ（時計のずれ等）は経過時間が負になるが、
+ *    窓の外ではなく「直近」として扱う（解消済みへの誤分類を防ぐ）。
+ *    未知のカテゴリは UNKNOWN_CATEGORY_BUCKET に合算される。
  */
 export function summarizeDiagnosisLog(log, nowInput = new Date()) {
   const nowMs = nowInput instanceof Date
@@ -3912,15 +7351,19 @@ export function summarizeDiagnosisLog(log, nowInput = new Date()) {
       const atMs = Date.parse(entry.at);
       if (!Number.isFinite(atMs)) continue;
       totalEntries++;
-      let s = stats.get(entry.category);
+      const bucketKey = Object.hasOwn(REASON_CATEGORY_LABELS, entry.category)
+        ? entry.category
+        : UNKNOWN_CATEGORY_BUCKET;
+      let s = stats.get(bucketKey);
       if (!s) {
-        s = { category: entry.category, total: 0, recent30: 0, recent14: 0 };
-        stats.set(entry.category, s);
+        s = { category: bucketKey, total: 0, recent30: 0, recent14: 0 };
+        stats.set(bucketKey, s);
       }
       s.total++;
       const ageMs = safeNow - atMs;
-      if (ageMs >= 0 && ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
-      if (ageMs >= 0 && ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
+      // Negative age (future timestamp) counts as inside the window.
+      if (ageMs <= 30 * DIAGNOSIS_DAY_MS) s.recent30++;
+      if (ageMs <= 14 * DIAGNOSIS_DAY_MS) s.recent14++;
     }
   }
 
@@ -3943,7 +7386,7 @@ export function summarizeDiagnosisLog(log, nowInput = new Date()) {
     .map(({ category, label, total, recent30 }) => ({ category, label, total, recent30 }));
 
   const resolvedPatterns = byCategory
-    .filter((s) => s.total >= 3 && s.recent14 === 0)
+    .filter((s) => s.total >= 3 && s.recent30 === 0)
     .map(({ category, label, total }) => ({ category, label, total }));
 
   return { totalEntries, byCategory, focusPatterns, resolvedPatterns };
@@ -3974,12 +7417,60 @@ function findDiffDigitIndex(expected, actual) {
  * @param {number|string|object} userAnswer
  */
 export function evaluateAnswer(problem, userAnswer) {
+  // 分数問題 (World 7) は { numerator, denominator } の整数ペアで厳密に判定する
+  const fracAnswer = getFractionAnswer(problem);
+  if (fracAnswer) {
+    const normF = normalizeUserAnswer(userAnswer);
+    const isCorrect =
+      normF.numerator === fracAnswer.numerator &&
+      normF.denominator === fracAnswer.denominator;
+
+    if (isCorrect) {
+      return {
+        isCorrect: true,
+        isQuotientCorrect: true,
+        isRemainderCorrect: true,
+        normalizedAnswer: {
+          value: normF.value,
+          remainder: 0,
+          numerator: normF.numerator,
+          denominator: normF.denominator
+        },
+        feedbackTone: 'exploratory',
+        feedbackTitle: '大正解！ラボデータ解明！',
+        feedbackMessage: 'バッチリ正解！見事な計算力だね！',
+        diagnosis: null
+      };
+    }
+
+    const diagnosis = diagnoseError(problem, userAnswer);
+    return {
+      isCorrect: false,
+      isQuotientCorrect: false,
+      isRemainderCorrect: true,
+      normalizedAnswer: {
+        value: normF.value,
+        remainder: normF.remainder ?? 0,
+        numerator: normF.numerator,
+        denominator: normF.denominator
+      },
+      feedbackTone: 'exploratory',
+      feedbackTitle: diagnosis.feedbackTitle || 'おしい！もう一歩！',
+      feedbackMessage: diagnosis.adviceMessage,
+      diagnosis
+    };
+  }
+
   const norm = normalizeUserAnswer(userAnswer);
   const trueVal = problem?.correctAnswer?.value ?? problem?.answer ?? 0;
   const trueRem = problem?.correctAnswer?.remainder ?? problem?.remainder ?? 0;
   const isDiv = problem?.operator === '÷';
 
-  const isQuotientCorrect = norm.value === trueVal;
+  // 小数問題はスケールで丸めて比較し、浮動小数点誤差で不正解にしない
+  const decScale = getDecimalScale(problem);
+  const isQuotientCorrect = decScale
+    ? scaledValueEquals(norm.value, trueVal, decScale)
+    : norm.value === trueVal;
   const isRemainderCorrect = isDiv ? norm.remainder === trueRem : true;
   const isCorrect = isQuotientCorrect && isRemainderCorrect;
 
@@ -4020,7 +7511,9 @@ export const CurriculumEngine = {
   WORLDS_METADATA,
   TRAINING_CATEGORY_LABELS,
   getTrainingCategoryLabel,
+  EXTRA_SESSION_QUESTION_COUNT,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,

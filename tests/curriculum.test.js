@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import CurriculumEngine, {
   WORLDS_METADATA,
   getWorldsMetadata,
+  getWorldIdByGlobalStage,
   getStageMetadata,
   normalizeWorldAndStage,
   generateProblem,
@@ -24,14 +25,14 @@ import CurriculumEngine, {
 import { StepGuideModal } from '../src/components/step-guide.js';
 
 describe('Milestone 1: Core Math Curriculum Engine', () => {
-  describe('1. Worlds & Stages Metadata (5 Worlds, 15 Stages, Mini-Lessons)', () => {
-    it('exports all 5 worlds and 15 stages with complete metadata and 3-card mini-lessons', () => {
+  describe('1. Worlds & Stages Metadata (8 Worlds, 24 Stages, Mini-Lessons)', () => {
+    it('exports all 8 worlds and 24 stages with complete metadata and 3-card mini-lessons', () => {
       const worlds = getWorldsMetadata();
-      assert.equal(worlds.length, 5);
-      assert.equal(WORLDS_METADATA.length, 5);
+      assert.equal(worlds.length, 8);
+      assert.equal(WORLDS_METADATA.length, 8);
 
       let totalStages = 0;
-      for (let w = 1; w <= 5; w++) {
+      for (let w = 1; w <= 8; w++) {
         const world = worlds[w - 1];
         assert.equal(world.worldId, w);
         assert.ok(world.title.length > 0);
@@ -57,7 +58,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
           assert.equal(stage.miniLesson.cards[2].type, 'summary');
         }
       }
-      assert.equal(totalStages, 15);
+      assert.equal(totalStages, 24);
     });
 
     it('falls back safely to World 1 Stage 1 for out-of-range worldId or stageId', () => {
@@ -93,9 +94,9 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     });
   });
 
-  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 15 Stages', () => {
-    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 15 stages', () => {
-      for (let w = 1; w <= 5; w++) {
+  describe('2. Dual-Compatibility Schema & StepGuide Contract Across All 24 Stages', () => {
+    it('generates valid MathProblem objects with both PROJECT.md and analysis.md fields for all 24 stages', () => {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, {
             questionIndex: 3,
@@ -353,8 +354,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
   });
 
   describe('5. Review Variation Generator (Power-Up Treasure Box)', () => {
-    it('generates number-varied problems preserving cognitive traps across all 15 stages', () => {
-      for (let w = 1; w <= 5; w++) {
+    it('generates number-varied problems preserving cognitive traps across all 24 stages', () => {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const orig = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const varied = generateVariationProblem(orig);
@@ -412,7 +413,7 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
     it('detects specific buggy rules and never emits forbidden negative or X symbols', () => {
       const forbiddenPattern = /[×✕❌✖]|バツ|不正解|ダメ|失敗/;
 
-      for (let w = 1; w <= 5; w++) {
+      for (let w = 1; w <= 8; w++) {
         for (let s = 1; s <= 3; s++) {
           const problem = generateProblem(w, s, { difficultyLevel: 'hurdle' });
           const trapInput =
@@ -473,6 +474,42 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
       });
       assert.equal(twice.trainingCategory, 'carry_forgotten');
       assert.equal(twice.trainingErrorCount, 2);
+    });
+
+    it('counts distinct problems per category: repeated misses on one problem count once', () => {
+      const probA = generateProblem(1, 1, { difficultyLevel: 'hurdle' });
+      const probB = generateProblem(1, 1, { difficultyLevel: 'standard' });
+
+      // The same problem missed twice in one category must NOT qualify:
+      // the training set would otherwise be built from a single problem.
+      const sameProblem = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probA }
+        ]
+      });
+      assert.equal(sameProblem.trainingCategory, null);
+      assert.equal(sameProblem.trainingErrorCount, 0);
+
+      // The same problem re-generated (same id) is still the same problem
+      const sameId = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: { ...probA } }
+        ]
+      });
+      assert.equal(sameId.trainingCategory, null);
+
+      // Two different problems in the same category qualify
+      const twoProblems = evaluateStageAdaptation({
+        errorRecords: [
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probA },
+          { reasonCategory: 'carry_forgotten', problem: probB }
+        ]
+      });
+      assert.equal(twoProblems.trainingCategory, 'carry_forgotten');
+      assert.equal(twoProblems.trainingErrorCount, 2);
     });
 
     it('prefers the most frequent category, then specific categories over general_recheck', () => {
@@ -561,6 +598,8 @@ describe('Milestone 1: Core Math Curriculum Engine', () => {
 
     it('provides Japanese labels for diagnosis categories', () => {
       assert.equal(getTrainingCategoryLabel('carry_forgotten'), 'くり上がり');
+      assert.equal(getTrainingCategoryLabel('calculation_slip'), '計算のミス');
+      assert.equal(getTrainingCategoryLabel('trap_detected'), 'ひっかけポイント');
       assert.equal(getTrainingCategoryLabel('general_recheck'), '計算ミス');
       assert.equal(getTrainingCategoryLabel('unknown_category'), 'にがて');
     });
@@ -818,6 +857,833 @@ describe('BUG-008: hint and step-guide wording must match the actual problem and
   });
 });
 
+describe('Issue #16: World 6 小数ラボ (decimals)', () => {
+  it('normalizes World 6 stages and keeps stage-1..15 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-16'), {
+      worldId: 6,
+      stageId: 1,
+      globalStageNumber: 16
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-17'), {
+      worldId: 6,
+      stageId: 2,
+      globalStageNumber: 17
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-18'), {
+      worldId: 6,
+      stageId: 3,
+      globalStageNumber: 18
+    });
+    assert.deepEqual(normalizeWorldAndStage(6, 2), {
+      worldId: 6,
+      stageId: 2,
+      globalStageNumber: 17
+    });
+    // Out-of-range values still fall back to World 1 Stage 1
+    // (World 8 / stage-22..24 became valid with Issue #18, so use 9 / stage-25)
+    assert.deepEqual(normalizeWorldAndStage(9, 1), {
+      worldId: 1,
+      stageId: 1,
+      globalStageNumber: 1
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-25'), {
+      worldId: 1,
+      stageId: 1,
+      globalStageNumber: 1
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 15; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 6 metadata with decimal stages and 3-card mini-lessons', () => {
+    const meta = getStageMetadata(6, 1);
+    assert.equal(meta.globalId, 'stage-16');
+    assert.equal(meta.usesDecimal, true);
+    assert.equal(getStageMetadata(6, 2).globalId, 'stage-17');
+    assert.equal(getStageMetadata(6, 3).globalId, 'stage-18');
+    const world6 = getWorldsMetadata()[5];
+    assert.equal(world6.title, '小数ラボ');
+    assert.equal(world6.stages.length, 3);
+  });
+
+  it('generates arithmetically exact decimal addition/subtraction across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 40; i++) {
+        const add = generateProblem(6, 2, { difficultyLevel: diff });
+        const scale = add.trapMetadata.decimalScale;
+        assert.ok(scale === 10 || scale === 100);
+        const expectAdd =
+          (Math.round(add.operands[0] * scale) + Math.round(add.operands[1] * scale)) / scale;
+        assert.equal(add.correctAnswer.value, expectAdd);
+        // 0.1 + 0.2 style float error must never mark a correct answer wrong
+        assert.equal(evaluateAnswer(add, add.correctAnswer.value).isCorrect, true);
+        assert.equal(evaluateAnswer(add, String(add.correctAnswer.value)).isCorrect, true);
+
+        const sub = generateProblem(6, 3, { difficultyLevel: diff });
+        const sScale = sub.trapMetadata.decimalScale;
+        const expectSub =
+          (Math.round(sub.operands[0] * sScale) - Math.round(sub.operands[1] * sScale)) / sScale;
+        assert.equal(sub.correctAnswer.value, expectSub);
+        assert.ok(sub.correctAnswer.value > 0);
+        assert.equal(evaluateAnswer(sub, sub.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('requires a ones-place carry in decimal addition and a borrow in subtraction', () => {
+    for (let i = 0; i < 60; i++) {
+      const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+      const scale = add.trapMetadata.decimalScale;
+      const aLow = Math.round(add.operands[0] * scale) % 10;
+      const bLow = Math.round(add.operands[1] * scale) % 10;
+      assert.ok(aLow + bLow >= 10, `lowest place must carry: ${add.expression}`);
+
+      const sub = generateProblem(6, 3, { difficultyLevel: 'standard' });
+      const sScale = sub.trapMetadata.decimalScale;
+      const aLowS = Math.round(sub.operands[0] * sScale) % 10;
+      const bLowS = Math.round(sub.operands[1] * sScale) % 10;
+      assert.ok(aLowS < bLowS, `lowest place must borrow: ${sub.expression}`);
+    }
+  });
+
+  it('generates decimal-structure problems whose answers are consistent', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 40; i++) {
+        const p = generateProblem(6, 1, { difficultyLevel: diff });
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        if (p.patternType === 'decimal_tenths_count') {
+          // 0.1 が n こ = n / 10
+          assert.equal(p.correctAnswer.value, p.trapMetadata.count / 10);
+        }
+        if (p.patternType.startsWith('decimal_count_of')) {
+          // 答えは unit が何こ分か (整数)
+          assert.ok(Number.isInteger(p.correctAnswer.value));
+          assert.equal(p.correctAnswer.value, p.trapMetadata.count);
+        }
+      }
+    }
+  });
+
+  it('diagnoses the integer-as-decimal trap with decimal categories', () => {
+    for (let i = 0; i < 40; i++) {
+      const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+      const diag = diagnoseError(add, add.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true);
+      assert.equal(diag.reasonCategory, 'decimal_point_ignored');
+
+      const sub = generateProblem(6, 3, { difficultyLevel: 'standard' });
+      const diagSub = diagnoseError(sub, sub.commonTrap.mistakeValue);
+      assert.equal(diagSub.matched, true);
+      assert.equal(diagSub.reasonCategory, 'decimal_point_ignored');
+    }
+  });
+
+  it('diagnoses a one-place point shift dynamically', () => {
+    const add = generateProblem(6, 2, { difficultyLevel: 'standard' });
+    const shifted = add.correctAnswer.value * 10;
+    if (shifted !== add.commonTrap.mistakeValue) {
+      const diag = diagnoseError(add, shifted);
+      assert.equal(diag.matched, true);
+      assert.ok(
+        diag.reasonCategory === 'decimal_point_position' ||
+          diag.reasonCategory === 'decimal_point_ignored'
+      );
+    }
+  });
+
+  it('generates World 6 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(6, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 6);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+    }
+    // Compact format without trapMetadata still yields a World 6 variation
+    const compact = { worldId: 6, stageId: 2, num1: 3.25, num2: 1.48, operator: '+', answer: 4.73 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 6);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('serves a full 5-problem decimal stage set', () => {
+    const problems = generateStageProblems(6, 17, []);
+    assert.equal(problems.length, 5);
+    for (const p of problems) {
+      assert.equal(p.worldId, 6);
+      assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+    }
+  });
+
+  it('grades decimals strictly: finer input than the scale is wrong (Pi review regression)', () => {
+    const prob73 = {
+      operator: '+',
+      correctAnswer: { value: 7.3, quotient: 7.3, remainder: 0 },
+      answer: 7.3,
+      trapMetadata: { decimalScale: 100 }
+    };
+    assert.equal(evaluateAnswer(prob73, 7.3).isCorrect, true);
+    // Math.round-only comparison used to accept these via rounding
+    assert.equal(evaluateAnswer(prob73, 7.301).isCorrect, false);
+    assert.equal(evaluateAnswer(prob73, 7.305).isCorrect, false);
+    assert.equal(evaluateAnswer(prob73, '7.301').isCorrect, false);
+
+    const prob73Scale10 = { ...prob73, trapMetadata: { decimalScale: 10 } };
+    assert.equal(evaluateAnswer(prob73Scale10, 7.3).isCorrect, true);
+    assert.equal(evaluateAnswer(prob73Scale10, 7.34).isCorrect, false);
+
+    // 0.1 + 0.2 style binary float error must still be accepted
+    const prob03 = {
+      operator: '+',
+      correctAnswer: { value: 0.3, quotient: 0.3, remainder: 0 },
+      answer: 0.3,
+      trapMetadata: { decimalScale: 10 }
+    };
+    assert.equal(evaluateAnswer(prob03, 0.1 + 0.2).isCorrect, true);
+
+    // Generated problems: a sub-scale perturbation of the answer is never correct
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 30; i++) {
+        for (const s of [2, 3]) {
+          const p = generateProblem(6, s, { difficultyLevel: diff });
+          const scale = p.trapMetadata.decimalScale;
+          assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+          assert.equal(
+            evaluateAnswer(p, p.correctAnswer.value + 1 / (scale * 10)).isCorrect,
+            false,
+            `${p.expression}: answer + 1/${scale * 10} must be wrong`
+          );
+          assert.equal(
+            evaluateAnswer(p, p.correctAnswer.value + 5 / (scale * 100)).isCorrect,
+            false,
+            `${p.expression}: answer + 5/${scale * 100} must be wrong`
+          );
+        }
+      }
+    }
+  });
+
+  it('never shows a negative number in Stage 6-3 step explanations (borrow across 0)', () => {
+    let sawBorrowFromZero = false;
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 120; i++) {
+        const p = generateProblem(6, 3, { difficultyLevel: diff });
+        for (const step of p.stepGuide.steps) {
+          const text = step.explanation || '';
+          assert.ok(!/-\d+。/.test(text), `negative value leaked into step text: ${text}`);
+          if (text.includes('0 しかないので、上の位から 10 を借りてこよう')) {
+            sawBorrowFromZero = true;
+            // The expected step value must stay the plain digit result
+            assert.ok(Number.isInteger(step.expectedStepValue));
+            assert.ok(step.expectedStepValue >= 0 && step.expectedStepValue <= 9);
+          }
+        }
+      }
+    }
+    assert.ok(sawBorrowFromZero, 'the borrow-across-zero wording must be exercised');
+  });
+
+  it('ends decimal_place_digit guides by assembling the whole number, not repeating the digit', () => {
+    let seen = 0;
+    for (let i = 0; i < 400 && seen < 30; i++) {
+      const p = generateProblem(6, 1, { difficultyLevel: 'challenge' });
+      if (p.patternType !== 'decimal_place_digit') continue;
+      seen++;
+      const steps = p.stepGuide.steps;
+      const finalStep = steps[steps.length - 1];
+      assert.equal(finalStep.id, 'final');
+      // operands[0] is the full decimal (m / 100); the final step asks for it whole
+      assert.equal(finalStep.expectedStepValue, p.operands[0]);
+      assert.notEqual(finalStep.expectedStepValue, p.correctAnswer.value);
+    }
+    assert.ok(seen > 0, 'decimal_place_digit problems must be generated');
+  });
+
+  it('maps global stage numbers to worlds via metadata (getWorldIdByGlobalStage)', () => {
+    assert.equal(getWorldIdByGlobalStage(1), 1);
+    assert.equal(getWorldIdByGlobalStage(3), 1);
+    assert.equal(getWorldIdByGlobalStage(4), 2);
+    assert.equal(getWorldIdByGlobalStage(15), 5);
+    assert.equal(getWorldIdByGlobalStage(16), 6);
+    assert.equal(getWorldIdByGlobalStage(18), 6);
+    assert.equal(getWorldIdByGlobalStage(0), 1);
+    assert.equal(CurriculumEngine.getWorldIdByGlobalStage(17), 6);
+    // Consistent with WORLDS_METADATA stage ranges
+    for (const world of WORLDS_METADATA) {
+      for (const stage of world.stages) {
+        assert.equal(getWorldIdByGlobalStage(stage.globalStageNumber), world.worldId);
+      }
+    }
+  });
+
+  it('labels Stage 16 answers as こたえ with a non-misleading mixed operator', () => {
+    const meta = getStageMetadata(6, 1);
+    assert.equal(meta.answerLabel, 'こたえ');
+    assert.equal(meta.operator, 'mixed');
+  });
+});
+
+describe('Issue #17: World 7 分数パーク (fractions)', () => {
+  it('normalizes World 7 stages and keeps stage-1..18 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-19'), {
+      worldId: 7,
+      stageId: 1,
+      globalStageNumber: 19
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-20'), {
+      worldId: 7,
+      stageId: 2,
+      globalStageNumber: 20
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-21'), {
+      worldId: 7,
+      stageId: 3,
+      globalStageNumber: 21
+    });
+    assert.deepEqual(normalizeWorldAndStage(7, 2), {
+      worldId: 7,
+      stageId: 2,
+      globalStageNumber: 20
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 18; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 7 metadata with fraction stages and 3-card mini-lessons', () => {
+    const meta = getStageMetadata(7, 1);
+    assert.equal(meta.globalId, 'stage-19');
+    assert.equal(meta.usesFraction, true);
+    assert.equal(getStageMetadata(7, 2).globalId, 'stage-20');
+    assert.equal(getStageMetadata(7, 3).globalId, 'stage-21');
+    const world7 = getWorldsMetadata()[6];
+    assert.equal(world7.title, '分数パーク');
+    assert.equal(world7.stages.length, 3);
+  });
+
+  it('generates arithmetically exact same-denominator addition/subtraction across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 40; i++) {
+        const add = generateProblem(7, 2, { difficultyLevel: diff });
+        const fa = add.trapMetadata.fractionAnswer;
+        const [aNum, aDen, bNum, bDen] = add.operands;
+        assert.equal(aDen, bDen);
+        assert.equal(fa.denominator, aDen);
+        assert.equal(fa.numerator, aNum + bNum);
+        assert.equal(add.hasFraction, true);
+        if (diff === 'challenge') {
+          assert.ok(fa.numerator > fa.denominator, 'challenge addition must exceed 1 (improper fraction)');
+        } else {
+          assert.ok(fa.numerator < fa.denominator, 'non-challenge addition must stay a proper fraction');
+        }
+        assert.equal(
+          evaluateAnswer(add, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+          true
+        );
+        assert.equal(evaluateAnswer(add, `${fa.numerator}/${fa.denominator}`).isCorrect, true);
+
+        const sub = generateProblem(7, 3, { difficultyLevel: diff });
+        const fs = sub.trapMetadata.fractionAnswer;
+        const [sNum, sDen, tNum, tDen] = sub.operands;
+        assert.equal(sDen, tDen);
+        assert.equal(fs.denominator, sDen);
+        assert.equal(fs.numerator, sNum - tNum);
+        assert.ok(fs.numerator > 0, 'subtraction result must stay positive');
+        assert.equal(sub.hasFraction, true);
+        assert.equal(
+          evaluateAnswer(sub, { numerator: fs.numerator, denominator: fs.denominator }).isCorrect,
+          true
+        );
+      }
+    }
+  });
+
+  it('generates fraction-structure problems whose answers are consistent', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 40; i++) {
+        const p = generateProblem(7, 1, { difficultyLevel: diff });
+        if (p.patternType === 'frac_unit_count') {
+          // 「n/d は 1/d が何こ分？」の答えは分子 n (整数)
+          assert.equal(p.trapMetadata.fractionAnswer, undefined);
+          assert.equal(p.hasFraction, false);
+          assert.equal(p.correctAnswer.value, p.operands[0]);
+          assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        } else if (p.patternType === 'frac_parts_to_fraction') {
+          const fa = p.trapMetadata.fractionAnswer;
+          assert.equal(fa.numerator, p.operands[0]);
+          assert.equal(fa.denominator, p.operands[1]);
+          assert.equal(p.hasFraction, true);
+          assert.equal(
+            evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+            true
+          );
+        } else if (p.patternType === 'frac_mixed_to_improper') {
+          const [whole, num, den] = p.operands;
+          const fa = p.trapMetadata.fractionAnswer;
+          assert.equal(fa.numerator, whole * den + num);
+          assert.equal(fa.denominator, den);
+          assert.equal(p.hasFraction, true);
+          assert.equal(
+            evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+            true
+          );
+        } else {
+          assert.fail(`unknown stage 7-1 pattern: ${p.patternType}`);
+        }
+      }
+    }
+  });
+
+  it('diagnoses the denominator-added trap and inverted fractions', () => {
+    for (let i = 0; i < 40; i++) {
+      const add = generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const fa = add.trapMetadata.fractionAnswer;
+      const diag = diagnoseError(add, add.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true);
+      assert.equal(diag.reasonCategory, 'fraction_denominator_added');
+
+      const keypadDiag = evaluateAnswer(add, {
+        numerator: fa.numerator,
+        denominator: fa.denominator * 2
+      });
+      assert.equal(keypadDiag.isCorrect, false);
+      assert.equal(keypadDiag.diagnosis.reasonCategory, 'fraction_denominator_added');
+
+      const inverted = evaluateAnswer(add, {
+        numerator: fa.denominator,
+        denominator: fa.numerator
+      });
+      assert.equal(inverted.isCorrect, false);
+      assert.equal(inverted.diagnosis.reasonCategory, 'fraction_inverted');
+    }
+  });
+
+  it('diagnoses the borrow-forgotten trap in mixed-number subtraction', () => {
+    let sampled = 0;
+    for (let i = 0; i < 200 && sampled < 20; i++) {
+      const sub = generateProblem(7, 3, { difficultyLevel: 'hurdle' });
+      if (sub.patternType !== 'frac_sub_mixed_borrow') continue;
+      const { fracNum, fracSub, fracDen } = sub.trapMetadata;
+      const res = evaluateAnswer(sub, { numerator: fracSub - fracNum, denominator: fracDen });
+      assert.equal(res.isCorrect, false);
+      assert.equal(res.diagnosis.reasonCategory, 'fraction_borrow_forgotten');
+      sampled++;
+    }
+    assert.ok(sampled > 0, 'expected at least one borrow-pattern problem');
+  });
+
+  it('rejects fraction answers whose numerator or denominator is wrong', () => {
+    const p = generateProblem(7, 2, { difficultyLevel: 'standard' });
+    const fa = p.trapMetadata.fractionAnswer;
+    const wrongNum = evaluateAnswer(p, { numerator: fa.numerator + 1, denominator: fa.denominator });
+    assert.equal(wrongNum.isCorrect, false);
+    assert.equal(wrongNum.diagnosis.reasonCategory, 'fraction_numerator_slip');
+    const wrongDen = evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator + 1 });
+    assert.equal(wrongDen.isCorrect, false);
+    assert.equal(wrongDen.diagnosis.reasonCategory, 'fraction_denominator_changed');
+    // A bare number (even the equivalent decimal value) is not a fraction answer
+    assert.equal(evaluateAnswer(p, fa.numerator / fa.denominator).isCorrect, false);
+    // normalizeUserAnswer understands fraction objects and "n/d" strings
+    assert.deepEqual(normalizeUserAnswer({ numerator: 3, denominator: 7 }), {
+      value: 3 / 7,
+      remainder: 0,
+      hasExplicitRemainder: false,
+      numerator: 3,
+      denominator: 7
+    });
+    assert.deepEqual(normalizeUserAnswer('3/7'), {
+      value: 3 / 7,
+      remainder: 0,
+      hasExplicitRemainder: false,
+      numerator: 3,
+      denominator: 7
+    });
+  });
+
+  it('generates World 7 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(7, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 7);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      const fa = varied.trapMetadata.fractionAnswer;
+      if (fa) {
+        assert.equal(
+          evaluateAnswer(varied, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+          true
+        );
+      } else {
+        assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+      }
+    }
+    // Compact format without trapMetadata still yields a World 7 variation
+    // that preserves the shared denominator
+    const compact = { worldId: 7, stageId: 2, operands: [2, 7, 3, 7], operator: '+', answer: 5 / 7 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 7);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(compactVar.trapMetadata.fractionAnswer.denominator, 7);
+    const cfa = compactVar.trapMetadata.fractionAnswer;
+    assert.equal(
+      evaluateAnswer(compactVar, { numerator: cfa.numerator, denominator: cfa.denominator }).isCorrect,
+      true
+    );
+  });
+
+  it('serves a full 5-problem fraction stage set', () => {
+    const problems = generateStageProblems(7, 20, []);
+    assert.equal(problems.length, 5);
+    const expressions = new Set(problems.map((p) => p.expression));
+    assert.equal(expressions.size, 5);
+    for (const p of problems) {
+      assert.equal(p.worldId, 7);
+      const fa = p.trapMetadata.fractionAnswer;
+      assert.equal(
+        evaluateAnswer(p, { numerator: fa.numerator, denominator: fa.denominator }).isCorrect,
+        true
+      );
+    }
+  });
+
+  it('never generates fraction problems whose diagnostic predictions collide (Issue #17 Pi review)', () => {
+    // Colliding predictedErrorValues make one diagnosis unreachable and the
+    // other fire for the wrong cause (e.g. 1/6+3/6: denominator-added 4/12
+    // and subtracted-instead 2/6 are both 1/3). Generators must re-draw
+    // operands until every prediction is distinct and none equals the answer.
+    for (const stage of [1, 2, 3]) {
+      for (const diff of ['warmup', 'remedial', 'standard', 'hurdle', 'challenge']) {
+        for (let i = 0; i < 300; i++) {
+          const p = generateProblem(7, stage, { difficultyLevel: diff });
+          const predicted = (p.errorDiagnostics || []).map((d) => d.predictedErrorValue);
+          assert.equal(
+            new Set(predicted).size,
+            predicted.length,
+            `${p.patternType} (${p.prompt}) has colliding diagnostic predictions: ${predicted}`
+          );
+          for (const v of predicted) {
+            assert.notEqual(
+              v,
+              p.correctAnswer.value,
+              `${p.patternType} (${p.prompt}) must not predict the correct value`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it('diagnoses fraction answers with a wrong denominator as fraction_denominator_mismatch (Issue #17 Pi review)', () => {
+    let sampled = 0;
+    for (let i = 0; i < 200 && sampled < 20; i++) {
+      const p = generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const fa = p.trapMetadata.fractionAnswer;
+      // Both fields wrong and the denominator differs (not the inverted pair),
+      // so no designed trap value may match: the denominator-first dynamic
+      // rule must classify it instead of blaming the numerator.
+      const wrong = { numerator: fa.numerator + 2, denominator: fa.denominator + 3 };
+      if (wrong.numerator === fa.denominator && wrong.denominator === fa.numerator) continue;
+      const wrongValue = wrong.numerator / wrong.denominator;
+      const trapValues = [
+        p.commonTrap?.mistakeValue,
+        ...(p.errorDiagnostics || []).map((d) => d.predictedErrorValue)
+      ];
+      if (trapValues.includes(wrongValue)) continue;
+      const res = evaluateAnswer(p, wrong);
+      assert.equal(res.isCorrect, false);
+      assert.equal(res.diagnosis.reasonCategory, 'fraction_denominator_mismatch');
+      sampled++;
+    }
+    assert.ok(sampled > 0, 'expected at least one sampled problem');
+  });
+});
+
+describe('Issue #18: World 8 大きな数とがい数ラボ (large numbers & rounding)', () => {
+  const digitAt = (n, place) => Math.floor(n / place) % 10;
+  const roundTo = (n, place) => Math.round(n / place) * place;
+
+  it('normalizes World 8 stages and keeps stage-1..21 interpretations unchanged', () => {
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-22'), {
+      worldId: 8,
+      stageId: 1,
+      globalStageNumber: 22
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-23'), {
+      worldId: 8,
+      stageId: 2,
+      globalStageNumber: 23
+    });
+    assert.deepEqual(normalizeWorldAndStage(null, 'stage-24'), {
+      worldId: 8,
+      stageId: 3,
+      globalStageNumber: 24
+    });
+    assert.deepEqual(normalizeWorldAndStage(8, 2), {
+      worldId: 8,
+      stageId: 2,
+      globalStageNumber: 23
+    });
+    // Existing stages keep their meaning
+    for (let g = 1; g <= 21; g++) {
+      const norm = normalizeWorldAndStage(null, `stage-${g}`);
+      assert.equal(norm.globalStageNumber, g);
+      assert.equal(norm.worldId, Math.ceil(g / 3));
+      assert.equal(norm.stageId, ((g - 1) % 3) + 1);
+    }
+  });
+
+  it('exposes World 8 metadata with 3 stages and 3-card mini-lessons', () => {
+    assert.equal(getStageMetadata(8, 1).globalId, 'stage-22');
+    assert.equal(getStageMetadata(8, 2).globalId, 'stage-23');
+    assert.equal(getStageMetadata(8, 3).globalId, 'stage-24');
+    const world8 = getWorldsMetadata()[7];
+    assert.equal(world8.title, '大きな数とがい数ラボ');
+    assert.equal(world8.stages.length, 3);
+  });
+
+  it('generates arithmetically exact large-number structure problems across difficulties', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 1, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        if (p.patternType === 'large_place_digit') {
+          assert.equal(p.correctAnswer.value, digitAt(o0, o1), p.expression);
+          assert.ok(o1 >= 10000, 'place must be 万の位 or higher');
+        } else if (p.patternType === 'large_unit_count') {
+          assert.equal(o0 % o1, 0, p.expression);
+          assert.equal(o0 / o1, p.correctAnswer.value, p.expression);
+        } else if (p.patternType === 'large_times_ten') {
+          const expect = p.trapMetadata.timesMode === 'times'
+            ? o0 * p.trapMetadata.scaleFactor
+            : o0 / 10;
+          assert.equal(p.correctAnswer.value, expect, p.expression);
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+        // final step of the guide always lands on the answer
+        const last = p.stepGuide[p.stepGuide.length - 1];
+        assert.equal(last.expectedStepValue, p.correctAnswer.value);
+      }
+    }
+  });
+
+  it('rounds exactly to the requested place / significant digits / range', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 2, { difficultyLevel: diff });
+        const [o0] = p.operands;
+        if (p.patternType === 'round_to_place') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, p.trapMetadata.roundPlace), p.expression);
+          // ステップの期待値は、文字列表現を右から数えた桁 (教科書定義) と一致する
+          const placeExp = String(p.trapMetadata.roundPlace).length - 1;
+          const digitFromRight = (num, exp) => Number(String(num)[String(num).length - 1 - exp]);
+          assert.equal(p.stepGuide[0].expectedStepValue, digitFromRight(o0, placeExp - 1), p.expression);
+          assert.equal(
+            p.stepGuide[1].expectedStepValue,
+            digitFromRight(p.correctAnswer.value, placeExp),
+            p.expression
+          );
+        } else if (p.patternType === 'round_significant') {
+          // 教科書定義で検証する: 上から sig+1 桁目の数字 (文字列表現から取る) を見て四捨五入し、
+          // 残す桁は元の数の先頭 sig 桁 (切り上げ時は +1) になる
+          const sig = p.trapMetadata.sigDigits;
+          const s = String(o0);
+          const lookDigit = Number(s[sig]);
+          const kept = Number(s.slice(0, sig)) + (lookDigit >= 5 ? 1 : 0);
+          assert.equal(p.correctAnswer.value, kept * Math.pow(10, s.length - sig), p.expression);
+          assert.equal(p.stepGuide[0].expectedStepValue, lookDigit, p.expression);
+          assert.equal(
+            p.stepGuide[1].expectedStepValue,
+            Number(String(p.correctAnswer.value)[sig - 1]),
+            p.expression
+          );
+        } else if (p.patternType === 'round_range') {
+          const place = p.trapMetadata.roundPlace;
+          // the answer itself rounds to the target value...
+          assert.equal(roundTo(p.correctAnswer.value, place), o0, p.expression);
+          // ...and it is exactly the boundary of the range
+          if (p.trapMetadata.rangeWhich === 'min') {
+            assert.notEqual(roundTo(p.correctAnswer.value - 1, place), o0, p.expression);
+          } else {
+            assert.notEqual(roundTo(p.correctAnswer.value + 1, place), o0, p.expression);
+          }
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('estimates with rounded prices instead of exact calculation', () => {
+    for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
+      for (let i = 0; i < 60; i++) {
+        const p = generateProblem(8, 3, { difficultyLevel: diff });
+        const [o0, o1] = p.operands;
+        const place = p.trapMetadata.estimatePlace;
+        if (p.patternType === 'estimate_add') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, place) + roundTo(o1, place), p.expression);
+          assert.notEqual(p.correctAnswer.value, o0 + o1, 'estimate must differ from exact sum');
+        } else if (p.patternType === 'estimate_sub') {
+          assert.equal(p.correctAnswer.value, o0 - roundTo(o1, place), p.expression);
+          assert.ok(p.correctAnswer.value > 0);
+        } else if (p.patternType === 'estimate_mult') {
+          assert.equal(p.correctAnswer.value, roundTo(o0, 100) * o1, p.expression);
+        } else {
+          assert.fail(`unexpected pattern ${p.patternType}`);
+        }
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+
+  it('diagnoses the classic large-number and rounding traps', () => {
+    for (let i = 0; i < 60; i++) {
+      // unit count: answering with one zero too few is the zero-count slip
+      const p = generateProblem(8, 1, { difficultyLevel: 'standard' });
+      const diag = diagnoseError(p, p.commonTrap.mistakeValue);
+      assert.equal(diag.matched, true, p.expression);
+      if (p.patternType === 'large_unit_count') {
+        assert.equal(diag.reasonCategory, 'zero_count_slip');
+      }
+
+      // rounding: the designed trap is always diagnosed
+      const r = generateProblem(8, 2, { difficultyLevel: 'hurdle' });
+      const rDiag = diagnoseError(r, r.commonTrap.mistakeValue);
+      assert.equal(rDiag.matched, true, r.expression);
+      assert.ok(
+        ['round_place_misread', 'round_direction_slip', 'round_range_boundary'].includes(
+          rDiag.reasonCategory
+        ),
+        `${r.expression}: ${rDiag.reasonCategory}`
+      );
+
+      // estimation: answering with the exact calculation is diagnosed
+      const e = generateProblem(8, 3, { difficultyLevel: 'standard' });
+      const eDiag = diagnoseError(e, e.commonTrap.mistakeValue);
+      assert.equal(eDiag.matched, true, e.expression);
+      assert.equal(eDiag.reasonCategory, 'estimate_exact_calc');
+    }
+  });
+
+  it('generates World 8 variations (incl. compact treasure-box format)', () => {
+    for (let s = 1; s <= 3; s++) {
+      const orig = generateProblem(8, s, { difficultyLevel: 'hurdle' });
+      const varied = generateVariationProblem(orig);
+      assert.equal(varied.worldId, 8);
+      assert.equal(varied.stageId, s);
+      assert.equal(varied.patternType, orig.patternType);
+      assert.notEqual(varied.expression, orig.expression);
+      assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+    }
+    // Compact format without trapMetadata still yields a World 8 variation
+    const compact = { worldId: 8, stageId: 2, num1: 356789, num2: 1000, operator: 'mixed', answer: 357000 };
+    const compactVar = generateVariationProblem(compact);
+    assert.equal(compactVar.worldId, 8);
+    assert.equal(compactVar.stageId, 2);
+    assert.equal(evaluateAnswer(compactVar, compactVar.correctAnswer.value).isCorrect, true);
+  });
+
+  it('keeps the 1/10 mode when varying a large_times_ten problem', () => {
+    const scripted = (values, fallback = 0.1) => {
+      let i = 0;
+      return () => (i < values.length ? values[i++] : fallback);
+    };
+    // rng 注入で「1/10」の元問題を狙って生成する
+    // (challenge: パターン選択→large_times_ten、モード選択→tenth)
+    const orig = generateProblem(8, 1, { difficultyLevel: 'challenge', rng: scripted([0.9, 0.9, 0.5, 0.5]) });
+    assert.equal(orig.patternType, 'large_times_ten');
+    assert.equal(orig.trapMetadata.timesMode, 'tenth');
+    // 類題でも timesMode が保持され、「×10」に化けない
+    const varied = generateVariationProblem(orig, { rng: scripted([0.5, 0.25]) });
+    assert.equal(varied.patternType, 'large_times_ten');
+    assert.equal(varied.trapMetadata.timesMode, 'tenth');
+    assert.equal(varied.correctAnswer.value, varied.operands[0] / 10);
+    assert.equal(evaluateAnswer(varied, varied.correctAnswer.value).isCorrect, true);
+  });
+
+  it('excludes rounding cases where the kept digit 9 carries over (9,668 / 19,643)', () => {
+    const scripted = (values, fallback = 0.1) => {
+      let i = 0;
+      return () => (i < values.length ? values[i++] : fallback);
+    };
+    // 上から1桁のがい数: 最初の候補が 9,668 (→ 10,000、ステップ2の期待値が 0 に崩れる) になる rng
+    const sigCase = generateProblem(8, 2, {
+      difficultyLevel: 'standard',
+      rng: scripted([0.75, 0.25, 0.75, 0.96317])
+    });
+    assert.equal(sigCase.patternType, 'round_significant');
+    assert.notEqual(sigCase.operands[0], 9668, 'carry case must be re-rolled');
+    const sig = sigCase.trapMetadata.sigDigits;
+    // ステップ2の期待値は、答えの文字列表現から取った「上から sig 桁目」と一致する
+    assert.equal(
+      sigCase.stepGuide[1].expectedStepValue,
+      Number(String(sigCase.correctAnswer.value)[sig - 1]),
+      sigCase.expression
+    );
+    assert.equal(evaluateAnswer(sigCase, sigCase.correctAnswer.value).isCorrect, true);
+
+    // 千の位までのがい数: 最初の候補が 19,643 (→ 20,000) になる rng
+    const placeCase = generateProblem(8, 2, {
+      difficultyLevel: 'standard',
+      rng: scripted([0.25, 0.25, 0.0955, 0.6431])
+    });
+    assert.equal(placeCase.patternType, 'round_to_place');
+    assert.notEqual(placeCase.operands[0], 19643, 'carry case must be re-rolled');
+    const placeExp = String(placeCase.trapMetadata.roundPlace).length - 1;
+    const ansStr = String(placeCase.correctAnswer.value);
+    assert.equal(
+      placeCase.stepGuide[1].expectedStepValue,
+      Number(ansStr[ansStr.length - 1 - placeExp]),
+      placeCase.expression
+    );
+    assert.equal(evaluateAnswer(placeCase, placeCase.correctAnswer.value).isCorrect, true);
+  });
+
+  it('never emits duplicate error-diagnosis values for unit-count problems', () => {
+    let exp1Seen = 0;
+    for (const diff of ['warmup', 'remedial', 'standard', 'hurdle', 'challenge']) {
+      for (let i = 0; i < 120; i++) {
+        const p = generateProblem(8, 1, { difficultyLevel: diff });
+        if (p.patternType !== 'large_unit_count') continue;
+        const values = p.errorDiagnostics.map((d) => d.predictedErrorValue);
+        assert.equal(new Set(values).size, values.length, p.expression);
+        // exp10 === 1 のケース (count = lead × 10 で 20..90) が実際に生成されることも確認する
+        const count = p.correctAnswer.value;
+        if (count >= 20 && count <= 90 && count % 10 === 0) exp1Seen++;
+      }
+    }
+    assert.ok(exp1Seen > 0, 'expected some exp10=1 unit-count problems in the sample');
+  });
+
+  it('serves full 5-problem World 8 stage sets', () => {
+    for (let s = 1; s <= 3; s++) {
+      const problems = generateStageProblems(8, s, []);
+      assert.equal(problems.length, 5);
+      const expressions = new Set(problems.map((p) => p.expression));
+      assert.equal(expressions.size, 5);
+      for (const p of problems) {
+        assert.equal(p.worldId, 8);
+        assert.equal(evaluateAnswer(p, p.correctAnswer.value).isCorrect, true);
+      }
+    }
+  });
+});
+
 describe('Issue #21: diagnosis log summary for the parent board', () => {
   const NOW = new Date('2026-11-21T12:00:00.000Z');
   const daysAgo = (n) => new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
@@ -861,7 +1727,10 @@ describe('Issue #21: diagnosis log summary for the parent board', () => {
     assert.equal(byCat.carry_forgotten.recent14, 3);
     assert.equal(byCat.borrow_forgotten.total, 3);
     assert.equal(byCat.borrow_forgotten.recent30, 0);
-    assert.equal(byCat.mystery_cat.label, 'その他のつまずき');
+    // Unknown categories are aggregated into a single bucket
+    assert.equal(byCat.mystery_cat, undefined);
+    assert.equal(byCat.unknown.total, 1);
+    assert.equal(byCat.unknown.label, 'その他のつまずき');
 
     // Focus: top 2 by last-30-days count
     assert.deepEqual(
@@ -870,9 +1739,48 @@ describe('Issue #21: diagnosis log summary for the parent board', () => {
     );
     assert.equal(summary.focusPatterns[0].label, '位のずれ・0の立て忘れ');
 
-    // Resolved: >=3 total and none in the last 14 days
+    // Resolved: >=3 total and none in the last 30 days
     assert.deepEqual(summary.resolvedPatterns.map((p) => p.category), ['borrow_forgotten']);
     assert.equal(summary.resolvedPatterns[0].total, 3);
+  });
+
+  it('a pattern last seen 20 days ago is focus-only, never both focus and resolved', () => {
+    // Regression: with a 14-day resolved window this category (3 entries,
+    // all 20 days old) matched BOTH focus (recent30 > 0) and resolved
+    // (recent14 === 0), so the board showed it as 重点 and 解消済み at once.
+    const log = [entry('carry_forgotten', 20), entry('carry_forgotten', 20), entry('carry_forgotten', 20)];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    assert.deepEqual(summary.focusPatterns.map((p) => p.category), ['carry_forgotten']);
+    assert.equal(summary.focusPatterns[0].recent30, 3);
+    assert.deepEqual(summary.resolvedPatterns, []);
+  });
+
+  it('treats future timestamps as recent instead of misclassifying them as resolved', () => {
+    const future = new Date(NOW.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    const log = [
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future },
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future },
+      { category: 'borrow_forgotten', worldId: 1, stageId: 'stage-1', at: future }
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    const byCat = Object.fromEntries(summary.byCategory.map((s) => [s.category, s]));
+    assert.equal(byCat.borrow_forgotten.recent30, 3);
+    assert.deepEqual(summary.focusPatterns.map((p) => p.category), ['borrow_forgotten']);
+    assert.deepEqual(summary.resolvedPatterns, []);
+  });
+
+  it('merges multiple unknown categories into one その他のつまずき bucket', () => {
+    const log = [
+      entry('mystery_a', 1), entry('mystery_a', 2),
+      entry('mystery_b', 3),
+      entry('carry_forgotten', 1)
+    ];
+    const summary = summarizeDiagnosisLog(log, NOW);
+    const unknownRows = summary.byCategory.filter((s) => s.label === 'その他のつまずき');
+    assert.equal(unknownRows.length, 1);
+    assert.equal(unknownRows[0].category, 'unknown');
+    assert.equal(unknownRows[0].total, 3);
+    assert.equal(unknownRows[0].recent30, 3);
   });
 
   it('a pattern seen recently is not resolved even with a high total', () => {

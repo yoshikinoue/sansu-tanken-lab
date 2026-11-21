@@ -62,7 +62,7 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
   // 1. Default Schema & Validation
   // =========================================================================
   describe('Default Progress Schema & Validation', () => {
-    it('creates complete default progress matching schemaVersion 1.0.0 with all 15 stages', () => {
+    it('creates complete default progress matching schemaVersion 1.0.0 with all 24 stages', () => {
       const def = createDefaultProgress();
       assert.equal(def.schemaVersion, '1.0.0');
       assert.equal(def.userProfile.grade, 4);
@@ -72,10 +72,10 @@ describe('Milestone 2: 3-Tier Storage Service (storage-service.js)', () => {
       assert.equal(def.gamification.selfCorrectionCount, 0);
       assert.ok(Array.isArray(def.gamification.unlockedBadges));
 
-      // Verify all 15 stages exist and only stage-1 is unlocked initially
+      // Verify all 24 stages exist and only stage-1 is unlocked initially
       const stageKeys = Object.keys(def.stageProgress);
-      assert.equal(stageKeys.length, 15);
-      for (let i = 1; i <= 15; i++) {
+      assert.equal(stageKeys.length, 24);
+      for (let i = 1; i <= 24; i++) {
         const key = `stage-${i}`;
         const stg = def.stageProgress[key];
         assert.ok(stg, `Missing ${key}`);
@@ -569,5 +569,50 @@ describe('Issue #21: diagnosis log persistence', () => {
     }
     assert.equal(progress.diagnosisLog.length, DIAGNOSIS_LOG_LIMIT);
     assert.equal(progress.diagnosisLog[0].category, 'cat_5');
+  });
+
+  it('validateProgressData rejects a non-array diagnosisLog', () => {
+    const bad = createDefaultProgress();
+    bad.diagnosisLog = 'not-an-array';
+    const check = validateProgressData(bad);
+    assert.equal(check.valid, false);
+    assert.match(check.error, /diagnosisLog/);
+
+    const good = createDefaultProgress();
+    good.diagnosisLog = [entry('carry_forgotten', '2026-11-20T00:00:00.000Z')];
+    assert.deepEqual(validateProgressData(good), { valid: true });
+
+    const missing = createDefaultProgress();
+    delete missing.diagnosisLog;
+    assert.deepEqual(validateProgressData(missing), { valid: true });
+  });
+
+  it('quota prune of the diagnosis log is reflected into the loaded progress', async () => {
+    // 150 entries with long category names: trimming to the latest 100
+    // shrinks the payload enough to fit the quota.
+    const progress = createDefaultProgress();
+    progress.diagnosisLog = Array.from({ length: 150 }, (_, i) => ({
+      category: `carry_forgotten_padding_${String(i).padStart(3, '0')}_xxxxxxxxxxxxxxxxxxxx`,
+      worldId: 1,
+      stageId: 'stage-1',
+      at: '2026-11-20T00:00:00.000Z'
+    }));
+    const prunedEstimate = JSON.stringify({
+      ...progress,
+      diagnosisLog: progress.diagnosisLog.slice(-100)
+    }).length;
+    const mockStorage = createMockLocalStorage({ maxBytes: prunedEstimate + 500 });
+    // Seed storage directly so the oversized payload gets in despite the quota.
+    mockStorage.store.set(STORAGE_KEY, JSON.stringify(progress));
+
+    const offlineFetch = async () => { throw new Error('offline'); };
+    const loaded = await loadProgress({ storage: mockStorage, fetchImpl: offlineFetch });
+
+    // What was persisted is the pruned log...
+    const saved = readLocalProgress({ storage: mockStorage });
+    assert.equal(saved.diagnosisLog.length, 100);
+    // ...and the in-memory progress handed back must match it, not keep 150.
+    assert.equal(loaded.diagnosisLog.length, 100);
+    assert.equal(loaded.diagnosisLog[0].category, progress.diagnosisLog[50].category);
   });
 });

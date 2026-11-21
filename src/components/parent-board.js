@@ -5,7 +5,7 @@
  * Dual capability:
  * 1. Pure helper functions matching ParentBoardReference for headless Node.js
  * 2. Interactive DOM ParentBoard class for tablet browser featuring 4-digit PIN authentication,
- *    5-dimension radar progress chart, self-correction highlights, cheer stamp sender,
+ *    per-world radar progress chart, self-correction highlights, cheer stamp sender,
  *    and 3-tier backup/device transfer controls.
  */
 
@@ -31,16 +31,22 @@ export function verifyPin(inputPin, storedPin = '1234') {
 }
 
 /**
- * ステージ進捗から5ワールドのレーダーチャートスコア (0..100) を算出
+ * ステージ進捗から全ワールドのレーダーチャートスコア (0..100) を算出
  * 各ワールドのクリアステージ数 / 3 * 100 (四捨五入)
+ * ワールド数は GamificationEngine.WORLD_DEFINITIONS の長さから導出する
  * @param {object} progress
- * @returns {{ world1: number, world2: number, world3: number, world4: number, world5: number }}
+ * @returns {Object<string, number>} { world1..worldN: number }
  */
+const RADAR_WORLD_COUNT = GamificationEngine.WORLD_DEFINITIONS.length;
+
 export function calculateRadarScores(progress) {
-  const scores = { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0 };
+  const scores = {};
+  for (let w = 1; w <= RADAR_WORLD_COUNT; w++) {
+    scores[`world${w}`] = 0;
+  }
   const stageProg = (progress && progress.stageProgress) || {};
 
-  for (let w = 1; w <= 5; w++) {
+  for (let w = 1; w <= RADAR_WORLD_COUNT; w++) {
     let clearedInWorld = 0;
     for (let s = 1; s <= 3; s++) {
       const sKey = `stage-${(w - 1) * 3 + s}`;
@@ -527,17 +533,15 @@ export class ParentBoard {
     `;
     dashboard.appendChild(highlightCard);
 
-    // 5-Dimension Radar Chart
+    // Radar Chart (one row per world)
     const radarCard = document.createElement('div');
     radarCard.className = 'radar-chart-container';
 
-    const worldLabels = [
-      { key: 'world1', label: 'W1: たし算・ひき算ラボ' },
-      { key: 'world2', label: 'W2: かけ算パワーラボ' },
-      { key: 'world3', label: 'W3: わり算とあまりラボ' },
-      { key: 'world4', label: 'W4: 2桁わり算・見積もり' },
-      { key: 'world5', label: 'W5: 計算のきまり・四則混合' }
-    ];
+    // レーダーの行ラベルは WORLD_DEFINITIONS から生成する (ワールド追加に追随)
+    const worldLabels = (GamificationEngine.WORLD_DEFINITIONS || []).map((w) => ({
+      key: `world${w.worldId}`,
+      label: `W${w.worldId}: ${w.fullName}`
+    }));
 
     let radarRowsHtml = '';
     worldLabels.forEach(w => {
@@ -556,7 +560,7 @@ export class ParentBoard {
     radarCard.innerHTML = `
       <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
         <span>📊</span>
-        <span>5ワールド成長チャート（習熟進捗）</span>
+        <span>${worldLabels.length}ワールド成長チャート（習熟進捗）</span>
       </h3>
       ${radarRowsHtml}
     `;
@@ -599,7 +603,7 @@ export class ParentBoard {
             ✅ 解消したパターン
           </div>
           ${diagnosisSummary.resolvedPatterns
-            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近14日は出ていません）`))
+            .map((p) => patternRow(p.label, `これまで ${p.total} 回（直近30日は出ていません）`))
             .join('')}
         `
         : '';
@@ -622,25 +626,23 @@ export class ParentBoard {
     dashboard.appendChild(diagnosisCard);
 
     // Learning Scope Notice Card (Issue #22): calculation-only scope
+    // 文言の正は README.md の「学習対象範囲」の節です。文言を変更するときは README とそろえてください。
     const scopeCard = document.createElement('div');
     scopeCard.className = 'card-dark learning-scope-card';
-    scopeCard.style.padding = '24px';
-    scopeCard.style.borderRadius = 'var(--radius-xl)';
-    scopeCard.style.border = '1px solid var(--color-card-border)';
 
     scopeCard.innerHTML = `
-      <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+      <h3>
         <span>📘</span>
         <span>このアプリの対象範囲</span>
       </h3>
-      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+      <p>
         このアプリは、小学4年生の算数のうち<strong>「計算」の練習に特化</strong>したアプリです。
       </p>
-      <p style="font-size:0.9rem; line-height:1.7; margin-bottom:10px;">
+      <p>
         <strong>対象：</strong>たし算・ひき算・かけ算・わり算の筆算、計算の順序と工夫、虫食い算（□の式）です。小学3年生の計算の復習も含みます。
       </p>
-      <p style="font-size:0.9rem; line-height:1.7; color:var(--color-text-muted);">
-        <strong>対象外：</strong>小数・分数・大きな数と概数・文章題・図形・面積・折れ線グラフなどは扱っていません。学校の授業の全範囲をカバーするものではありませんので、計算以外の単元は教科書などとあわせてご活用ください。
+      <p class="scope-note-muted">
+        <strong>対象外：</strong>小数・分数・大きな数と概数・文章題は、今後の課題として取り組み予定ですが、現時点では扱っていません。また、図形・面積・折れ線グラフなどの単元は対象外と決定しており、実装予定はありません。学校の授業の全範囲をカバーするものではありませんので、計算以外の単元は教科書などとあわせてご活用ください。
       </p>
     `;
     dashboard.appendChild(scopeCard);
