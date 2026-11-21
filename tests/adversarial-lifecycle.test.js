@@ -14,7 +14,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { routes, parseRoute, MathLabApp } from '../src/main.js';
-import MiniLessonModal, { createLessonState, answerQuiz, nextCard } from '../src/components/mini-lesson.js';
+import MiniLessonModal, { createLessonState, answerQuiz, nextCard, getLessonVisual } from '../src/components/mini-lesson.js';
 import StageMap, { isStageUnlocked, getWorldForStage } from '../src/components/stage-map.js';
 import TreasureBox, { addItem as addTreasureItem, recordAttempt as recordTreasureAttempt } from '../src/components/treasure-box.js';
 import ParentBoard, { verifyPin, calculateRadarScores, createCheerStamp } from '../src/components/parent-board.js';
@@ -512,7 +512,7 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
   // Challenge 1: Cross-Component Interaction & Router Integration
   // =========================================================================
   describe('1. Cross-Component Router Wiring & Contract Interaction', () => {
-    it('initializes default progress and mounts StageMap at #map with all 5 worlds', () => {
+    it('initializes default progress and mounts StageMap at #map with all worlds', () => {
       assert.ok(app.progress);
       assert.equal(app.currentRoute.view, '#map');
       assert.ok(app.activeViewComponent instanceof StageMap);
@@ -599,10 +599,12 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(pinSuccess, true);
       board.isAuthenticated = true;
 
-      // Verify radar calculations across 5 worlds
+      // Verify radar calculations across all worlds (count derived from metadata)
       const scores = calculateRadarScores(app.progress);
       assert.equal(typeof scores.world1, 'number');
       assert.equal(typeof scores.world5, 'number');
+      assert.equal(typeof scores.world6, 'number');
+      assert.equal(Object.keys(scores).length, CurriculumEngine.WORLDS_METADATA.length);
 
       // Create cheer stamp
       const stamp = createCheerStamp('STAMP_RECOVERY', '応援しているよ！');
@@ -613,6 +615,20 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       app.progress.parentCheer.cheerMessages.push(stamp);
       app.checkCheerBanner();
       assert.equal(env.cheerBanner.style.display, 'flex');
+    });
+
+    it('renders exactly one learning scope card on the parent dashboard (Issue #22)', () => {
+      global.window.location.hash = '#parent';
+      app.handleRoute();
+
+      const board = app.activeViewComponent;
+      assert.ok(board instanceof ParentBoard);
+      board.setupInitialPin('4321');
+
+      const scopeCards = env.viewContainer.querySelectorAll('.learning-scope-card');
+      assert.equal(scopeCards.length, 1, 'dashboard must contain exactly one .learning-scope-card');
+      assert.ok(scopeCards[0].innerHTML.includes('このアプリの対象範囲'), 'scope card must show its title');
+      assert.ok(scopeCards[0].innerHTML.includes('対象外'), 'scope card must mention out-of-scope topics');
     });
   });
 
@@ -636,7 +652,7 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
         '#lesson/stage-15',
         '#treasure',
         '#parent',
-        '#stage/stage-999'     // Out of range stage clamped to 15
+        '#stage/stage-999'     // Out of range stage clamped to the last stage
       ];
 
       for (let i = 0; i < 100; i++) {
@@ -1665,13 +1681,20 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       }
 
       // The normal clear record is already finalized when the offer appears
-      assert.equal(app.currentSession.firstTryCount, 5);
+      assert.equal(app.currentSession.firstTryCount, total);
       assert.equal(app.progress.stageProgress['stage-1'].stars, 3);
       assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
 
       const challengeBtn = app.stageCompleteModal.querySelector('.btn-stage-challenge');
       assert.ok(challengeBtn, 'challenge button must be offered on a perfect first-try clear');
       assert.equal(app.stageCompleteModal.querySelector('.btn-stage-training'), null);
+
+      // Snapshot every side-effect channel the extra session must not touch
+      const scoreBefore = app.progress.gamification.totalScore;
+      const expBefore = app.progress.gamification.labExp;
+      const selfCorrBefore = app.progress.gamification.selfCorrectionCount;
+      const ticketsBefore = app.progress.bonusGame.tickets;
+      const treasureBefore = app.progress.treasureBox.items.length;
 
       domClick(challengeBtn);
       assert.equal(app.stageCompleteModal, null);
@@ -1681,6 +1704,14 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
 
       for (let i = 0; i < 3; i++) {
         const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i === 0) {
+          // Miss once and self-correct: extra sessions record first-try
+          // performance, so this must lower the recorded first-try count
+          // (a plain correct count would stay a meaningless perfect 3).
+          submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
         submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
         if (i < 2) timers.flushAdvance();
       }
@@ -1688,9 +1719,17 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       const sp = app.progress.stageProgress['stage-1'];
       assert.equal(sp.challenge.played, true);
       assert.equal(sp.challenge.attempts, 1);
-      assert.equal(sp.challenge.lastCorrectCount, 3);
-      assert.equal(sp.challenge.bestCorrectCount, 3);
+      assert.equal(sp.challenge.lastFirstTryCount, 2);
+      assert.equal(sp.challenge.bestFirstTryCount, 2);
+      assert.equal(sp.challenge.lastSelfCorrectedCount, 1);
       assert.equal(sp.stars, 3, 'challenge results must not change stars');
+      // No side effects: misses in extra sessions never enter the treasure
+      // box, and no score / EXP / self-correction / ticket counters move.
+      assert.equal(app.progress.treasureBox.items.length, treasureBefore, 'extra-session misses must not enter the treasure box');
+      assert.equal(app.progress.gamification.totalScore, scoreBefore, 'extra sessions must not award score');
+      assert.equal(app.progress.gamification.labExp, expBefore, 'extra sessions must not award EXP');
+      assert.equal(app.progress.gamification.selfCorrectionCount, selfCorrBefore, 'extra sessions must not count self-corrections');
+      assert.equal(app.progress.bonusGame.tickets, ticketsBefore, 'extra sessions must not award tickets');
       assert.ok(app.stageCompleteModal, 'extra-session result modal must be open');
       assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
     });
@@ -1722,6 +1761,13 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.ok(trainingBtn, 'training button must be offered when a category was missed twice');
       assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
 
+      // Snapshot every side-effect channel the extra session must not touch
+      // (the 2 normal-session misses already added 2 treasure items).
+      const scoreBefore = app.progress.gamification.totalScore;
+      const expBefore = app.progress.gamification.labExp;
+      const ticketsBefore = app.progress.bonusGame.tickets;
+      const treasureBefore = app.progress.treasureBox.items.length;
+
       domClick(trainingBtn);
       assert.equal(app.currentSession.mode, 'training');
       assert.equal(app.currentSession.trainingCategory, category);
@@ -1737,9 +1783,97 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       const sp = app.progress.stageProgress['stage-1'];
       assert.equal(sp.training.sessions, 1);
       assert.equal(sp.training.lastCategory, category);
-      assert.equal(sp.training.lastCorrectCount, 3);
+      assert.equal(sp.training.lastFirstTryCount, 3);
+      assert.equal(sp.training.bestFirstTryCount, 3);
+      assert.equal(sp.training.lastSelfCorrectedCount, 0);
       assert.equal(sp.cleared, true);
+      // No side effects from the extra session itself
+      assert.equal(app.progress.treasureBox.items.length, treasureBefore, 'extra sessions must not add treasure items');
+      assert.equal(app.progress.gamification.totalScore, scoreBefore, 'extra sessions must not award score');
+      assert.equal(app.progress.gamification.labExp, expBefore, 'extra sessions must not award EXP');
+      assert.equal(app.progress.bonusGame.tickets, ticketsBefore, 'extra sessions must not award tickets');
       assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
+    });
+
+    it('Issue #23: designed trap values on two different problems offer training for that specific category', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i < 2) {
+          // Answer with the problem's designed trap value so the diagnosis
+          // lands on the specific trap category (stage 1-1 addition traps
+          // are carry_forgotten), not the general_recheck fallback.
+          const trap = prob.commonTrap;
+          assert.ok(trap && trap.mistakeValue !== undefined, 'problem must carry a designed trap');
+          assert.equal(trap.reasonCategory, 'carry_forgotten');
+          submitKeypadAnswer(env.viewContainer, trap.mistakeValue);
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      const records = app.currentSession.errorRecords;
+      assert.equal(records.length, 2);
+      assert.notEqual(records[0].problem.id, records[1].problem.id, 'misses must be on two different problems');
+      assert.equal(records[0].reasonCategory, 'carry_forgotten', 'trap value must diagnose as the specific category');
+      assert.equal(records[1].reasonCategory, 'carry_forgotten');
+
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      const trainingBtn = app.stageCompleteModal.querySelector('.btn-stage-training');
+      assert.ok(trainingBtn, 'training button must be offered for the specific trap category');
+      assert.ok(
+        getAllText(trainingBtn).includes('くり上がり'),
+        'training button must name the specific category'
+      );
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
+
+      domClick(trainingBtn);
+      assert.equal(app.currentSession.mode, 'training');
+      assert.equal(app.currentSession.trainingCategory, 'carry_forgotten');
+      assert.equal(app.currentSession.problems.length, 3);
+    });
+
+    it('Issue #23: missing the same problem twice does not offer training (distinct-problem rule)', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i === 0) {
+          // Miss the SAME problem twice (two error records, one problem)
+          for (let miss = 0; miss < 2; miss++) {
+            submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+            solveStepGuideModal(app.arenaStepGuide);
+            domClick(env.modalRoot.querySelector('.step-finish-btn'));
+          }
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      assert.equal(app.currentSession.errorRecords.length, 2, 'both misses are recorded');
+      assert.equal(
+        app.currentSession.errorRecords[0].problem.id,
+        app.currentSession.errorRecords[1].problem.id,
+        'both misses belong to the same problem'
+      );
+      assert.equal(
+        app.currentSession.errorRecords[0].reasonCategory,
+        app.currentSession.errorRecords[1].reasonCategory
+      );
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      assert.equal(
+        app.stageCompleteModal.querySelector('.btn-stage-training'),
+        null,
+        'one problem missed twice must not qualify for targeted training'
+      );
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
     });
 
     it('Issue #23: no adaptation offers appear without a perfect clear or a repeated category', () => {
@@ -2017,8 +2151,9 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(global.window.location.hash, '#stage/stage-1');
     });
 
-    it('renders non-empty concept title, visual diagram, and explanation for all 15 stages and completes Card 0 -> Card 1 -> Card 2 via DOM', () => {
-      for (let s = 1; s <= 15; s++) {
+    it('renders non-empty concept title, visual diagram, and explanation for all stages and completes Card 0 -> Card 1 -> Card 2 via DOM', () => {
+      const totalStages = CurriculumEngine.WORLDS_METADATA.reduce((n, w) => n + w.stages.length, 0);
+      for (let s = 1; s <= totalStages; s++) {
         const sId = `stage-${s}`;
         routeTo(`#lesson/${sId}`);
         assert.equal(env.modalRoot.children.length, 1, `${sId}: modal should be mounted`);
@@ -2287,6 +2422,340 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       global.window.dispatchEvent({ type: 'offline' });
       assert.equal(offlineBanner.classList.contains('visible'), true);
       assert.ok(offlineBanner.textContent.includes('自動同期されます'));
+    });
+  });
+
+  // =========================================================================
+  // Challenge 8: Issue #16 World 6 Decimal Stage Integration
+  // =========================================================================
+  describe('8. Issue #16: World 6 Decimal Stage (Mini-Lesson -> Arena -> Clear)', () => {
+    function routeTo(hash) {
+      global.window.location.hash = hash;
+      app.handleRoute();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    // Capture >=500ms timers (the 600ms arena advance window) for manual flush
+    function captureTimers() {
+      const origSetTimeout = global.setTimeout;
+      const origClearTimeout = global.clearTimeout;
+      const pending = new Map();
+      let nextId = 1;
+      global.setTimeout = (fn, delay = 0, ...args) => {
+        if (delay >= 500 && typeof fn === 'function') {
+          const id = nextId++;
+          pending.set(id, () => {
+            pending.delete(id);
+            fn(...args);
+          });
+          return id;
+        }
+        return origSetTimeout(fn, delay, ...args);
+      };
+      global.clearTimeout = (id) => {
+        if (pending.has(id)) {
+          pending.delete(id);
+          return;
+        }
+        return origClearTimeout(id);
+      };
+      return {
+        flush(id) {
+          const fn = pending.get(id);
+          assert.ok(fn, 'expected a captured timer to flush');
+          fn();
+        },
+        restore() {
+          global.setTimeout = origSetTimeout;
+          global.clearTimeout = origClearTimeout;
+        }
+      };
+    }
+
+    it('completes Stage 17 mini-lesson, answers all 5 problems via the decimal keypad, and clears the stage', () => {
+      const timers = captureTimers();
+      try {
+        // 1. Mini-lesson for Stage 17 (World 6: 小数のたし算)
+        routeTo('#lesson/stage-17');
+        assert.equal(env.modalRoot.children.length, 1, 'lesson modal must be mounted');
+        const modal = app.activeViewComponent;
+        assert.ok(modal instanceof MiniLessonModal);
+
+        domClick(env.modalRoot.querySelector('.next-card-btn')); // Card 0 -> Card 1
+        const correctOpt = SpeechService.getMiniLessonData('stage-17').card2.correctOption;
+        domClick(env.modalRoot.querySelector(`.quiz-btn[data-option="${correctOpt}"]`));
+        domClick(env.modalRoot.querySelector('.next-card-btn')); // Card 1 -> Card 2
+        domClick(env.modalRoot.querySelector('.next-card-btn')); // Finish -> arena
+
+        assert.equal(app.progress.stageProgress['stage-17']?.miniLessonSeen, true);
+
+        // 2. Arena for Stage 17 with the decimal keypad enabled
+        routeTo('#stage/stage-17');
+        const session = app.currentSession;
+        assert.ok(session, 'arena session must exist');
+        assert.equal(session.stageId, 'stage-17');
+        assert.equal(session.worldId, 6);
+        assert.equal(session.problems.length, 5);
+        assert.ok(app.arenaKeypad, 'arena keypad must exist');
+        assert.equal(app.arenaKeypad.state.hasDecimal, true, 'decimal keypad mode must be on for World 6');
+
+        // The decimal point key itself must work in the arena (then clear it)
+        app.arenaKeypad.pressKey('.');
+        assert.equal(app.arenaKeypad.state.quotientText, '0.');
+        app.arenaKeypad.pressKey('clear');
+        assert.equal(app.arenaKeypad.state.quotientText, '');
+
+        // 3. Answer all 5 problems by typing on the keypad
+        for (let q = 0; q < 5; q++) {
+          const prob = session.problems[session.currentIndex];
+          assert.equal(prob.worldId, 6);
+          const answerText = String(prob.correctAnswer.value);
+          for (const ch of answerText) {
+            app.arenaKeypad.pressKey(ch);
+          }
+          assert.equal(app.arenaKeypad.state.quotientText, answerText);
+          app.arenaKeypad.pressKey('enter');
+          assert.equal(session.correctCount, q + 1, `problem ${q + 1} (${prob.expression}) must be accepted`);
+          if (q < 4) {
+            timers.flush(app.arenaAdvanceTimer);
+            assert.equal(app.arenaKeypad.locked, false, 'keypad must unlock for the next problem');
+          }
+        }
+
+        // 4. Stage clear is recorded
+        assert.equal(app.progress.stageProgress['stage-17'].cleared, true);
+        assert.ok(app.progress.stageProgress['stage-17'].stars >= 1);
+      } finally {
+        timers.restore();
+        if (app.arenaAdvanceTimer) {
+          clearTimeout(app.arenaAdvanceTimer);
+          app.arenaAdvanceTimer = null;
+        }
+      }
+    });
+
+    it('drops decimal mode when remainder mode is enabled (mutually exclusive input modes)', () => {
+      const container = new MockElement('div');
+      const keypad = new Keypad({ hasDecimal: true }).mount(container);
+      assert.equal(keypad.state.hasDecimal, true);
+
+      keypad.setHasRemainder(true);
+      assert.equal(keypad.state.hasRemainder, true);
+      assert.equal(keypad.state.hasDecimal, false, 'setHasRemainder(true) must clear state.hasDecimal');
+      assert.equal(keypad.options.hasDecimal, false, 'setHasRemainder(true) must clear options.hasDecimal');
+      keypad.pressKey('.');
+      keypad.pressKey('5');
+      assert.equal(keypad.state.quotientText, '5', 'decimal point must not be entered in remainder mode');
+      keypad.destroy();
+
+      // reset() applies the same exclusivity when both flags are requested
+      const keypad2 = new Keypad({ hasDecimal: true }).mount(new MockElement('div'));
+      keypad2.reset(true, { hasDecimal: true });
+      assert.equal(keypad2.state.hasRemainder, true);
+      assert.equal(keypad2.state.hasDecimal, false, 'reset with remainder must clear decimal mode');
+      keypad2.destroy();
+    });
+
+    it('shows こたえ (not 商) as the keypad answer label on Stage 16 counting problems', () => {
+      const getAllText = (el) => {
+        if (!el) return '';
+        let txt = el._textContent || '';
+        for (const child of el.children || []) {
+          txt += ' ' + getAllText(child);
+        }
+        return txt.trim();
+      };
+
+      routeTo('#stage/stage-16');
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      assert.equal(session.worldId, 6);
+      // Stage metadata answerLabel ('こたえ') must win over the operator-derived
+      // label for every problem pattern in this counting stage (× / ÷ / mixed)
+      for (let i = 0; i < session.problems.length; i++) {
+        session.currentIndex = i;
+        app.updateArenaProblemDisplay();
+        const prob = session.problems[i];
+        const qLabel = env.viewContainer.querySelector('.display-field-row[data-field="quotient"] .display-label');
+        assert.ok(qLabel, 'quotient label element must exist');
+        assert.equal(getAllText(qLabel), 'こたえ', `Stage 16 (${prob.patternType}) must show こたえ`);
+      }
+    });
+  });
+
+  // =========================================================================
+  // Challenge 9: Issue #17 Pi Review Follow-ups
+  // =========================================================================
+  describe('9. Issue #17: Pi Review Follow-ups (Fraction Arena Guard & Visuals)', () => {
+    function routeTo(hash) {
+      global.window.location.hash = hash;
+      app.handleRoute();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    it('wires hasFraction from the problem into the arena keypad on World 7 stages', () => {
+      routeTo('#stage/stage-20');
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      assert.equal(session.worldId, 7);
+      assert.ok(app.arenaKeypad, 'arena keypad must exist');
+      assert.equal(
+        app.arenaKeypad.state.hasFraction,
+        true,
+        'fraction keypad mode must be on for World 7 addition stage'
+      );
+      assert.equal(session.problems[0].hasFraction, true);
+    });
+
+    it('blocks arena submission while fraction fields are incomplete or the denominator is 0', () => {
+      routeTo('#stage/stage-20');
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      const prob = session.problems[session.currentIndex];
+      const fa = prob.trapMetadata.fractionAnswer;
+      assert.ok(fa, 'fraction problem must carry its answer');
+      const treasureCountBefore = app.progress.treasureBox?.items?.length || 0;
+
+      // Both fields empty: submission is refused without counting an attempt,
+      // launching the step guide, or quarantining the problem
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.correctCount, 0);
+      assert.equal(session.currentIndex, 0);
+      assert.equal(app.arenaStepGuide, null);
+      assert.equal(app.progress.treasureBox?.items?.length || 0, treasureCountBefore);
+
+      // Numerator only: still refused
+      for (const ch of String(fa.numerator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.currentIndex, 0);
+      assert.equal(app.arenaStepGuide, null);
+
+      // Denominator 0: refused as well (0 can never be a denominator)
+      app.arenaKeypad.pressKey('rem');
+      app.arenaKeypad.pressKey('0');
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.correctCount, 0);
+      assert.equal(session.currentIndex, 0);
+
+      // Both fields filled with the correct fraction: accepted normally
+      app.arenaKeypad.pressKey('clear');
+      for (const ch of String(fa.numerator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('rem');
+      for (const ch of String(fa.denominator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.correctCount, 1);
+      if (app.arenaAdvanceTimer) {
+        clearTimeout(app.arenaAdvanceTimer);
+        app.arenaAdvanceTimer = null;
+      }
+    });
+
+    it('TreasureBox review modal requires both fraction fields before submitting', () => {
+      const prob = CurriculumEngine.generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const item = addTreasureItem(app.progress.treasureBox, prob);
+
+      const tb = new TreasureBox({
+        progress: app.progress,
+        onUpdateHeader: () => {
+          app.syncGamificationProgress();
+          app.updateHeaderStats();
+        }
+      });
+      tb.render(env.viewContainer);
+      tb.launchReviewModal(item);
+
+      const variation = tb.currentVariation;
+      assert.ok(variation?.hasFraction, 'review variation must be a fraction problem');
+      const nInput = tb.reviewModalEl.querySelector('.review-numerator-input');
+      const dInput = tb.reviewModalEl.querySelector('.review-denominator-input');
+      const submitBtn = tb.reviewModalEl.querySelector('.review-submit-btn');
+      const feedbackBox = tb.reviewModalEl.querySelector('.review-feedback');
+      assert.ok(nInput && dInput && submitBtn && feedbackBox);
+
+      // Both fields empty: rejected with guidance, nothing recorded
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 0);
+      assert.equal(feedbackBox.style.display, 'block');
+      assert.ok(tb.reviewModalEl, 'modal must stay open');
+
+      // Numerator only: still rejected
+      const fa = variation.trapMetadata.fractionAnswer;
+      nInput.value = String(fa.numerator);
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 0);
+      assert.ok(tb.reviewModalEl, 'modal must stay open');
+
+      // Both fields filled correctly: accepted
+      dInput.value = String(fa.denominator);
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 1);
+
+      tb.destroy();
+    });
+
+    it('exposes lesson visuals for World 7 stages 19-21', () => {
+      for (const stageId of ['stage-19', 'stage-20', 'stage-21']) {
+        const visual = getLessonVisual(stageId);
+        assert.ok(visual, `${stageId} must have a lesson visual`);
+        assert.ok(visual.badge, `${stageId} visual must carry a badge`);
+        assert.ok(visual.tip, `${stageId} visual must carry a tip`);
+        assert.ok(
+          Array.isArray(visual.diagramLines) && visual.diagramLines.length > 0,
+          `${stageId} visual must carry diagram lines`
+        );
+      }
+      assert.equal(getLessonVisual('stage-999'), null);
     });
   });
 });

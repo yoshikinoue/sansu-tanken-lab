@@ -148,6 +148,89 @@ const LESSON_VISUALS = {
       '  37 × 4 + 63 × 4 = (37 + 63) × 4 = 100 × 4 = 400'
     ],
     tip: '「25×4=100」や同じ数をまとめる工夫で暗算レベルにスピードアップ！'
+  },
+  'stage-16': {
+    badge: '小数の仕組み：0.1の世界！',
+    diagramLines: [
+      '  0.1 が 10 こ = 1',
+      '  0.1 が 23 こ = 2.3 (一の位 2、0.1の位 3)',
+      '  3.47 = 0.01 が 347 こ分'
+    ],
+    tip: '0.1が10こで1、0.01が10こで0.1！位に分けると小数の正体が見えるよ。'
+  },
+  'stage-17': {
+    badge: '小数のたし算：3.25 + 1.48',
+    diagramLines: [
+      '    3 . 2 5',
+      '  + 1 . 4 8   ← 小数点をそろえる！',
+      '  ─────────',
+      '    4 . 7 3   0.01の位: 5+8=13 → 3を書いて1くり上がり'
+    ],
+    tip: '小数点をたてにそろえて位ごとに計算。答えにも小数点を忘れずに！'
+  },
+  'stage-18': {
+    badge: '小数のひき算：0.52 - 0.27',
+    diagramLines: [
+      '    0 . 4 12  ← 0.1の位から10を借りた！',
+      '  - 0 . 2  7',
+      '  ─────────',
+      '    0 . 2  5   貸した0.1の位は 5 → 4 に減る'
+    ],
+    tip: '引けない時は上の位から10を借りる。貸した位は1減らそう！'
+  },
+  'stage-19': {
+    badge: '分数の仕組み：3/7 の読み方！',
+    diagramLines: [
+      '  1 を 7 等分 → 1つ分が 1/7',
+      '  3/7 = 1/7 が 3 こ分',
+      '  分母 7 = 等分した数、分子 3 = 何こ分'
+    ],
+    tip: '分母は「何等分したか」、分子は「何こ分」。単位分数の数で分数を読もう！'
+  },
+  'stage-20': {
+    badge: '同分母のたし算：2/7 + 3/7',
+    diagramLines: [
+      '  2/7 は 1/7 が 2 こ分',
+      '  3/7 は 1/7 が 3 こ分',
+      '  合わせて 5 こ分 → 5/7（分母は 7 のまま！）'
+    ],
+    tip: '分母はそのまま、分子だけを足す。分母同士は足さないよ！'
+  },
+  'stage-21': {
+    badge: '同分母のひき算：1と2/7 - 4/7',
+    diagramLines: [
+      '  1と2/7 を仮分数に直す → 9/7',
+      '  9/7 - 4/7 = 5/7',
+      '  引けない時は仮分数に変身させる！'
+    ],
+    tip: '分子が引けない時は、帯分数を仮分数に直してから分子だけ引こう！'
+  },
+  'stage-22': {
+    badge: '大きな数：位取り表で読む！',
+    diagramLines: [
+      '  6,045,030,000,000',
+      '  兆の位は右から13番目！',
+      '  1億 = 1万が 10,000 こ分'
+    ],
+    tip: '右から4桁ずつ区切ると、万・億・兆のまとまりで読みやすいよ！'
+  },
+  'stage-23': {
+    badge: '四捨五入：3,567 のがい数',
+    diagramLines: [
+      '  百の位までのがい数 → 十の位の 6 を見る',
+      '  6 は5以上だから切り上げ！',
+      '  3,567 → 約 3,600'
+    ],
+    tip: '見るのは残したい位の1つ下。4以下は切り捨て、5以上は切り上げ！'
+  },
+  'stage-24': {
+    badge: '概算：買い物の見積もり',
+    diagramLines: [
+      '  298円 → 約300円',
+      '  512円 → 約500円',
+      '  合わせて 約800円！'
+    ],
+    tip: '値段をがい数に直してから計算すると、暗算で見当がつくよ！'
   }
 };
 
@@ -164,9 +247,18 @@ function getCurriculumLessonMeta(stageId) {
   return null;
 }
 
+/**
+ * ステージの図解データ (LESSON_VISUALS) を返す。未登録なら null
+ * @param {string|number} stageId 例: 'stage-19', 19
+ * @returns {object|null}
+ */
+export function getLessonVisual(stageId) {
+  const key = String(stageId || '').toLowerCase();
+  return LESSON_VISUALS[key] || null;
+}
+
 function renderLessonVisual(stageId) {
-  const key = String(stageId || 'stage-1').toLowerCase();
-  const data = LESSON_VISUALS[key] || LESSON_VISUALS['stage-1'];
+  const data = getLessonVisual(stageId) || LESSON_VISUALS['stage-1'];
   return `
     <div class="lesson-visual-diagram">
       <div class="lesson-visual-header">✏️ ${data.badge}</div>
