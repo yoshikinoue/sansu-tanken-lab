@@ -2180,7 +2180,7 @@ input:focus-visible {
 /**
  * @file curriculum-engine.js
  * @description 小学4年生向け 四則演算ステップアップ学習Webアプリ (算数探検ラボ)
- * 全8ワールド・24ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
+ * 全9ワールド・27ステージ カリキュラム問題生成・アダプティブ出題・ステップガイド・誤答診断・類題生成エンジン
  */
 
 let problemSequenceCounter = 1;
@@ -3340,6 +3340,146 @@ const WORLDS_METADATA = [
         }
       }
     ]
+  },
+  {
+    worldId: 9,
+    id: 'world-9',
+    title: '文章題ラボ',
+    subtitle: '読んで、式を立てて、答える',
+    themeColor: '#00796b',
+    icon: '📖',
+    description: '文章を読んで数量の関係をつかみ、式を立てて解く力を身につけよう！あまりの判断と単位換算も攻略！',
+    stages: [
+      {
+        stageId: 1,
+        worldId: 9,
+        globalStageNumber: 25,
+        globalId: 'stage-25',
+        title: '立式マスター',
+        subtitle: '文章を読んで式を立てる',
+        description: '「ぜんぶで」「残り」「○ずつ△つ分」「同じ数ずつ分ける」。言葉から計算を見つけよう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: '立式マスター（言葉が計算のヒント）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】言葉が計算のヒント！',
+              body: '「ぜんぶで・合わせて」はたし算、「残り・ちがいは」はひき算、「○こずつ△つ分」はかけ算、「同じ数ずつ分ける」はわり算だよ。もんだいの言葉に注目するのが立式のコツ！',
+              ttsText: '言葉が計算のヒントだよ。ぜんぶではたし算、残りはひき算、ずつはかけ算、分けるはわり算だね！',
+              visualType: 'word_problem_ops'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】式を選ぼう',
+              question: '「シールが24まいあります。6人で同じ数ずつ分けます。1人は何まい？」の式はどっち？',
+              choices: [
+                { id: 'A', label: '24 ÷ 6', isCorrect: true, feedback: 'ピンポン！大正解！「同じ数ずつ分ける」からわり算だね！' },
+                { id: 'B', label: '24 × 6', isCorrect: false, feedback: 'おしい！24まいを分けるのに、答えが24より大きくなるのはおかしいね。「分ける」はわり算だよ！' }
+              ],
+              hint: '「同じ数ずつ分ける」は何算だったかな？',
+              ttsText: 'シール24まいを6人で同じ数ずつ分ける式はどっちかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【言葉を見て計算を決める！】ぜんぶで→たし算、残り→ひき算、ずつ→かけ算、分ける→わり算！',
+              ttsText: '今日の必殺技！言葉を見て計算を決める！式を立ててから計算しよう！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 2,
+        worldId: 9,
+        globalStageNumber: 26,
+        globalId: 'stage-26',
+        title: 'あまりの判断マスター',
+        subtitle: '切り上げ・切り捨て・あまりそのもの',
+        description: 'わり算のあまりをどうするかは場面で決まるよ。全員が乗れるか、お金が足りるかを考えよう！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: 'あまりの判断（場面で決める）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】あまりの扱いは場面で決まる！',
+              body: '全員が乗らなければならない時は、あまりの分でもう1台必要だから切り上げ。買える数や取れる数を聞かれたら、足りない分は切り捨て。「あまりは？」と聞かれたら、あまりそのものが答えだよ！',
+              ttsText: 'あまりの扱いは場面で決まるよ。全員分なら切り上げ、買える数なら切り捨て、あまりを聞かれたらそのまま答えよう！',
+              visualType: 'word_remainder_judge'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】タクシーは何台？',
+              question: '23人でタクシーに乗ります。1台に5人まで乗れます。タクシーは何台必要？（23 ÷ 5 = 4 あまり 3）',
+              choices: [
+                { id: 'A', label: '4台', isCorrect: false, feedback: 'おしい！4台だと3人が乗れなくなってしまうよ。あまりの3人の分も考えよう！' },
+                { id: 'B', label: '5台', isCorrect: true, feedback: 'ピンポン！大正解！あまりの3人も乗れるように、もう1台必要だね！' }
+              ],
+              hint: 'あまりの3人は、どうやって乗るのかな？',
+              ttsText: '23人を5人ずつ乗せると何台必要かな？あまりの3人のことも考えよう！'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【あまりは場面で判断！】全員分なら切り上げ、買える数なら切り捨て、あまりを聞かれたらそのまま！',
+              ttsText: '今日の必殺技！あまりは場面で判断する！商とあまりを出してから、場面に合わせて決めよう！'
+            }
+          ]
+        }
+      },
+      {
+        stageId: 3,
+        worldId: 9,
+        globalStageNumber: 27,
+        globalId: 'stage-27',
+        title: '単位換算の文章題',
+        subtitle: 'mとcm・LとmL・kgとg',
+        description: '単位がちがう時は、まず小さい単位にそろえてから計算しよう。1m=100cm、1L=1000mL、1kg=1000g！',
+        operator: 'mixed',
+        displayFormat: 'horizontal',
+        miniLesson: {
+          title: '単位換算の文章題（そろえてから計算）',
+          cards: [
+            {
+              step: 1,
+              type: 'concept',
+              title: '【着眼点】単位をそろえてから計算！',
+              body: 'mとcmがまざった問題は、全部cmに直してから計算しよう。1mは100cm、1Lは1000mL、1kgは1000g。単位をそろえるのが先で、計算はその後だよ！',
+              ttsText: '単位がちがう時は、まず小さい単位にそろえてから計算しよう。1メートルは100センチメートルだよ！',
+              visualType: 'word_unit_convert'
+            },
+            {
+              step: 2,
+              type: 'quiz',
+              title: '【ラボ2択クイズ】2mは何cm？',
+              question: '2m は 何cm？',
+              choices: [
+                { id: 'A', label: '20cm', isCorrect: false, feedback: 'おしい！1mは10cmではなく100cmだよ。0の数に注目しよう！' },
+                { id: 'B', label: '200cm', isCorrect: true, feedback: 'ピンポン！大正解！1m = 100cm だから、2m = 200cm だね！' }
+              ],
+              hint: '1mは何cmだったかな？',
+              ttsText: '2メートルは何センチメートルかな？'
+            },
+            {
+              step: 3,
+              type: 'summary',
+              title: '【攻略まとめ】今日のラボ必殺技！',
+              ruleSummary: '【まず単位をそろえる！】m→cmは×100、L→mLとkg→gは×1000！',
+              ttsText: '今日の必殺技！まず単位をそろえる！換算してから計算しよう！'
+            }
+          ]
+        }
+      }
+    ]
   }
 ];
 
@@ -3617,7 +3757,7 @@ function buildMathProblem({
 }
 
 // ============================================================================
-// Stage Generators (24 Stages)
+// Stage Generators (27 Stages)
 // ============================================================================
 
 /**
@@ -8607,6 +8747,888 @@ function generateStage8_3(args) {
   return buildEstimateAdd(args);
 }
 
+// ============================================================================
+// World 9: 文章題ラボ (文章を読んで式を立てる・あまりの判断・単位換算)
+// ============================================================================
+
+/**
+ * 文章題共通ビルダー: prompt に文章、expression に立てた式を持たせる。
+ * 答えは常に数値1つで、通常のテンキー入力で回答できる形にする。
+ */
+function buildWordProblem({
+  stageId,
+  questionIndex,
+  level,
+  difficultyLevel,
+  prompt,
+  expression,
+  operands,
+  answer,
+  steps,
+  mistakeValue,
+  reasonCategory,
+  diagnosis,
+  hintMessage,
+  errorDiagnostics,
+  patternType,
+  trapMetadata = {}
+}) {
+  return buildMathProblem({
+    worldId: 9,
+    stageId,
+    questionIndex,
+    level,
+    difficultyLevel,
+    prompt,
+    expression,
+    displayFormat: 'horizontal',
+    operands,
+    operator: 'mixed',
+    quotient: answer,
+    stepMode: 'column_add_sub',
+    steps,
+    commonTrap: { mistakeValue, reasonCategory, diagnosis, hintMessage },
+    errorDiagnostics,
+    patternType,
+    trapMetadata
+  });
+}
+
+/**
+ * 類題生成時に、元問題と異なる数値の組み合わせになったか
+ */
+function wordOperandsDiffer(variationTarget, a, b) {
+  if (!variationTarget) return true;
+  const t = variationTarget.operands || [];
+  return !(t[0] === a && t[1] === b);
+}
+
+/**
+ * 文章題 (9-1 / 9-2) 共通のステップ: 文中の2つの数を見つける → 式を立てて計算
+ */
+function wordNumberSteps({ a, b, finalExplanation, finalHint }) {
+  return [
+    {
+      stepNumber: 1,
+      id: 'first_number',
+      title: '1つ目の数',
+      actionName: 'さがす',
+      explanation: 'もんだい文に出てくる数を見つけよう。1つ目の数は？',
+      blankPosition: 'first_number',
+      expectedStepValue: a,
+      hint: '文を最初から読んで、数のところに注目してみよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'second_number',
+      title: '2つ目の数',
+      actionName: 'さがす',
+      explanation: 'もう1つの数は？',
+      blankPosition: 'second_number',
+      expectedStepValue: b,
+      hint: '単位（こ・人・円など）の前にある数がヒントだよ！'
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '式と答え',
+      actionName: 'たてる',
+      explanation: finalExplanation,
+      blankPosition: 'final',
+      expectedStepValue: null, // caller fills with the answer below
+      hint: finalHint
+    }
+  ];
+}
+
+const WORD_NOUNS = [
+  { noun: 'りんご', counter: 'こ', subVerb: '食べました' },
+  { noun: 'みかん', counter: 'こ', subVerb: '食べました' },
+  { noun: 'あめ', counter: 'こ', subVerb: '食べました' },
+  { noun: 'シール', counter: 'まい', subVerb: 'あげました' },
+  { noun: 'ビー玉', counter: 'こ', subVerb: 'なくしました' },
+  { noun: '本', counter: 'さつ', subVerb: '貸しました' }
+];
+
+/**
+ * Stage 9-1 (pattern: word_add): 「ぜんぶで」でたし算を選ぶ
+ */
+function buildWordAdd(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+  const nounIndex = variationTarget?.trapMetadata?.nounIndex ?? randInt(0, WORD_NOUNS.length - 1, rng);
+  const item = WORD_NOUNS[nounIndex];
+
+  let a = 0;
+  let b = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      a = randInt(15, 60, rng); b = randInt(8, 40, rng);
+    } else if (difficultyLevel === 'challenge') {
+      a = randInt(150, 700, rng); b = randInt(120, 600, rng);
+    } else if (difficultyLevel === 'hurdle') {
+      a = randInt(80, 450, rng); b = randInt(60, 380, rng);
+    } else {
+      a = randInt(35, 240, rng); b = randInt(25, 200, rng);
+    }
+    if (b > a) [a, b] = [b, a];
+    if (a === b) a += 7;
+    if (wordOperandsDiffer(variationTarget, a, b)) break;
+  }
+
+  const answer = a + b;
+  const prompts = [
+    `${item.noun}が ${a}${item.counter} あります。${b}${item.counter} もらいました。ぜんぶで 何${item.counter}に なりますか？`,
+    `男の子が ${a}人、女の子が ${b}人 います。ぜんぶで 何人ですか？`,
+    `${a}円の ノートと、${b}円の えんぴつを 買います。ぜんぶで 何円ですか？`
+  ];
+  const steps = wordNumberSteps({
+    a, b,
+    finalExplanation: `「ぜんぶで」は合わせる計算だから、式は ${a} ＋ ${b} だね。答えは？`,
+    finalHint: '「ぜんぶで・合わせて」と聞かれたら、たし算だよ！'
+  });
+  steps[2].expectedStepValue = answer;
+
+  return buildWordProblem({
+    stageId: 1, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${a} + ${b}`,
+    operands: [a, b],
+    answer,
+    steps,
+    mistakeValue: a - b,
+    reasonCategory: 'word_wrong_operation',
+    diagnosis: '「ぜんぶで」は合わせる計算だから、たし算だよ！ひき算になっていないか確かめよう！',
+    hintMessage: '文の中の「ぜんぶで」という言葉が、たし算の合図だよ！',
+    errorDiagnostics: [
+      {
+        predictedErrorValue: a - b,
+        reasonCategory: 'word_wrong_operation',
+        adviceMessage: 'ひき算になっているよ。「ぜんぶで」は合わせるから、たし算で式を立てよう！'
+      },
+      {
+        predictedErrorValue: answer + 10,
+        reasonCategory: 'calculation_slip',
+        adviceMessage: '式は合っているよ！たし算のくり上がりをもう一度ゆっくり確かめよう！'
+      }
+    ],
+    patternType: 'word_add',
+    trapMetadata: { templateIndex, nounIndex, wordOp: '+' }
+  });
+}
+
+/**
+ * Stage 9-1 (pattern: word_sub): 「残り・ちがい」でひき算を選ぶ
+ */
+function buildWordSub(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+  const nounIndex = variationTarget?.trapMetadata?.nounIndex ?? randInt(0, WORD_NOUNS.length - 1, rng);
+  const item = WORD_NOUNS[nounIndex];
+
+  let a = 0;
+  let b = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      a = randInt(25, 80, rng); b = randInt(9, 50, rng);
+    } else if (difficultyLevel === 'challenge') {
+      a = randInt(300, 950, rng); b = randInt(140, 700, rng);
+    } else if (difficultyLevel === 'hurdle') {
+      a = randInt(150, 600, rng); b = randInt(80, 420, rng);
+    } else {
+      a = randInt(60, 320, rng); b = randInt(30, 210, rng);
+    }
+    if (a - b < 5) continue;
+    if (wordOperandsDiffer(variationTarget, a, b)) break;
+  }
+
+  const answer = a - b;
+  const prompts = [
+    `${item.noun}が ${a}${item.counter} あります。${b}${item.counter} ${item.subVerb}。残りは 何${item.counter}ですか？`,
+    `${a}円 持っています。${b}円の おかしを 買いました。残りは 何円ですか？`,
+    `赤いリボンは ${a}cm、白いリボンは ${b}cmです。赤いリボンは 白いリボンより 何cm 長いですか？`
+  ];
+  const finalExplanation = templateIndex === 2
+    ? `「ちがい」は大きい数から小さい数を引くよ。式は ${a} − ${b} だね。答えは？`
+    : `「残り」は ひき算だね。式は ${a} − ${b}。答えは？`;
+  const steps = wordNumberSteps({
+    a, b,
+    finalExplanation,
+    finalHint: '「残り・ちがい」と聞かれたら、ひき算だよ！'
+  });
+  steps[2].expectedStepValue = answer;
+
+  return buildWordProblem({
+    stageId: 1, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${a} - ${b}`,
+    operands: [a, b],
+    answer,
+    steps,
+    mistakeValue: a + b,
+    reasonCategory: 'word_wrong_operation',
+    diagnosis: '「残り（ちがい）」は ひき算だよ！たし算になっていないか確かめよう！',
+    hintMessage: '文の中の「残り」という言葉が、ひき算の合図だよ！',
+    errorDiagnostics: [
+      {
+        predictedErrorValue: a + b,
+        reasonCategory: 'word_wrong_operation',
+        adviceMessage: 'たし算になっているよ。「残り」は全体から一部を取り除くから、ひき算で式を立てよう！'
+      },
+      {
+        predictedErrorValue: answer + 10,
+        reasonCategory: 'calculation_slip',
+        adviceMessage: '式は合っているよ！ひき算のくり下がりをもう一度ゆっくり確かめよう！'
+      }
+    ],
+    patternType: 'word_sub',
+    trapMetadata: { templateIndex, nounIndex, wordOp: '-' }
+  });
+}
+
+/**
+ * Stage 9-1 (pattern: word_mult): 「○ずつ △つ分」でかけ算を選ぶ
+ */
+function buildWordMult(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+  const nounIndex = variationTarget?.trapMetadata?.nounIndex ?? randInt(0, WORD_NOUNS.length - 1, rng);
+  const item = WORD_NOUNS[nounIndex];
+
+  let a = 0;
+  let b = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (templateIndex === 2) {
+      // 値段は10円単位にする (a は10円の個数ではなく値段そのもの)
+      if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') a = randInt(2, 9, rng) * 10;
+      else if (difficultyLevel === 'challenge') a = randInt(12, 30, rng) * 10;
+      else a = randInt(3, 12, rng) * 10;
+      b = randInt(2, 9, rng);
+    } else if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      a = randInt(2, 9, rng); b = randInt(2, 5, rng);
+    } else if (difficultyLevel === 'challenge') {
+      a = randInt(12, 30, rng); b = randInt(3, 9, rng);
+    } else {
+      a = randInt(3, 9, rng); b = randInt(3, 9, rng);
+    }
+    // a = b = 2 のとき誤答トラップ (a + b) が正解と一致してしまうため除外
+    if (a + b === a * b) continue;
+    if (wordOperandsDiffer(variationTarget, a, b)) break;
+  }
+
+  const answer = a * b;
+  const prompts = [
+    `${item.noun}が ${a}${item.counter}ずつ 入った 箱が ${b}箱 あります。ぜんぶで 何${item.counter}ですか？`,
+    `1れつに ${a}人ずつ ならんで、${b}れつ あります。ぜんぶで 何人ですか？`,
+    `${a}円の ジュースを ${b}本 買います。ぜんぶで 何円ですか？`
+  ];
+  const steps = wordNumberSteps({
+    a, b,
+    finalExplanation: `「${a}ずつ ${b}つ分」は かけ算だね。式は ${a} × ${b}。答えは？`,
+    finalHint: '「○ずつ △つ分」と聞かれたら、かけ算だよ！'
+  });
+  steps[2].expectedStepValue = answer;
+
+  return buildWordProblem({
+    stageId: 1, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${a} × ${b}`,
+    operands: [a, b],
+    answer,
+    steps,
+    mistakeValue: a + b,
+    reasonCategory: 'word_wrong_operation',
+    diagnosis: '「○ずつ △つ分」は かけ算だよ！たし算になっていないか確かめよう！',
+    hintMessage: '「ずつ」という言葉が、かけ算の合図だよ！',
+    errorDiagnostics: [
+      {
+        predictedErrorValue: a + b,
+        reasonCategory: 'word_wrong_operation',
+        adviceMessage: 'たし算になっているよ。「1つ分 × いくつ分」がかけ算だね！'
+      },
+      {
+        predictedErrorValue: a * (b + 1),
+        reasonCategory: 'calculation_slip',
+        adviceMessage: `式は合っているよ！${b}つ分なのに、1つ分多くかけていないか確かめよう！`
+      }
+    ],
+    patternType: 'word_mult',
+    trapMetadata: { templateIndex, nounIndex, wordOp: '×' }
+  });
+}
+
+/**
+ * Stage 9-1 (pattern: word_div): 「同じ数ずつ分ける」でわり算を選ぶ (割り切れる問題のみ)
+ */
+function buildWordDiv(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+
+  let d = 0;
+  let q = 0;
+  let total = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      d = randInt(2, 6, rng); q = randInt(3, 9, rng);
+    } else if (difficultyLevel === 'challenge') {
+      d = randInt(4, 9, rng); q = randInt(12, 25, rng);
+    } else {
+      d = randInt(3, 9, rng); q = randInt(6, 15, rng);
+    }
+    total = d * q;
+    if (wordOperandsDiffer(variationTarget, total, d)) break;
+  }
+
+  const answer = q;
+  const prompts = [
+    `${total}この あめを ${d}人で 同じ数ずつ 分けます。1人は 何こ もらえますか？`,
+    `${total}まいの 色紙を ${d}つの グループに 同じ数ずつ 配ります。1つのグループは 何まいですか？`,
+    `${total}mの リボンを ${d}人で 同じ長さに 分けます。1人分は 何mですか？`
+  ];
+  const steps = wordNumberSteps({
+    a: total, b: d,
+    finalExplanation: `「同じ数ずつ分ける」は わり算だね。式は ${total} ÷ ${d}。答えは？`,
+    finalHint: '「分ける・配る」と聞かれたら、わり算だよ！'
+  });
+  steps[2].expectedStepValue = answer;
+
+  return buildWordProblem({
+    stageId: 1, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${total} ÷ ${d}`,
+    operands: [total, d],
+    answer,
+    steps,
+    mistakeValue: total - d,
+    reasonCategory: 'word_wrong_operation',
+    diagnosis: '「同じ数ずつ分ける」は わり算だよ！ひき算になっていないか確かめよう！',
+    hintMessage: '「同じ数ずつ分ける」という言葉が、わり算の合図だよ！',
+    errorDiagnostics: [
+      {
+        predictedErrorValue: total - d,
+        reasonCategory: 'word_wrong_operation',
+        adviceMessage: 'ひき算になっているよ。分け算は「全体 ÷ 分ける数」で式を立てよう！'
+      },
+      {
+        predictedErrorValue: q + 1,
+        reasonCategory: 'calculation_slip',
+        adviceMessage: '式は合っているよ！九九のどの段で割り切れるか、もう一度確かめよう！'
+      }
+    ],
+    patternType: 'word_div',
+    trapMetadata: { templateIndex, wordOp: '÷' }
+  });
+}
+
+/**
+ * Stage 9-1: 立式マスター (文章を読んで四則の式を立てる)
+ */
+function generateStage9_1(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = pickRandom(['word_add', 'word_sub'], args.rng);
+    } else if (args.difficultyLevel === 'standard') {
+      patternType = pickRandom(['word_add', 'word_sub', 'word_mult'], args.rng);
+    } else {
+      patternType = pickRandom(['word_add', 'word_sub', 'word_mult', 'word_div'], args.rng);
+    }
+  }
+  if (patternType === 'word_sub') return buildWordSub(args);
+  if (patternType === 'word_mult') return buildWordMult(args);
+  if (patternType === 'word_div') return buildWordDiv(args);
+  return buildWordAdd(args);
+}
+
+/**
+ * 文章題 (9-2) 共通のステップ: わり算の商とあまりを出す → 場面で判断する
+ */
+function wordRemainderSteps({ total, d, q, r, finalExplanation, finalHint, answer }) {
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'quotient',
+      title: 'わり算の商',
+      actionName: 'わる',
+      explanation: `まず ${total} ÷ ${d} を計算しよう。商は？`,
+      blankPosition: 'quotient',
+      expectedStepValue: q,
+      hint: '九九を使って、割り切れる一番大きい数を見つけよう！'
+    },
+    {
+      stepNumber: 2,
+      id: 'remainder',
+      title: 'あまり',
+      actionName: 'かく',
+      explanation: `${total} ÷ ${d} の あまりは？`,
+      blankPosition: 'remainder',
+      expectedStepValue: r,
+      hint: `商 × ${d} を ${total} から引いたのが あまりだよ！`
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: '場面で判断',
+      actionName: 'きめる',
+      explanation: finalExplanation,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: finalHint
+    }
+  ];
+  return steps;
+}
+
+/**
+ * あまりが出るわり算の数値ペア (total, d) を生成する。商は2以上。
+ */
+function genRemainderPair(difficultyLevel, rng, variationTarget) {
+  let total = 0;
+  let d = 0;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+      d = randInt(3, 6, rng); total = randInt(11, 40, rng);
+    } else if (difficultyLevel === 'challenge') {
+      d = randInt(6, 12, rng); total = randInt(61, 250, rng);
+    } else {
+      d = randInt(4, 9, rng); total = randInt(26, 99, rng);
+    }
+    if (total % d === 0) continue;
+    if (Math.floor(total / d) < 2) continue;
+    if (wordOperandsDiffer(variationTarget, total, d)) break;
+  }
+  return { total, d, q: Math.floor(total / d), r: total % d };
+}
+
+/**
+ * Stage 9-2 (pattern: word_remainder_up): あまりを切り上げる判断
+ */
+function buildWordRemainderUp(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+  const { total, d, q, r } = genRemainderPair(difficultyLevel, rng, variationTarget);
+
+  const answer = q + 1;
+  const prompts = [
+    `${total}人が バスに 乗ります。バス1台に ${d}人まで 乗れます。バスは 何台 必要ですか？`,
+    `${total}この 荷物を 箱に 入れます。1箱に ${d}こずつ 入れると、箱は 何箱 必要ですか？`,
+    `${total}Lの 水を バケツで 運びます。1回に ${d}Lずつ 運ぶと、ぜんぶ 運ぶのに 何回 かかりますか？`
+  ];
+  const steps = wordRemainderSteps({
+    total, d, q, r, answer,
+    finalExplanation: `あまりの ${r} も全部 入れる（乗せる・運ぶ）には、もう1つ必要だね。${q} ＋ 1 で 答えは？`,
+    finalHint: 'あまりが出ても、全部のためには もう1つ必要。これが「切り上げ」だよ！'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: q,
+      reasonCategory: 'remainder_needs_round_up',
+      adviceMessage: `商の ${q} だけだと、あとの分が入り切らないよ。あまりの分でもう1つ足す「切り上げ」をしよう！`
+    }
+  ];
+  if (r !== q && r !== answer) {
+    errorDiagnostics.push({
+      predictedErrorValue: r,
+      reasonCategory: 'remainder_quotient_confusion',
+      adviceMessage: 'それは「あまり」の数だね。聞かれているのは、全部でいくつ必要かだよ！'
+    });
+  }
+
+  return buildWordProblem({
+    stageId: 2, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${total} ÷ ${d}`,
+    operands: [total, d],
+    answer,
+    steps,
+    mistakeValue: q,
+    reasonCategory: 'remainder_needs_round_up',
+    diagnosis: 'あまりの分が入り切らなくなってしまうよ！全部のためには、商にもう1つ足す「切り上げ」が必要だね！',
+    hintMessage: '「全員・全部」のためには、あまりでもう1つ必要だよ！',
+    errorDiagnostics,
+    patternType: 'word_remainder_up',
+    trapMetadata: { templateIndex, remainderMode: 'up', divQuotient: q, divRemainder: r }
+  });
+}
+
+/**
+ * Stage 9-2 (pattern: word_remainder_down): あまりを切り捨てる判断
+ */
+function buildWordRemainderDown(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+
+  let total = 0;
+  let d = 0;
+  if (templateIndex === 0) {
+    // お金で買える数: 値段は10円単位
+    for (let attempt = 0; attempt < 200; attempt++) {
+      if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') {
+        d = randInt(6, 12, rng) * 10; total = randInt(200, 500, rng);
+      } else if (difficultyLevel === 'challenge') {
+        d = randInt(11, 29, rng) * 10; total = randInt(550, 1500, rng);
+      } else {
+        d = randInt(7, 19, rng) * 10; total = randInt(320, 980, rng);
+      }
+      if (total % d === 0) continue;
+      if (Math.floor(total / d) < 2) continue;
+      if (wordOperandsDiffer(variationTarget, total, d)) break;
+    }
+  } else if (templateIndex === 1) {
+    // リボンの長さ (cm) は少し大きめの数にする
+    for (let attempt = 0; attempt < 200; attempt++) {
+      total = randInt(60, 300, rng); d = randInt(9, 40, rng);
+      if (total % d === 0) continue;
+      if (Math.floor(total / d) < 2) continue;
+      if (wordOperandsDiffer(variationTarget, total, d)) break;
+    }
+  } else {
+    const pair = genRemainderPair(difficultyLevel, rng, variationTarget);
+    total = pair.total;
+    d = pair.d;
+  }
+  const q = Math.floor(total / d);
+  const r = total % d;
+
+  const answer = q;
+  const prompts = [
+    `${total}円で、1こ ${d}円の パンを 買います。パンは 何こ 買えますか？`,
+    `${total}cmの リボンから、1本 ${d}cmずつ 切り取ります。リボンは 何本 取れますか？`,
+    `${total}この みかんを、1箱に ${d}こずつ 入れます。いっぱいに なる箱は 何箱ですか？`
+  ];
+  const steps = wordRemainderSteps({
+    total, d, q, r, answer,
+    finalExplanation: `あまりの ${r} の分は 足りなくて数に入れられないね。切り捨てて、商がそのまま答えだよ。答えは？`,
+    finalHint: '足りない分は切り捨てる。これが「切り捨て」だよ！'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: q + 1,
+      reasonCategory: 'remainder_needs_round_down',
+      adviceMessage: '1つ多く数えているよ。あまりの分は足りないから、切り上げてはいけない場面だね！'
+    }
+  ];
+  if (r !== q && r !== q + 1) {
+    errorDiagnostics.push({
+      predictedErrorValue: r,
+      reasonCategory: 'remainder_quotient_confusion',
+      adviceMessage: 'それは「あまり」の数だね。聞かれているのは、いくつ買える（取れる・できる）かだよ！'
+    });
+  }
+
+  return buildWordProblem({
+    stageId: 2, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${total} ÷ ${d}`,
+    operands: [total, d],
+    answer,
+    steps,
+    mistakeValue: q + 1,
+    reasonCategory: 'remainder_needs_round_down',
+    diagnosis: 'あまりの分は、お金や長さが足りなくて数に入れられないよ。商のままに「切り捨てる」のが正解だね！',
+    hintMessage: '足りない分は切り捨てて、商がそのまま答えになるよ！',
+    errorDiagnostics,
+    patternType: 'word_remainder_down',
+    trapMetadata: { templateIndex, remainderMode: 'down', divQuotient: q, divRemainder: r }
+  });
+}
+
+/**
+ * Stage 9-2 (pattern: word_remainder_value): あまりそのものが答え
+ */
+function buildWordRemainderValue(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const templateIndex = variationTarget?.trapMetadata?.templateIndex ?? randInt(0, 2, rng);
+  // 商とあまりが同じ数だと誤答トラップ (商) が正解 (あまり) と一致するため、
+  // q !== r になるペアまで引き直す
+  let pair = genRemainderPair(difficultyLevel, rng, variationTarget);
+  for (let attempt = 0; attempt < 50 && pair.q === pair.r; attempt++) {
+    pair = genRemainderPair(difficultyLevel, rng, null);
+  }
+  const { total, d, q, r } = pair;
+
+  const answer = r;
+  const prompts = [
+    `${total}この あめを ${d}人で 同じ数ずつ 分けます。あまりは 何こですか？`,
+    `${total}まいの 折り紙を ${d}人で 同じ数ずつ 分けます。あまりは 何まいですか？`,
+    `${total}この ボールを ${d}つの チームに 同じ数ずつ 分けます。あまりは 何こですか？`
+  ];
+  const steps = wordRemainderSteps({
+    total, d, q, r, answer,
+    finalExplanation: `聞かれているのは「あまり」の数だね。あまりがそのまま答えだよ。答えは？`,
+    finalHint: '「あまりは？」と聞かれたら、あまりそのものが答えだよ！'
+  });
+
+  const errorDiagnostics = [
+    {
+      predictedErrorValue: q,
+      reasonCategory: 'remainder_quotient_confusion',
+      adviceMessage: 'それは商（1人分）の数だね。聞かれているのは「あまり」の数だよ！'
+    }
+  ];
+  if (q + 1 !== r) {
+    errorDiagnostics.push({
+      predictedErrorValue: q + 1,
+      reasonCategory: 'remainder_needs_round_up',
+      adviceMessage: '切り上げた数になっているよ。この問題で聞かれているのは「あまり」だね！'
+    });
+  }
+
+  return buildWordProblem({
+    stageId: 2, questionIndex, level, difficultyLevel,
+    prompt: prompts[templateIndex],
+    expression: `${total} ÷ ${d}`,
+    operands: [total, d],
+    answer,
+    steps,
+    mistakeValue: q,
+    reasonCategory: 'remainder_quotient_confusion',
+    diagnosis: '聞かれているのは「あまり」の数だよ！商とまちがえていないか、文の最後を確かめよう！',
+    hintMessage: '文の最後の「あまりは 何こ？」が答えの合図だよ！',
+    errorDiagnostics,
+    patternType: 'word_remainder_value',
+    trapMetadata: { templateIndex, remainderMode: 'value', divQuotient: q, divRemainder: r }
+  });
+}
+
+/**
+ * Stage 9-2: あまりの判断マスター (切り上げ・切り捨て・あまりそのもの)
+ */
+function generateStage9_2(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    if (args.difficultyLevel === 'warmup' || args.difficultyLevel === 'remedial') {
+      patternType = pickRandom(['word_remainder_up', 'word_remainder_down'], args.rng);
+    } else {
+      patternType = pickRandom(
+        ['word_remainder_up', 'word_remainder_down', 'word_remainder_value'],
+        args.rng
+      );
+    }
+  }
+  if (patternType === 'word_remainder_down') return buildWordRemainderDown(args);
+  if (patternType === 'word_remainder_value') return buildWordRemainderValue(args);
+  return buildWordRemainderUp(args);
+}
+
+const WORD_UNIT_KINDS = {
+  length: { bigUnit: 'm', smallUnit: 'cm', factor: 100 },
+  capacity: { bigUnit: 'L', smallUnit: 'mL', factor: 1000 },
+  weight: { bigUnit: 'kg', smallUnit: 'g', factor: 1000 }
+};
+
+// 換算してから割る問題で、答えも「倍率を間違えた値」も整数になる (a, b) の候補
+const WORD_UNIT_DIV_PAIRS = {
+  // b=100: a は 1..6 のどれでもよい
+  100: [1, 2, 3, 4, 5, 6],
+  // b=200: a は偶数
+  200: [2, 4, 6],
+  // b=400: a は 4 の倍数
+  400: [4, 8],
+  // b=500: a は 5 の倍数
+  500: [5]
+};
+
+/**
+ * Stage 9-3: 単位換算の文章題 (そろえてから計算する)
+ * subtype 0: 合わせる (たし算), 1: 残り・ちがい (ひき算), 2: 換算してから割る
+ */
+function buildWordUnit(args) {
+  const { questionIndex, level, difficultyLevel, rng, variationTarget } = args;
+  const patternType = args.patternType;
+  const kindKey = patternType.replace('word_unit_', '');
+  const kind = WORD_UNIT_KINDS[kindKey];
+  const { bigUnit, smallUnit, factor } = kind;
+
+  let subtype = variationTarget?.trapMetadata?.unitSubtype;
+  if (subtype === undefined || subtype === null) {
+    if (difficultyLevel === 'warmup' || difficultyLevel === 'remedial') subtype = 0;
+    else if (difficultyLevel === 'standard') subtype = pickRandom([0, 1], rng);
+    else subtype = pickRandom([0, 1, 2], rng);
+  }
+
+  let a = 0;
+  let b = 0;
+  let answer = 0;
+  let prompt = '';
+  let expression = '';
+  let secondLabel = '';
+
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (subtype === 0) {
+      // 合わせる: a(大きい単位) + b(小さい単位) → 小さい単位で答える
+      if (kindKey === 'length') {
+        a = difficultyLevel === 'warmup' || difficultyLevel === 'remedial' ? randInt(1, 4, rng) : randInt(1, 9, rng);
+        b = randInt(1, 19, rng) * 5;
+      } else {
+        a = difficultyLevel === 'warmup' || difficultyLevel === 'remedial' ? randInt(1, 3, rng) : randInt(1, 6, rng);
+        b = randInt(1, 19, rng) * 50;
+      }
+      answer = a * factor + b;
+      expression = `${a} × ${factor} + ${b}`;
+      if (kindKey === 'length') prompt = `${a}mの ひもと ${b}cmの ひもを つなぎます。ぜんぶで 何cmですか？`;
+      else if (kindKey === 'capacity') prompt = `${a}Lの ジュースと ${b}mLの ジュースを 合わせます。ぜんぶで 何mLですか？`;
+      else prompt = `${a}kgの さとうと ${b}gの さとうを 合わせます。ぜんぶで 何gですか？`;
+      secondLabel = `もう1つの量は ${b}${smallUnit} です。その数は？`;
+    } else if (subtype === 1) {
+      // 残り・ちがい: 大きい単位から小さい単位の量を引く。
+      // 倍率ミスの診断値 (b − a×factor/10) が正になるよう b > a×(factor/10) を保つ
+      if (kindKey === 'length') {
+        a = randInt(2, 9, rng);
+        b = randInt(11, 48, rng) * 10;
+        if (b >= a * factor) continue;
+      } else {
+        a = randInt(1, 4, rng);
+        b = randInt(3, 19, rng) * 50;
+        if (b <= a * (factor / 10)) continue;
+        if (b >= a * factor) continue;
+      }
+      answer = a * factor - b;
+      expression = `${a} × ${factor} − ${b}`;
+      if (kindKey === 'length') prompt = `${a}mの リボンと ${b}cmの リボンが あります。長さの ちがいは 何cmですか？`;
+      else if (kindKey === 'capacity') prompt = `${a}Lの 水が あります。${b}mL 飲みました。残りは 何mLですか？`;
+      else prompt = `${a}kgの かばんから ${b}gの 本を 出しました。かばんの 重さは 何gに なりますか？`;
+      secondLabel = `もう1つの量は ${b}${smallUnit} です。その数は？`;
+    } else {
+      // 換算してから割る: a(大きい単位) を b(小さい単位) ずつに分ける
+      if (kindKey === 'length') {
+        b = pickRandom([2, 4, 5, 10], rng);
+        a = b === 4 ? randInt(1, 4, rng) * 2 : randInt(1, 8, rng);
+        secondLabel = `分ける人数は ${b}人 です。その数は？`;
+        prompt = `${a}mの テープを ${b}人で 同じ長さずつ 分けます。1人分は 何cmですか？`;
+        // テープの文では b は人数 (割る数) → 1人分は a×100÷b (cm)
+        answer = (a * factor) / b;
+        expression = `${a} × ${factor} ÷ ${b}`;
+      } else {
+        const pairKeys = Object.keys(WORD_UNIT_DIV_PAIRS);
+        const bKey = pickRandom(pairKeys, rng);
+        b = Number(bKey);
+        a = pickRandom(WORD_UNIT_DIV_PAIRS[bKey], rng);
+        answer = (a * factor) / b;
+        expression = `${a} × ${factor} ÷ ${b}`;
+        if (kindKey === 'capacity') {
+          secondLabel = `1回分は ${b}${smallUnit} ずつです。その数は？`;
+          prompt = `${a}Lの ジュースを、1回に ${b}mLずつ くみます。何回 くめますか？`;
+        } else {
+          secondLabel = `1袋分は ${b}${smallUnit} ずつです。その数は？`;
+          prompt = `${a}kgの 米を、1袋 ${b}gずつに 分けます。何袋 できますか？`;
+        }
+      }
+    }
+    // 診断の値が答えや互いと重ならない組み合わせだけを採用する
+    const trapNoConvert = subtype === 1 ? b - a : a + b;
+    const trapWrongFactor = subtype === 2 ? (a * (factor / 10)) / b : subtype === 1 ? b - a * (factor / 10) : a * (factor / 10) + b;
+    if (trapNoConvert === answer || trapWrongFactor === answer || trapNoConvert === trapWrongFactor) continue;
+    if (!wordOperandsDiffer(variationTarget, a, b)) continue;
+    break;
+  }
+
+  const converted = a * factor;
+  const trapNoConvert = subtype === 1 ? b - a : a + b;
+  const trapWrongFactor = subtype === 2 ? (a * (factor / 10)) / b : subtype === 1 ? b - a * (factor / 10) : a * (factor / 10) + b;
+
+  let mistakeValue;
+  let reasonCategory;
+  let diagnosis;
+  let errorDiagnostics;
+  if (subtype === 2) {
+    mistakeValue = trapWrongFactor;
+    reasonCategory = 'unit_wrong_factor';
+    diagnosis = `換算の倍率がちがうよ！${bigUnit} から ${smallUnit} は ×${factor} だよ。×${factor / 10} とまちがえていないかな？`;
+    errorDiagnostics = [
+      {
+        predictedErrorValue: trapWrongFactor,
+        reasonCategory: 'unit_wrong_factor',
+        adviceMessage: `1${bigUnit} = ${factor}${smallUnit} だよ。${a}${bigUnit} は ${converted}${smallUnit} になるね！`
+      }
+    ];
+  } else {
+    mistakeValue = trapNoConvert;
+    reasonCategory = 'unit_not_converted';
+    diagnosis = `単位がそろっていないよ！${a}${bigUnit} は ${converted}${smallUnit} に直してから計算しよう！`;
+    errorDiagnostics = [
+      {
+        predictedErrorValue: trapNoConvert,
+        reasonCategory: 'unit_not_converted',
+        adviceMessage: `単位をそろえずに計算しているよ。${a}${bigUnit} を ${smallUnit} に直してから計算しよう！`
+      },
+      {
+        predictedErrorValue: trapWrongFactor,
+        reasonCategory: 'unit_wrong_factor',
+        adviceMessage: `換算の倍率がちがうよ！1${bigUnit} = ${factor}${smallUnit} だね。`
+      }
+    ];
+  }
+
+  const finalExplanation = subtype === 0
+    ? `単位をそろえたから、${converted} ＋ ${b} を計算しよう。答えは？`
+    : subtype === 1
+      ? `単位をそろえたから、${converted} − ${b} を計算しよう。答えは？`
+      : `単位をそろえたから、${converted} ÷ ${b} を計算しよう。答えは？`;
+
+  const steps = [
+    {
+      stepNumber: 1,
+      id: 'convert',
+      title: '単位の換算',
+      actionName: 'なおす',
+      explanation: `${a}${bigUnit} は 何${smallUnit}ですか？`,
+      blankPosition: 'convert',
+      expectedStepValue: converted,
+      hint: `1${bigUnit} = ${factor}${smallUnit} だよ！`
+    },
+    {
+      stepNumber: 2,
+      id: 'second_amount',
+      title: 'もう1つの量',
+      actionName: 'さがす',
+      explanation: secondLabel,
+      blankPosition: 'second_amount',
+      expectedStepValue: b,
+      hint: `文の中の ${smallUnit} の数を探そう！`
+    },
+    {
+      stepNumber: 3,
+      id: 'final',
+      title: 'そろえて計算',
+      actionName: 'けいさん',
+      explanation: finalExplanation,
+      blankPosition: 'final',
+      expectedStepValue: answer,
+      hint: '単位をそろえてから計算するのがコツだよ！'
+    }
+  ];
+
+  return buildWordProblem({
+    stageId: 3, questionIndex, level, difficultyLevel,
+    prompt,
+    expression,
+    operands: [a, b],
+    answer,
+    steps,
+    mistakeValue,
+    reasonCategory,
+    diagnosis,
+    hintMessage: `まず ${bigUnit} を ${smallUnit} に直して、単位をそろえよう！`,
+    errorDiagnostics,
+    patternType,
+    trapMetadata: { unitKind: kindKey, unitSubtype: subtype, convertFactor: factor, bigAmount: a }
+  });
+}
+
+/**
+ * Stage 9-3: 単位換算の文章題 (m↔cm・L↔mL・kg↔g)
+ */
+function generateStage9_3(args) {
+  let patternType = args.variationTarget?.patternType;
+  if (!patternType) {
+    patternType = pickRandom(['word_unit_length', 'word_unit_capacity', 'word_unit_weight'], args.rng);
+  }
+  return buildWordUnit({ ...args, patternType });
+}
+
 const STAGE_GENERATORS = {
   '1-1': generateStage1_1,
   '1-2': generateStage1_2,
@@ -8631,7 +9653,10 @@ const STAGE_GENERATORS = {
   '7-3': generateStage7_3,
   '8-1': generateStage8_1,
   '8-2': generateStage8_2,
-  '8-3': generateStage8_3
+  '8-3': generateStage8_3,
+  '9-1': generateStage9_1,
+  '9-2': generateStage9_2,
+  '9-3': generateStage9_3
 };
 
 // ============================================================================
@@ -9096,6 +10121,10 @@ function generateVariationProblem(originalProblem, options = {}) {
     }
     // stageId === 3 (概算) は operands から復元できる条件がなく、
     // 各ビルダーの難易度既定 (add/sub は位、mult は百の位) に任せる
+  } else if (norm.worldId === 9) {
+    // 文章題 (compact 形式): patternType と trapMetadata (テンプレート番号・
+    // あまりの判断モード・単位の種類) が残っていれば各ビルダーが再利用する。
+    // 欠けている場合は難易度既定のパターン選択に任せる (World 8 stage 3 と同様)
   }
 
   const targetModel = {
@@ -12076,6 +13105,90 @@ const MINI_LESSON_SCRIPTS = {
       rule: '【がい数に直してから計算！】見積もってから正確に計算するとまちがいに気づける！',
       ttsText: '今日の必殺技！がい数に直してから計算！見積もり上手になろう！'
     }
+  },
+  'stage-25': {
+    stageId: 'stage-25',
+    worldId: 9,
+    stageNumber: 1,
+    title: '立式マスター（言葉が計算のヒント）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '「ぜんぶで・合わせて」はたし算、「残り・ちがいは」はひき算、「○こずつ△つ分」はかけ算、「同じ数ずつ分ける」はわり算だよ！',
+      ttsText: '言葉が計算のヒントだよ。ぜんぶではたし算、残りはひき算、ずつはかけ算、分けるはわり算だね！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '「シールが24まいあります。6人で同じ数ずつ分けます。1人は何まい？」の式はどっち？',
+      options: [
+        { id: 'A', label: '24 ÷ 6' },
+        { id: 'B', label: '24 × 6' }
+      ],
+      correctOption: 'A',
+      correctFeedback: 'ピンポン！大正解！「同じ数ずつ分ける」からわり算だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！24まいを分けるのに、答えが24より大きくなるのはおかしいね。',
+      ttsText: 'シール24まいを6人で同じ数ずつ分ける式はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【言葉を見て計算を決める！】ぜんぶで→たし算、残り→ひき算、ずつ→かけ算、分ける→わり算！',
+      ttsText: '今日の必殺技！言葉を見て計算を決める！式を立ててから計算しよう！'
+    }
+  },
+  'stage-26': {
+    stageId: 'stage-26',
+    worldId: 9,
+    stageNumber: 2,
+    title: 'あまりの判断（場面で決める）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '全員が乗らなければならない時は切り上げ、買える数を聞かれたら切り捨て、「あまりは？」と聞かれたらあまりそのものが答えだよ！',
+      ttsText: 'あまりの扱いは場面で決まるよ。全員分なら切り上げ、買える数なら切り捨て、あまりを聞かれたらそのまま答えよう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '23人でタクシーに乗ります。1台に5人まで乗れます。タクシーは何台必要？（23 ÷ 5 = 4 あまり 3）',
+      options: [
+        { id: 'A', label: '4台' },
+        { id: 'B', label: '5台' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！あまりの3人も乗れるように、もう1台必要だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！4台だと3人が乗れなくなってしまうよ。',
+      ttsText: '23人を5人ずつ乗せると何台必要かな？あまりの3人のことも考えよう！'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【あまりは場面で判断！】全員分なら切り上げ、買える数なら切り捨て、あまりを聞かれたらそのまま！',
+      ttsText: '今日の必殺技！あまりは場面で判断する！商とあまりを出してから、場面に合わせて決めよう！'
+    }
+  },
+  'stage-27': {
+    stageId: 'stage-27',
+    worldId: 9,
+    stageNumber: 3,
+    title: '単位換算の文章題（そろえてから計算）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: 'mとcmがまざった問題は、全部cmに直してから計算しよう。1mは100cm、1Lは1000mL、1kgは1000gだよ！',
+      ttsText: '単位がちがう時は、まず小さい単位にそろえてから計算しよう。1メートルは100センチメートルだよ！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '2m は 何cm？',
+      options: [
+        { id: 'A', label: '20cm' },
+        { id: 'B', label: '200cm' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！1m = 100cm だから、2m = 200cm だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！1mは10cmではなく100cmだよ。',
+      ttsText: '2メートルは何センチメートルかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【まず単位をそろえる！】m→cmは×100、L→mLとkg→gは×1000！',
+      ttsText: '今日の必殺技！まず単位をそろえる！換算してから計算しよう！'
+    }
   }
 };
 
@@ -12606,7 +13719,8 @@ const WORLD_DEFINITIONS = [
   { worldId: 5, key: 'world-5', name: '計算のきまり・四則混合', fullName: '計算のきまり・四則混合ラボ', stages: ['stage-13', 'stage-14', 'stage-15'] },
   { worldId: 6, key: 'world-6', name: '小数', fullName: '小数ラボ', stages: ['stage-16', 'stage-17', 'stage-18'] },
   { worldId: 7, key: 'world-7', name: '分数', fullName: '分数パーク', stages: ['stage-19', 'stage-20', 'stage-21'] },
-  { worldId: 8, key: 'world-8', name: '大きな数とがい数', fullName: '大きな数とがい数ラボ', stages: ['stage-22', 'stage-23', 'stage-24'] }
+  { worldId: 8, key: 'world-8', name: '大きな数とがい数', fullName: '大きな数とがい数ラボ', stages: ['stage-22', 'stage-23', 'stage-24'] },
+  { worldId: 9, key: 'world-9', name: '文章題', fullName: '文章題ラボ', stages: ['stage-25', 'stage-26', 'stage-27'] }
 ];
 
 // ワールド数・総ステージ数は定義から導出する (ワールド追加に追随)
@@ -16228,6 +17342,34 @@ const LESSON_VISUALS = {
       '  合わせて 約800円！'
     ],
     tip: '値段をがい数に直してから計算すると、暗算で見当がつくよ！'
+  },
+  'stage-25': {
+    badge: '文章題：言葉がヒント！',
+    diagramLines: [
+      '  ぜんぶで → たし算',
+      '  残り → ひき算',
+      '  ○ずつ△つ分 → かけ算',
+      '  同じ数ずつ分ける → わり算'
+    ],
+    tip: 'もんだいの言葉から計算を見つけて、式を立てよう！'
+  },
+  'stage-26': {
+    badge: 'あまりの判断：23 ÷ 5',
+    diagramLines: [
+      '  23 ÷ 5 = 4 あまり 3',
+      '  全員乗るには もう1台必要！',
+      '  答えは 5台（切り上げ）'
+    ],
+    tip: 'あまりの扱いは場面で決まるよ！'
+  },
+  'stage-27': {
+    badge: '単位換算：2m 30cm',
+    diagramLines: [
+      '  2m = 200cm',
+      '  200 + 30 = 230',
+      '  答えは 230cm！'
+    ],
+    tip: 'まず単位をそろえてから計算しよう！'
   }
 };
 
