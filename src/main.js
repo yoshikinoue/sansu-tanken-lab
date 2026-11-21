@@ -427,11 +427,12 @@ export class MathLabApp {
   renderStageArena(container, stageParam = 'stage-1') {
     const stageStr = stageParam || 'stage-1';
     let stageNum = 1;
+    const totalStages = CurriculumEngine.WORLDS_METADATA.reduce((n, w) => n + w.stages.length, 0);
     const match = stageStr.match(/\d+/);
     if (match) {
-      stageNum = Math.max(1, Math.min(15, Number(match[0])));
+      stageNum = Math.max(1, Math.min(totalStages, Number(match[0])));
     }
-    const worldId = Math.ceil(stageNum / 3);
+    const worldId = CurriculumEngine.getWorldIdByGlobalStage(stageNum);
     const stageId = `stage-${stageNum}`;
 
     // Generate 5 adaptive problems
@@ -619,12 +620,20 @@ export class MathLabApp {
     const keypadContainer = container.querySelector('#arena-keypad-container');
     const currentProblem = problems[0];
     const hasRemainder = Boolean(currentProblem?.hasRemainder);
+    const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, stageNum);
+    // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
+    const hasDecimal = Boolean(stageMeta?.usesDecimal);
+    // 分数問題では分子・分母の2欄入力キーを有効化する (問題ごとの hasFraction)
+    const hasFraction = Boolean(currentProblem?.hasFraction);
 
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
         hasRemainder,
+        hasDecimal,
+        hasFraction,
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null,
         onSound: (snd) => SoundEffects.playSound(snd),
         onSubmit: (value) => this.handleArenaSubmit(value)
       }).mount(keypadContainer);
@@ -667,9 +676,13 @@ export class MathLabApp {
 
     // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
+      const stageMeta = CurriculumEngine.getStageMetadata(session.worldId, session.stageNum);
       this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
+        hasDecimal: Boolean(stageMeta?.usesDecimal),
+        hasFraction: Boolean(prob.hasFraction),
         operator: prob.operator || null,
-        prompt: prob.prompt || ''
+        prompt: prob.prompt || '',
+        answerLabel: stageMeta?.answerLabel || null
       });
       // BUG-009: the new problem is on screen; accept input again.
       this.arenaKeypad.setLocked(false);
@@ -732,6 +745,30 @@ export class MathLabApp {
 
     const prob = session.problems[session.currentIndex];
     if (!prob) return;
+
+    // 分数問題で分子・分母のどちらかが未入力 (または分母が0) のまま提出すると、
+    // { numerator, denominator: 0 } から NaN が診断系に流れ、無関係なヒント表示や
+    // 宝箱への隔離が起きる。宝箱レビューと同じく、両欄がそろうまで提出を止め、
+    // 試行回数にも数えない。
+    if (prob.hasFraction) {
+      const keypadState = this.arenaKeypad?.state;
+      const answerObj = answerValue && typeof answerValue === 'object' ? answerValue : null;
+      const numeratorMissing = keypadState
+        ? keypadState.quotientText === ''
+        : !(answerObj && Number.isFinite(Number(answerObj.numerator)));
+      const denominatorMissing = keypadState
+        ? keypadState.remainderText === ''
+        : !(answerObj && Number.isFinite(Number(answerObj.denominator)));
+      if (numeratorMissing || denominatorMissing) {
+        showToast(null, 'encourage', '💡 分子と分母の両方を入力してから「決定！」をおしてね！');
+        return;
+      }
+      const denominatorValue = answerObj ? Number(answerObj.denominator) : NaN;
+      if (!Number.isFinite(denominatorValue) || denominatorValue === 0) {
+        showToast(null, 'encourage', '💡 分母は 0 にはならないよ！何等分したかを入れてね！');
+        return;
+      }
+    }
 
     const result = CurriculumEngine.evaluateAnswer(prob, answerValue);
 

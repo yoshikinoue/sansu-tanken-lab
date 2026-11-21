@@ -28,7 +28,8 @@ import {
   TreasureBoxReference,
   ParentBoardReference,
   RouterReference,
-  PackageConfigReference
+  PackageConfigReference,
+  WORLDS_METADATA
 } from './test-helpers.js';
 
 describe('Tier 1: Complete Feature Coverage (F1 - F25)', async () => {
@@ -869,10 +870,11 @@ describe('Tier 1: Complete Feature Coverage (F1 - F25)', async () => {
   // F20: Stage Map & World Navigator
   // =========================================================================
   describe('F20: Stage Map & World Navigator', () => {
-    it('F20-1: defines exactly 5 worlds and 15 total stages (3 stages per world)', () => {
-      assert.equal(StageMapReference.totalWorlds, 5);
-      assert.equal(StageMapReference.stagesPerWorld, 3);
-      assert.equal(StageMapReference.totalStages, 15);
+    it('F20-1: defines worlds and stages derived from the curriculum metadata', () => {
+      const expectedStages = WORLDS_METADATA.reduce((n, w) => n + w.stages.length, 0);
+      assert.equal(StageMapReference.totalWorlds, WORLDS_METADATA.length);
+      assert.equal(StageMapReference.stagesPerWorld, WORLDS_METADATA[0].stages.length);
+      assert.equal(StageMapReference.totalStages, expectedStages);
     });
 
     it('F20-2: unlocks Stage 1 by default', () => {
@@ -893,6 +895,12 @@ describe('Tier 1: Complete Feature Coverage (F1 - F25)', async () => {
       assert.equal(StageMapReference.getWorldForStage(3), 1);
       assert.equal(StageMapReference.getWorldForStage(4), 2);
       assert.equal(StageMapReference.getWorldForStage(15), 5);
+      // Every stage in the metadata maps to its own world
+      for (const world of WORLDS_METADATA) {
+        for (const stage of world.stages) {
+          assert.equal(StageMapReference.getWorldForStage(stage.globalStageNumber), world.worldId);
+        }
+      }
     });
   });
 
@@ -956,7 +964,7 @@ describe('Tier 1: Complete Feature Coverage (F1 - F25)', async () => {
       assert.equal(ParentBoardReference.verifyPin('0000', '1234'), false);
     });
 
-    it('F22-2: calculates 5-dimension radar chart scores from stage progress', () => {
+    it('F22-2: calculates per-world radar chart scores from stage progress', () => {
       const progress = storage.createDefaultProgress();
       progress.stageProgress['stage-1'] = { cleared: true };
       progress.stageProgress['stage-2'] = { cleared: true };

@@ -29,7 +29,8 @@ import Keypad, {
   createKeypadState,
   handleInput,
   getValue,
-  resolveAnswerLabel
+  resolveAnswerLabel,
+  resolveToggleLabel
 } from '../src/components/keypad.js';
 
 import StepGuideModal, {
@@ -248,6 +249,47 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       assert.equal(state.activeField, 'quotient');
     });
 
+    it('accepts a single decimal point in decimal mode and builds decimal values', () => {
+      let state = createKeypadState(false, true);
+      assert.equal(state.hasDecimal, true);
+      state = handleInput(state, '3');
+      state = handleInput(state, '.');
+      state = handleInput(state, '2');
+      state = handleInput(state, '.'); // second dot is ignored
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '3.25');
+      assert.equal(getValue(state), 3.25);
+    });
+
+    it('prefixes "0." when the decimal point is pressed on an empty field', () => {
+      let state = createKeypadState(false, true);
+      state = handleInput(state, '.');
+      assert.equal(state.quotientText, '0.');
+      state = handleInput(state, '7');
+      assert.equal(state.quotientText, '0.7');
+      assert.equal(getValue(state), 0.7);
+    });
+
+    it('ignores the decimal point when decimal mode is off', () => {
+      let state = createKeypadState(false);
+      assert.equal(state.hasDecimal, false);
+      state = handleInput(state, '.');
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '5');
+      assert.equal(getValue(state), 5);
+    });
+
+    it('deletes the decimal point with "del" and re-allows it afterwards', () => {
+      let state = createKeypadState(false, true);
+      state = handleInput(state, '1');
+      state = handleInput(state, '.');
+      state = handleInput(state, 'del');
+      assert.equal(state.quotientText, '1');
+      state = handleInput(state, '.');
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '1.5');
+    });
+
     it('caps remainder field at 4 digits while capping quotient field at 6 digits', () => {
       let state = createKeypadState(true);
       for (let i = 0; i < 10; i++) state = handleInput(state, '1');
@@ -307,6 +349,92 @@ describe('Milestone 4: UI Components Unit Tests', () => {
       assert.equal(resolveAnswerLabel({ operator: '+', hasRemainder: false, prompt: '□ + 35 = 80' }), 'こたえ');
       assert.equal(resolveAnswerLabel({ operator: 'mixed', hasRemainder: false, prompt: '20 + 15 × 3 = ?' }), 'こたえ');
       assert.equal(resolveAnswerLabel({}), 'こたえ');
+    });
+
+    it('builds fraction values { numerator, denominator } in fraction mode (Issue #17)', () => {
+      let state = createKeypadState(false, false, true);
+      assert.equal(state.hasFraction, true);
+      assert.equal(state.hasRemainder, false);
+      state = handleInput(state, '3');
+      assert.equal(state.quotientText, '3');
+      state = handleInput(state, 'rem');
+      assert.equal(state.activeField, 'remainder');
+      state = handleInput(state, '7');
+      assert.equal(state.remainderText, '7');
+      assert.deepEqual(getValue(state), { numerator: 3, denominator: 7 });
+    });
+
+    it('returns { numerator: 0, denominator: 0 } from getValue on empty fraction state (Issue #17)', () => {
+      const state = createKeypadState(false, false, true);
+      assert.deepEqual(getValue(state), { numerator: 0, denominator: 0 });
+    });
+
+    it('does not toggle the second field via "rem" when fraction mode is off (Issue #17)', () => {
+      let state = createKeypadState(false, false, false);
+      assert.equal(state.hasFraction, false);
+      state = handleInput(state, 'rem');
+      assert.equal(state.activeField, 'quotient');
+    });
+
+    it('ignores the decimal point in fraction mode (Issue #17)', () => {
+      let state = createKeypadState(false, false, true);
+      state = handleInput(state, '.');
+      state = handleInput(state, '5');
+      assert.equal(state.quotientText, '5');
+      assert.deepEqual(getValue(state), { numerator: 5, denominator: 0 });
+    });
+
+    it('Keypad class supports fraction setValue/getValue and reset meta (Issue #17)', () => {
+      const keypad = new Keypad({ hasFraction: true });
+      assert.equal(keypad.state.hasFraction, true);
+      keypad.setValue({ numerator: 5, denominator: 8 });
+      assert.deepEqual(keypad.getValue(), { numerator: 5, denominator: 8 });
+      keypad.clear();
+      assert.deepEqual(keypad.getValue(), { numerator: 0, denominator: 0 });
+      // reset() re-renders, so give the headless keypad a minimal container stub
+      keypad.container = { innerHTML: '', querySelector: () => null };
+      keypad.reset(false, { hasFraction: false });
+      assert.equal(keypad.state.hasFraction, false);
+      keypad.reset(false, { hasFraction: true });
+      assert.equal(keypad.state.hasFraction, true);
+      keypad.destroy();
+    });
+
+    it('resolves the fraction answer label to 分子 (Issue #17)', () => {
+      assert.equal(resolveAnswerLabel({ hasFraction: true, prompt: '2/7 + 3/7 = ?' }), '分子（ぶんし）');
+      assert.equal(
+        resolveAnswerLabel({ hasFraction: true, answerLabel: 'custom', prompt: '' }),
+        'custom'
+      );
+    });
+
+    it('names the destination field on the fraction toggle button (Issue #17 Pi review)', () => {
+      // Pure state: while entering the numerator the button offers the
+      // denominator field, and vice versa (a static 分母 label hid the way back)
+      let state = createKeypadState(false, false, true);
+      assert.equal(resolveToggleLabel(state), '分母へ');
+      state = handleInput(state, 'rem');
+      assert.equal(state.activeField, 'remainder');
+      assert.equal(resolveToggleLabel(state), '分子へ');
+      // Non-fraction modes keep the classic label
+      assert.equal(resolveToggleLabel(createKeypadState(true, false, false)), 'あまり');
+      assert.equal(resolveToggleLabel(createKeypadState(false, false, false)), 'あまり');
+
+      // The rendered button carries the same destination label and follows the toggle
+      const keypad = new Keypad({ hasFraction: true });
+      keypad.container = { innerHTML: '', querySelector: () => null };
+      keypad.render();
+      assert.ok(
+        keypad.container.innerHTML.includes('data-key="rem">分母へ</button>'),
+        'initial toggle button must point to the denominator field'
+      );
+      keypad.pressKey('rem');
+      keypad.render();
+      assert.ok(
+        keypad.container.innerHTML.includes('data-key="rem">分子へ</button>'),
+        'after toggling, the button must point back to the numerator field'
+      );
+      keypad.destroy();
     });
   });
 
