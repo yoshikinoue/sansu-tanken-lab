@@ -23,6 +23,7 @@ import CanvasPad from '../src/components/canvas-pad.js';
 import Keypad from '../src/components/keypad.js';
 
 import * as StorageService from '../src/services/storage-service.js';
+import * as ReviewQueueService from '../src/services/review-queue.js';
 import * as SoundEffects from '../src/services/sound-effects.js';
 import * as SpeechService from '../src/services/speech-service.js';
 import * as CurriculumEngine from '../src/services/curriculum-engine.js';
@@ -688,7 +689,8 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
 
       treasureBox.launchReviewModal(item);
       assert.ok(treasureBox.reviewModalEl);
-      assert.equal(treasureBox.reviewModalEl.parentNode, global.document.body);
+      // 他のモーダルと同様に #modal-root へマウントされる
+      assert.equal(treasureBox.reviewModalEl.parentNode, env.modalRoot);
 
       // Simulate correct answer triggering setTimeout (1200ms)
       let timerCallbackFired = false;
@@ -1648,6 +1650,157 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(item.consecutiveCorrect, 0, 'treasure progression must not change');
 
       box.destroy();
+    });
+
+    // --- Issue #20: startReviewSession control-flow coverage ---
+
+    function makeDueReviewEntry(prompt, operands, answer) {
+      const problem = {
+        id: `test-${prompt}`,
+        worldId: 2,
+        stageId: 1,
+        globalStageId: 'stage-4',
+        prompt,
+        expression: prompt.replace(' = ?', ''),
+        operands,
+        operator: '×',
+        patternType: 'tens_times_tens_extra_zero',
+        hasRemainder: false,
+        correctAnswer: { value: answer, quotient: answer, remainder: 0 },
+        trapMetadata: {}
+      };
+      const item = addTreasureItem(app.progress.treasureBox, problem);
+      const entry = ReviewQueueService.enqueueFromTreasureItem(app.progress, item, Date.now());
+      entry.dueAt = new Date(Date.now() - 1000).toISOString();
+      return { problem, item, entry };
+    }
+
+    function answerScheduledReview(box, useCorrect) {
+      const variation = box.currentVariation;
+      const value = useCorrect ? getExpectedInput(variation) : getWrongInput(variation);
+      if (variation.hasRemainder) {
+        box.reviewModalEl.querySelector('.review-quotient-input').value = String(value.quotient);
+        box.reviewModalEl.querySelector('.review-remainder-input').value = String(value.remainder);
+      } else {
+        box.reviewModalEl.querySelector('.review-answer-input').value = String(value);
+      }
+      box.reviewModalEl.querySelector('.review-submit-btn')?.click();
+    }
+
+    // 共有インメモリストレージに前のテストの進捗が残るため、絶対値で
+    // 検証するテストは BUG-010 のテストと同様にストレージを分離する
+    async function resetApp() {
+      StorageService.resetStorageState();
+      GamificationEngine.resetGamificationState();
+      app = new MathLabApp();
+      await app.init();
+    }
+
+    it('Issue #20: review session serves multiple due entries in sequence until the queue is empty', async () => {
+      await resetApp();
+      const a = makeDueReviewEntry('40 × 50 = ?', [40, 50], 2000);
+      const b = makeDueReviewEntry('70 × 70 = ?', [70, 70], 4900);
+      assert.equal(ReviewQueueService.countDueReviews(app.progress, new Date()), 2);
+
+      app.startReviewSession();
+      const box = app.reviewSessionBox;
+      assert.ok(box?.reviewModalEl, 'first review modal must open');
+
+      // 1件目に正解し、自動クローズを待たず閉じるボタンで次へ進む
+      answerScheduledReview(box, true);
+      assert.equal(a.entry.stepIndex, 1, 'first entry must advance to the next step');
+      box.reviewModalEl.querySelector('.modal-close-btn')?.click();
+      assert.ok(box.reviewModalEl, 'second review modal must open');
+
+      // 2件目にも正解するとセッションは終了する
+      answerScheduledReview(box, true);
+      assert.equal(b.entry.stepIndex, 1, 'second entry must advance to the next step');
+      box.reviewModalEl.querySelector('.modal-close-btn')?.click();
+      assert.equal(box.reviewModalEl, null, 'session must end after the last entry');
+      assert.equal(ReviewQueueService.countDueReviews(app.progress, new Date()), 0);
+
+      box.destroy();
+    });
+
+    it('Issue #20: aborting a review session leaves the remaining entries due and untouched', async () => {
+      await resetApp();
+      const a = makeDueReviewEntry('40 × 50 = ?', [40, 50], 2000);
+      const b = makeDueReviewEntry('70 × 70 = ?', [70, 70], 4900);
+
+      app.startReviewSession();
+      const box = app.reviewSessionBox;
+      assert.ok(box?.reviewModalEl, 'review modal must open');
+
+      // 答えずに「やめる」で中断する
+      box.reviewModalEl.querySelector('.review-cancel-btn')?.click();
+      assert.equal(box.reviewModalEl, null, 'modal must close on abort');
+
+      // 残りのエントリは due のまま、スケジュールも attempts も変わらない
+      assert.equal(ReviewQueueService.countDueReviews(app.progress, new Date()), 2);
+      assert.equal(a.entry.stepIndex, 0);
+      assert.equal(a.entry.attempts, 0);
+      assert.equal(b.entry.stepIndex, 0);
+      assert.equal(b.entry.attempts, 0);
+
+      box.destroy();
+    });
+
+    it('Issue #20: starting a review session with nothing due only shows a toast (no modal)', async () => {
+      await resetApp();
+      assert.equal(ReviewQueueService.countDueReviews(app.progress, new Date()), 0);
+
+      app.startReviewSession();
+
+      assert.ok(!app.reviewSessionBox, 'no session box must be created when nothing is due');
+      assert.equal(env.modalRoot.children.length, 0, 'no modal must open');
+    });
+
+    it('Issue #20: a wrong answer in a review session does not touch treasure mastery counters', async () => {
+      await resetApp();
+      const { item, entry } = makeDueReviewEntry('40 × 50 = ?', [40, 50], 2000);
+      // 宝箱側は卒業途中まで進んでいる状態にする
+      item.consecutiveCorrect = 1;
+      item.masteryLevel = 1;
+
+      app.startReviewSession();
+      const box = app.reviewSessionBox;
+      assert.ok(box?.reviewModalEl, 'review modal must open');
+      answerScheduledReview(box, false);
+
+      // 復習スケジュール側には誤答が記録される
+      assert.equal(entry.attempts, 1);
+      assert.equal(entry.stepIndex, 0, 'step stays at the minimum on a wrong answer');
+      assert.equal(entry.status, 'active');
+      // 宝箱の卒業進捗は一切変わらない（別概念）
+      assert.equal(item.consecutiveCorrect, 1, 'treasure consecutiveCorrect must not change');
+      assert.equal(item.masteryLevel, 1, 'treasure masteryLevel must not change');
+
+      box.destroy();
+    });
+
+    it('Issue #20: scheduled review modal recovers even if the result callback throws', async () => {
+      await resetApp();
+      const { entry } = makeDueReviewEntry('40 × 50 = ?', [40, 50], 2000);
+      const box = new TreasureBox({ progress: app.progress });
+      box.launchScheduledReviewModal(entry, {
+        onResult: () => { throw new Error('simulated record failure'); },
+        onClose: () => {}
+      });
+      assert.ok(box.reviewModalEl, 'modal must open');
+      // 復習モーダルも他のモーダルと同様に #modal-root へマウントされる
+      assert.equal(box.reviewModalEl.parentNode, env.modalRoot);
+
+      const right = getExpectedInput(box.currentVariation);
+      box.reviewModalEl.querySelector('.review-answer-input').value = String(right);
+      // onResult の例外が呼び出し側へ伝播せず、フィードバック表示と
+      // 自動クローズタイマーの設定まで処理が進むこと（無反応にならない）
+      box.reviewModalEl.querySelector('.review-submit-btn')?.click();
+      const feedback = box.reviewModalEl.querySelector('.review-feedback');
+      assert.equal(feedback.style.display, 'block', 'feedback must be shown despite the throw');
+      assert.ok(box.reviewSessionTimer, 'auto-close timer must be scheduled despite the throw');
+
+      box.destroy();
+      assert.equal(box.reviewSessionTimer, null);
     });
   });
 

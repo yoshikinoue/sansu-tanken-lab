@@ -1089,6 +1089,16 @@ canvas.memo-canvas {
   background: linear-gradient(135deg, rgba(217, 201, 115, 0.22), rgba(161, 140, 50, 0.18));
 }
 
+/* Issue #20: 今日の復習バナー（復習キュー）。他のハブと色で見分ける */
+.review-queue-bar {
+  margin-top: 16px;
+}
+
+.review-queue-card {
+  border-color: rgba(14, 165, 233, 0.55);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(16, 185, 129, 0.12));
+}
+
 .hub-char-avatar,
 .hub-backrooms-icon {
   flex-shrink: 0;
