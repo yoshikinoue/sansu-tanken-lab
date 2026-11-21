@@ -5544,6 +5544,167 @@ function generateStageProblems(worldId, stageId, history = [], options = {}) {
 }
 
 /**
+ * 診断カテゴリ（reasonCategory）の表示名マップ（Issue #23: にがて特訓の対象表示用）
+ */
+const REASON_CATEGORY_LABELS = {
+  carry_forgotten: 'くり上がり',
+  borrow_forgotten: 'くり下がり',
+  shift_forgotten: '位のずれ',
+  place_value_slip: '位の計算',
+  order_mistake: '計算の順序',
+  quotient_too_small: '商が小さい',
+  quotient_too_big: '商が大きい',
+  remainder_scale: 'あまりの位',
+  general_recheck: '計算ミス'
+};
+
+/**
+ * 診断カテゴリの表示名を返す
+ * @param {string} category reasonCategory
+ * @returns {string}
+ */
+function getReasonCategoryLabel(category) {
+  return REASON_CATEGORY_LABELS[category] || 'にがて';
+}
+
+/**
+ * ステージ完了時点のセッション結果から、ステージ単位の適応導線
+ * （発展問題＝チャレンジ／にがて特訓）を出すかどうかを判定する純粋関数（Issue #23）。
+ *
+ * - チャレンジ: 全問を初回正解（firstTryCount === totalQuestions）したときだけ出す
+ * - にがて特訓: 同じ診断カテゴリの誤答が2回以上あったとき、そのカテゴリを対象にする。
+ *   対象が複数ある場合は「具体的なカテゴリ（general_recheck 以外）を優先 →
+ *   誤答回数が多い方 → 最初に現れた方」の順で1つに決める
+ *
+ * @param {{ firstTryCount?: number, totalQuestions?: number,
+ *           errorRecords?: Array<{ reasonCategory?: string }> }} [input]
+ * @returns {{ showChallenge: boolean, trainingCategory: string|null, trainingErrorCount: number }}
+ */
+function evaluateStageAdaptation({ firstTryCount = 0, totalQuestions = 5, errorRecords = [] } = {}) {
+  const total = Math.max(0, Number(totalQuestions) || 0);
+  const firstTry = Math.max(0, Number(firstTryCount) || 0);
+  const showChallenge = total > 0 && firstTry >= total;
+
+  const stats = new Map();
+  (Array.isArray(errorRecords) ? errorRecords : []).forEach((rec, idx) => {
+    const category = rec?.reasonCategory;
+    if (!category || typeof category !== 'string') return;
+    if (!stats.has(category)) {
+      stats.set(category, { category, count: 0, firstIndex: idx });
+    }
+    stats.get(category).count += 1;
+  });
+
+  let training = null;
+  for (const entry of stats.values()) {
+    if (entry.count < 2) continue;
+    if (!training) {
+      training = entry;
+      continue;
+    }
+    const entryIsGeneral = entry.category === 'general_recheck';
+    const bestIsGeneral = training.category === 'general_recheck';
+    if (entryIsGeneral !== bestIsGeneral) {
+      if (!entryIsGeneral) training = entry;
+    } else if (entry.count > training.count) {
+      training = entry;
+    }
+    // Same generality and same count: Map iterates in first-occurrence
+    // order, so the earlier category is kept.
+  }
+
+  return {
+    showChallenge,
+    trainingCategory: training ? training.category : null,
+    trainingErrorCount: training ? training.count : 0
+  };
+}
+
+/**
+ * 発展問題（チャレンジ）用に、ステージの生成器から challenge 難易度の問題を
+ * 指定問数だけ生成する（Issue #23）。式が重複しないよう再試行する。
+ * @param {number|string} worldId
+ * @param {number|string} stageId
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列
+ */
+function generateChallengeProblems(worldId, stageId, count = 3, options = {}) {
+  const norm = normalizeWorldAndStage(worldId, stageId);
+  const total = Math.max(1, Math.min(5, Number(count) || 3));
+  const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+
+  const problems = [];
+  const usedExpressions = new Set();
+
+  for (let qIdx = 1; qIdx <= total; qIdx++) {
+    let candidate = null;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      candidate = generateProblem(norm.worldId, norm.stageId, {
+        ...options,
+        rng,
+        questionIndex: qIdx,
+        level: 3,
+        difficultyLevel: 'challenge'
+      });
+      if (!usedExpressions.has(candidate.expression)) {
+        usedExpressions.add(candidate.expression);
+        break;
+      }
+    }
+    problems.push(candidate);
+  }
+
+  return problems;
+}
+
+/**
+ * にがて特訓用に、対象カテゴリで誤答した問題の類題を指定問数だけ選ぶ（Issue #23）。
+ * 元問題が問数より少ない場合は元問題を巡回して別の類題を生成する。
+ * @param {Array<{ reasonCategory?: string, problem?: object }>} [errorRecords=[]]
+ * @param {string|null} [category=null] 対象カテゴリ（null の場合は全カテゴリ）
+ * @param {number} [count=3]
+ * @param {object} [options={}]
+ * @returns {Array<object>} MathProblem 配列（元問題が無ければ空配列）
+ */
+function selectTrainingProblems(errorRecords = [], category = null, count = 3, options = {}) {
+  const total = Math.max(1, Number(count) || 3);
+  const sources = (Array.isArray(errorRecords) ? errorRecords : []).filter(
+    (rec) => rec && rec.problem && (!category || rec.reasonCategory === category)
+  );
+  if (sources.length === 0) return [];
+
+  const problems = [];
+  const usedExpressions = new Set();
+  let cursor = 0;
+  let guard = 0;
+  while (problems.length < total && guard < total * 20) {
+    guard += 1;
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    const variation = generateVariationProblem(source.problem, {
+      ...options,
+      questionIndex: problems.length + 1
+    });
+    if (usedExpressions.has(variation.expression)) continue;
+    usedExpressions.add(variation.expression);
+    problems.push(variation);
+  }
+  // Uniqueness could not be satisfied (very small variation space): top up.
+  while (problems.length < total) {
+    const source = sources[cursor % sources.length];
+    cursor += 1;
+    problems.push(
+      generateVariationProblem(source.problem, {
+        ...options,
+        questionIndex: problems.length + 1
+      })
+    );
+  }
+  return problems;
+}
+
+/**
  * パワーアップ宝箱（復習用）および救済分岐向けに、認知トラップと難易度を厳密に維持した
  * 数字違いの類題（Variation Problem）を生成する
  * @param {object} originalProblem
@@ -5901,6 +6062,8 @@ function generateSingleProblem(worldId, stageId, questionIndex = 1, level = 2) {
 
 const CurriculumEngine = {
   WORLDS_METADATA,
+  REASON_CATEGORY_LABELS,
+  getReasonCategoryLabel,
   getWorldsMetadata,
   getStageMetadata,
   normalizeWorldAndStage,
@@ -5909,6 +6072,9 @@ const CurriculumEngine = {
   generateStageProblems,
   selectNextProblem,
   determineAdaptiveDifficulty,
+  evaluateStageAdaptation,
+  generateChallengeProblems,
+  selectTrainingProblems,
   generateVariationProblem,
   evaluateAnswer,
   diagnoseError,
@@ -5917,7 +6083,7 @@ const CurriculumEngine = {
 
 const __default_export = CurriculumEngine;
 
-    return { WORLDS_METADATA, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, CurriculumEngine, default: __default_export };
+    return { WORLDS_METADATA, REASON_CATEGORY_LABELS, getReasonCategoryLabel, normalizeWorldAndStage, getWorldsMetadata, getStageMetadata, generateProblem, determineAdaptiveDifficulty, selectNextProblem, generateStageProblems, evaluateStageAdaptation, generateChallengeProblems, selectTrainingProblems, generateVariationProblem, normalizeUserAnswer, diagnoseError, evaluateAnswer, generateSingleProblem, CurriculumEngine, default: __default_export };
   })();
 
   // === services/storage-service.js ===
@@ -15335,8 +15501,91 @@ class MathLabApp {
       isAdvancing: false,
       lastCompletedSteps: null,
       lastDiagnosis: null,
-      history: []
+      history: [],
+      // Issue #23: 'normal' | 'challenge' | 'training'
+      mode: 'normal',
+      errorRecords: [],
+      headerLabel: `STAGE ${stageNum}`
     };
+
+    this.setupArenaSession(container);
+  }
+
+  /**
+   * Issue #23: ステージ完了後の任意セッション（発展問題／にがて特訓）を開始する。
+   * 通常セッションと同じアリーナ・ステップガイド・自己修正の流れを再利用し、
+   * 星・解放・通常のクリア記録には一切影響しない。
+   * @param {{ mode: 'challenge'|'training', problems: Array<object>, category?: string|null }} config
+   */
+  startExtraSession({ mode, problems, category = null } = {}) {
+    const prev = this.currentSession;
+    if (!prev || !Array.isArray(problems) || problems.length === 0) return;
+
+    const container = document.getElementById('view-container');
+    if (!container) return;
+
+    // Tear down the finished session's arena components before re-rendering.
+    // Notably the keypad registers a window keydown listener that would
+    // otherwise survive into the extra session and double-process input.
+    if (this.arenaAdvanceTimer) {
+      clearTimeout(this.arenaAdvanceTimer);
+      this.arenaAdvanceTimer = null;
+    }
+    if (this.arenaKeypad) {
+      this.arenaKeypad.setLocked(false);
+      if (typeof this.arenaKeypad.destroy === 'function') {
+        this.arenaKeypad.destroy();
+      }
+      this.arenaKeypad = null;
+    }
+    if (this.arenaCanvasPad && typeof this.arenaCanvasPad.destroy === 'function') {
+      this.arenaCanvasPad.destroy();
+      this.arenaCanvasPad = null;
+    }
+    if (this.arenaStepGuide && typeof this.arenaStepGuide.destroy === 'function') {
+      this.arenaStepGuide.destroy();
+      this.arenaStepGuide = null;
+    }
+    if (this.arenaMascotWidget && typeof this.arenaMascotWidget.destroy === 'function') {
+      this.arenaMascotWidget.destroy();
+      this.arenaMascotWidget = null;
+    }
+
+    this.currentSession = {
+      stageNum: prev.stageNum,
+      worldId: prev.worldId,
+      stageId: prev.stageId,
+      problems,
+      currentIndex: 0,
+      attempts: 0,
+      wasSelfCorrected: false,
+      correctCount: 0,
+      firstTryCount: 0,
+      selfCorrectedCount: 0,
+      isAdvancing: false,
+      lastCompletedSteps: null,
+      lastDiagnosis: null,
+      history: [],
+      mode,
+      trainingCategory: category,
+      errorRecords: [],
+      headerLabel: mode === 'challenge'
+        ? `STAGE ${prev.stageNum} チャレンジ`
+        : `STAGE ${prev.stageNum} にがて特訓`
+    };
+
+    this.setupArenaSession(container);
+  }
+
+  setupArenaSession(container) {
+    const session = this.currentSession;
+    if (!session) return;
+
+    const { stageNum, stageId } = session;
+    const problems = session.problems;
+    const dotsHtml = problems
+      .map((_, i) => `<div class="q-dot${i === 0 ? ' active' : ''}" data-q="${i}"></div>`)
+      .join('\n                ');
 
     container.innerHTML = `
       <div class="problem-arena">
@@ -15345,13 +15594,9 @@ class MathLabApp {
           <div class="problem-header-bar">
             <button type="button" class="btn btn-sm btn-secondary btn-arena-back">◀ マップ</button>
             <div class="problem-progress">
-              <span style="color:var(--color-accent-cyan);">STAGE ${stageNum}</span>
+              <span style="color:var(--color-accent-cyan);">${session.headerLabel || `STAGE ${stageNum}`}</span>
               <div class="question-pills">
-                <div class="q-dot active" data-q="0"></div>
-                <div class="q-dot" data-q="1"></div>
-                <div class="q-dot" data-q="2"></div>
-                <div class="q-dot" data-q="3"></div>
-                <div class="q-dot" data-q="4"></div>
+                ${dotsHtml}
               </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline btn-arena-lesson">📖 ミニ授業</button>
@@ -15457,8 +15702,8 @@ class MathLabApp {
       summaryEl.innerHTML = '';
     }
 
-    // Update dots
-    for (let i = 0; i < 5; i++) {
+    // Update dots (Issue #23: extra sessions have 3 questions, not 5)
+    for (let i = 0; i < session.problems.length; i++) {
       const dot = document.querySelector(`.q-dot[data-q="${i}"]`);
       if (dot) {
         dot.className = 'q-dot';
@@ -15551,17 +15796,21 @@ class MathLabApp {
         session.selfCorrectedCount = (session.selfCorrectedCount || 0) + 1;
       }
 
-      // Gamification scoring
-      GamificationEngine.recordResult({
-        problemId: prob.id,
-        worldId: prob.worldId || session.worldId,
-        stageId: session.stageId,
-        isCorrect: true,
-        wasSelfCorrected: session.wasSelfCorrected,
-        isStageComplete: false
-      });
-      this.syncGamificationProgress();
-      StorageService.saveProgress(this.progress).catch(() => {});
+      // Gamification scoring (Issue #23: extra sessions are optional practice
+      // and must not affect score/stars/unlocks, so they skip recording here;
+      // their results are stored separately at extra-session completion)
+      if (session.mode === 'normal') {
+        GamificationEngine.recordResult({
+          problemId: prob.id,
+          worldId: prob.worldId || session.worldId,
+          stageId: session.stageId,
+          isCorrect: true,
+          wasSelfCorrected: session.wasSelfCorrected,
+          isStageComplete: false
+        });
+        this.syncGamificationProgress();
+        StorageService.saveProgress(this.progress).catch(() => {});
+      }
 
       if (session.wasSelfCorrected) {
         SoundEffects.playSound('self_correct');
@@ -15577,8 +15826,12 @@ class MathLabApp {
 
       // Advance to next problem or clear stage
       session.currentIndex++;
-      if (session.currentIndex >= 5) {
-        this.handleArenaStageComplete();
+      if (session.currentIndex >= session.problems.length) {
+        if (session.mode === 'normal') {
+          this.handleArenaStageComplete();
+        } else {
+          this.handleExtraSessionComplete();
+        }
       } else {
         session.isAdvancing = true;
         // BUG-009: clear the just-submitted answer immediately and lock the
@@ -15615,24 +15868,38 @@ class MathLabApp {
       const diagnosis = result.diagnosis || CurriculumEngine.diagnoseError(prob, answerValue);
       session.lastDiagnosis = diagnosis;
 
+      // Issue #23: remember which diagnosis category was missed (and on which
+      // problem) so the stage-complete modal can offer targeted training.
+      if (session.mode === 'normal') {
+        if (!Array.isArray(session.errorRecords)) session.errorRecords = [];
+        session.errorRecords.push({
+          reasonCategory: diagnosis?.reasonCategory || 'general_recheck',
+          problem: prob
+        });
+      }
+
       // Clear keypad immediately so old wrong digits / remainder activeField do not persist on return
       if (this.arenaKeypad) {
         this.arenaKeypad.clear();
       }
 
-      GamificationEngine.recordResult({
-        problemId: prob.id,
-        worldId: prob.worldId || session.worldId,
-        stageId: session.stageId,
-        isCorrect: false,
-        isStageComplete: false
-      });
-      this.syncGamificationProgress();
+      // Issue #23: extra sessions skip gamification scoring and the treasure
+      // box so they stay side-effect free apart from their own result record.
+      if (session.mode === 'normal') {
+        GamificationEngine.recordResult({
+          problemId: prob.id,
+          worldId: prob.worldId || session.worldId,
+          stageId: session.stageId,
+          isCorrect: false,
+          isStageComplete: false
+        });
+        this.syncGamificationProgress();
 
-      // Quarantine problem in Power-Up Treasure Box
-      if (this.progress?.treasureBox) {
-        addTreasureItem(this.progress.treasureBox, prob);
-        StorageService.saveProgress(this.progress).catch(() => {});
+        // Quarantine problem in Power-Up Treasure Box
+        if (this.progress?.treasureBox) {
+          addTreasureItem(this.progress.treasureBox, prob);
+          StorageService.saveProgress(this.progress).catch(() => {});
+        }
       }
 
       // Show warm amber encouragement toast
@@ -15687,6 +15954,7 @@ class MathLabApp {
           this.arenaKeypad.clear();
         }
         SoundEffects.playSound('self_correct');
+        // Keep the modal open so the completion banner and 「問題へ戻る」 button are shown to the user.
       },
       onClose: () => {
         if (this.arenaKeypad) {
@@ -15710,7 +15978,7 @@ class MathLabApp {
 
     SoundEffects.playSound('stage_clear');
 
-    // Calculate stars across all 5 questions
+    // Calculate stars across all 5 questions (including all self-corrected items)
     const stars = GamificationEngine.calculateStageStars({
       totalQuestions: 5,
       firstTryCorrectCount: session.firstTryCount,
@@ -15772,6 +16040,18 @@ class MathLabApp {
     const starString = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
     const activeChar = getCharacterById(bonusState.selectedCharacterId);
 
+    // Issue #23: stage-level adaptation offers. The normal clear record
+    // (stars / unlock / save above) is already finalized before these
+    // optional offers appear, and taking them never changes it.
+    const adaptation = CurriculumEngine.evaluateStageAdaptation({
+      firstTryCount: session.firstTryCount || 0,
+      totalQuestions: Array.isArray(session.problems) ? session.problems.length : 5,
+      errorRecords: session.errorRecords || []
+    });
+    const trainingLabel = adaptation.trainingCategory
+      ? CurriculumEngine.getReasonCategoryLabel(adaptation.trainingCategory)
+      : '';
+
     card.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:8px;">
         <span style="font-size:2.8rem;">🏆</span>
@@ -15791,6 +16071,14 @@ class MathLabApp {
       <button type="button" class="btn btn-accent btn-stage-bonus" style="width:100%; padding:14px; font-size:1.1rem; margin-bottom:10px;">
         🎮 ボーナスゲーム（バックルーム）で遊ぶ！
       </button>
+      ${adaptation.showChallenge ? `
+      <button type="button" class="btn btn-primary btn-stage-challenge" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
+        🔥 チャレンジ問題に挑戦する（3問）
+      </button>` : ''}
+      ${adaptation.trainingCategory ? `
+      <button type="button" class="btn btn-primary btn-stage-training" style="width:100%; padding:14px; font-size:1.05rem; margin-bottom:10px;">
+        🎯 にがて特訓：「${trainingLabel}」の類題3問
+      </button>` : ''}
       <button type="button" class="btn btn-primary btn-stage-finish" style="width:100%; padding:14px; font-size:1.05rem;">
         マップへ戻る 🗺️
       </button>
@@ -15806,6 +16094,137 @@ class MathLabApp {
     }
 
     const finishBtn = card.querySelector('.btn-stage-finish');
+    if (finishBtn) {
+      finishBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        window.location.hash = '#map';
+      };
+    }
+
+    // Issue #23: optional challenge (only offered on a perfect first-try clear)
+    const challengeBtn = card.querySelector('.btn-stage-challenge');
+    if (challengeBtn) {
+      challengeBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        const problems = CurriculumEngine.generateChallengeProblems(session.worldId, session.stageNum);
+        this.startExtraSession({ mode: 'challenge', problems });
+      };
+    }
+
+    // Issue #23: optional targeted training for the repeated weakness category
+    const trainingBtn = card.querySelector('.btn-stage-training');
+    if (trainingBtn) {
+      trainingBtn.onclick = () => {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        this.stageCompleteModal = null;
+        const problems = CurriculumEngine.selectTrainingProblems(
+          session.errorRecords || [],
+          adaptation.trainingCategory,
+          3
+        );
+        if (problems.length > 0) {
+          this.startExtraSession({
+            mode: 'training',
+            problems,
+            category: adaptation.trainingCategory
+          });
+        }
+      };
+    }
+
+    overlay.appendChild(card);
+    modalRoot.appendChild(overlay);
+    this.stageCompleteModal = overlay;
+  }
+
+  /**
+   * Issue #23: 追加セッション（チャレンジ／にがて特訓）の完了処理。
+   * 結果は stageProgress のステージ別サブキーに記録するだけで、
+   * 星・解放・通常のクリア記録には影響しない。
+   */
+  handleExtraSessionComplete() {
+    const session = this.currentSession;
+    if (!session || !session.mode || session.mode === 'normal') return;
+
+    SoundEffects.playSound('stage_clear');
+
+    const total = session.problems.length;
+    const isChallenge = session.mode === 'challenge';
+    const nowIso = new Date().toISOString();
+
+    if (this.progress) {
+      if (!this.progress.stageProgress) {
+        this.progress.stageProgress = {};
+      }
+      const prev = this.progress.stageProgress[session.stageId] || {};
+      if (isChallenge) {
+        const prevChallenge = prev.challenge || {};
+        this.progress.stageProgress[session.stageId] = {
+          ...prev,
+          challenge: {
+            played: true,
+            attempts: (prevChallenge.attempts || 0) + 1,
+            lastCorrectCount: session.correctCount,
+            bestCorrectCount: Math.max(prevChallenge.bestCorrectCount || 0, session.correctCount),
+            totalQuestions: total,
+            lastPlayedAt: nowIso
+          }
+        };
+      } else {
+        const prevTraining = prev.training || {};
+        this.progress.stageProgress[session.stageId] = {
+          ...prev,
+          training: {
+            sessions: (prevTraining.sessions || 0) + 1,
+            lastCategory: session.trainingCategory || null,
+            lastCorrectCount: session.correctCount,
+            totalQuestions: total,
+            lastPlayedAt: nowIso
+          }
+        };
+      }
+      StorageService.saveProgress(this.progress).catch(() => {});
+    }
+
+    // Show the extra-session result modal (tracked as stageCompleteModal so
+    // the router cleanup removes it like the normal completion modal)
+    const modalRoot = document.getElementById('modal-root') || document.body;
+
+    if (this.stageCompleteModal && this.stageCompleteModal.parentNode) {
+      this.stageCompleteModal.parentNode.removeChild(this.stageCompleteModal);
+      this.stageCompleteModal = null;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay open';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '480px';
+    card.style.textAlign = 'center';
+    card.style.padding = '32px';
+
+    const title = isChallenge ? 'チャレンジ結果！' : 'にがて特訓クリア！';
+    const message = session.correctCount >= total
+      ? '全問正解！すごい力だね！'
+      : 'おつかれさま！結果は記録されたよ。また挑戦しよう！';
+
+    card.innerHTML = `
+      <div style="font-size:2.8rem; margin-bottom:8px;">${isChallenge ? '🔥' : '🎯'}</div>
+      <h2 style="font-size:1.6rem; color:var(--color-accent-cyan);">${title}</h2>
+      <p style="color:var(--color-text-muted); margin:8px 0;">STAGE ${session.stageNum} の${isChallenge ? 'チャレンジ問題' : 'にがて特訓'}が終わりました！</p>
+      <div style="background:rgba(0,0,0,0.3); padding:14px; border-radius:var(--radius-lg); margin-bottom:14px;">
+        <div style="font-size:1.1rem; font-weight:700;">正解数: ${session.correctCount} / ${total} 問</div>
+        <div style="color:var(--color-text-muted); margin-top:6px;">${message}</div>
+      </div>
+      <button type="button" class="btn btn-primary btn-extra-finish" style="width:100%; padding:14px; font-size:1.05rem;">
+        マップへ戻る 🗺️
+      </button>
+    `;
+
+    const finishBtn = card.querySelector('.btn-extra-finish');
     if (finishBtn) {
       finishBtn.onclick = () => {
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);

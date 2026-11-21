@@ -1532,6 +1532,121 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
       assert.equal(app.progress.gamification.selfCorrectionCount, 3);
     });
 
+    it('Issue #23: perfect first-try clear offers a challenge set recorded per stage without touching stars', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      // The normal clear record is already finalized when the offer appears
+      assert.equal(app.currentSession.firstTryCount, 5);
+      assert.equal(app.progress.stageProgress['stage-1'].stars, 3);
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+
+      const challengeBtn = app.stageCompleteModal.querySelector('.btn-stage-challenge');
+      assert.ok(challengeBtn, 'challenge button must be offered on a perfect first-try clear');
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-training'), null);
+
+      domClick(challengeBtn);
+      assert.equal(app.stageCompleteModal, null);
+      assert.equal(app.currentSession.mode, 'challenge');
+      assert.equal(app.currentSession.problems.length, 3);
+      assert.ok(app.currentSession.problems.every((p) => p.difficultyLevel === 'challenge'));
+
+      for (let i = 0; i < 3; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < 2) timers.flushAdvance();
+      }
+
+      const sp = app.progress.stageProgress['stage-1'];
+      assert.equal(sp.challenge.played, true);
+      assert.equal(sp.challenge.attempts, 1);
+      assert.equal(sp.challenge.lastCorrectCount, 3);
+      assert.equal(sp.challenge.bestCorrectCount, 3);
+      assert.equal(sp.stars, 3, 'challenge results must not change stars');
+      assert.ok(app.stageCompleteModal, 'extra-session result modal must be open');
+      assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
+    });
+
+    it('Issue #23: missing the same category twice offers targeted training recorded per stage', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i < 2) {
+          submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      const records = app.currentSession.errorRecords;
+      assert.equal(records.length, 2);
+      const category = records[0].reasonCategory;
+      assert.equal(records[1].reasonCategory, category, 'both misses must share one category for this scenario');
+      assert.equal(app.currentSession.firstTryCount, 3);
+
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      const trainingBtn = app.stageCompleteModal.querySelector('.btn-stage-training');
+      assert.ok(trainingBtn, 'training button must be offered when a category was missed twice');
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
+
+      domClick(trainingBtn);
+      assert.equal(app.currentSession.mode, 'training');
+      assert.equal(app.currentSession.trainingCategory, category);
+      assert.equal(app.currentSession.problems.length, 3);
+      assert.ok(app.currentSession.problems.every((p) => p.variationOf), 'training problems must be variations of missed problems');
+
+      for (let i = 0; i < 3; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < 2) timers.flushAdvance();
+      }
+
+      const sp = app.progress.stageProgress['stage-1'];
+      assert.equal(sp.training.sessions, 1);
+      assert.equal(sp.training.lastCategory, category);
+      assert.equal(sp.training.lastCorrectCount, 3);
+      assert.equal(sp.cleared, true);
+      assert.ok(app.stageCompleteModal.querySelector('.btn-extra-finish'));
+    });
+
+    it('Issue #23: no adaptation offers appear without a perfect clear or a repeated category', () => {
+      const timers = setupTimerCapture();
+      routeTo('#stage/stage-1');
+      const total = app.currentSession.problems.length;
+
+      for (let i = 0; i < total; i++) {
+        const prob = app.currentSession.problems[app.currentSession.currentIndex];
+        if (i === 0) {
+          submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+          solveStepGuideModal(app.arenaStepGuide);
+          domClick(env.modalRoot.querySelector('.step-finish-btn'));
+        }
+        submitKeypadAnswer(env.viewContainer, getExpectedInput(prob));
+        if (i < total - 1) timers.flushAdvance();
+      }
+
+      assert.equal(app.currentSession.firstTryCount, 4);
+      assert.equal(app.currentSession.errorRecords.length, 1);
+      assert.ok(app.stageCompleteModal, 'stage complete modal must be open');
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-challenge'), null);
+      assert.equal(app.stageCompleteModal.querySelector('.btn-stage-training'), null);
+      // Pre-existing offers are untouched
+      assert.ok(app.stageCompleteModal.querySelector('.btn-stage-bonus'));
+      assert.ok(app.stageCompleteModal.querySelector('.btn-stage-finish'));
+    });
+
     it('TreasureBox review modal rejects empty input without submitting 0 and clears input with diagnosis on wrong answer', () => {
       const prob = CurriculumEngine.generateSingleProblem(1, 1, 1, 2);
       const item = addTreasureItem(app.progress.treasureBox, prob);
