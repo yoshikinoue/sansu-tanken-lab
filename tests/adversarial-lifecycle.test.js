@@ -1655,6 +1655,62 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
 
       tb.destroy();
     });
+
+    it('Issue #20: wrong answer enqueues a spaced review; due banner starts a session that advances the schedule', () => {
+      routeTo('#stage/stage-1');
+      const prob = app.currentSession.problems[0];
+      const itemsBefore = app.progress.treasureBox.items.length;
+      const entriesBefore = app.progress.reviewQueue.entries.length;
+      submitKeypadAnswer(env.viewContainer, getWrongInput(prob));
+
+      // Existing treasure quarantine plus the new review-queue entry
+      assert.equal(app.progress.treasureBox.items.length, itemsBefore + 1);
+      assert.equal(app.progress.reviewQueue.entries.length, entriesBefore + 1);
+      const entry = app.progress.reviewQueue.entries[entriesBefore];
+      const item = app.progress.treasureBox.items[itemsBefore];
+      assert.equal(entry.status, 'active');
+      assert.equal(entry.stepIndex, 0);
+      assert.ok(Date.parse(entry.dueAt) > Date.now(), 'first review must be scheduled in the future');
+      // Treasure mastery is untouched by enqueueing
+      assert.equal(item.masteryLevel, 0);
+      assert.equal(item.consecutiveCorrect, 0);
+
+      // Before the due date the map shows no review banner
+      routeTo('#map');
+      assert.ok(!getAllText(env.viewContainer).includes('今日の復習'), 'banner must be hidden before the due date');
+
+      // Make the entry due and re-render the map
+      entry.dueAt = new Date(Date.now() - 1000).toISOString();
+      routeTo('#map');
+      const mapText = getAllText(env.viewContainer);
+      assert.ok(mapText.includes('今日の復習'), 'banner must appear once due');
+      assert.ok(mapText.includes('1件'), 'banner must show the due count');
+
+      // Start the session from the banner and answer the variation correctly
+      const startBtn = env.viewContainer.querySelector('.btn-start-review-queue');
+      assert.ok(startBtn, 'review start button must exist');
+      domClick(startBtn);
+      const box = app.reviewSessionBox;
+      assert.ok(box?.reviewModalEl, 'scheduled review modal must open');
+      const variation = box.currentVariation;
+      const right = getExpectedInput(variation);
+      if (variation.hasRemainder) {
+        box.reviewModalEl.querySelector('.review-quotient-input').value = String(right.quotient);
+        box.reviewModalEl.querySelector('.review-remainder-input').value = String(right.remainder);
+      } else {
+        box.reviewModalEl.querySelector('.review-answer-input').value = String(right);
+      }
+      box.reviewModalEl.querySelector('.review-submit-btn')?.click();
+
+      // Due correct answer advances the schedule to step 1 (+3 days), without
+      // touching the treasure-box mastery counters (separate concepts)
+      assert.equal(entry.stepIndex, 1);
+      assert.equal(entry.status, 'active');
+      assert.ok(Date.parse(entry.dueAt) > Date.now() + 2 * 24 * 60 * 60 * 1000, 'next due is about 3 days later');
+      assert.equal(item.consecutiveCorrect, 0, 'treasure progression must not change');
+
+      box.destroy();
+    });
   });
 
   // =========================================================================
