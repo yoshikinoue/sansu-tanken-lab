@@ -5,7 +5,7 @@
  * Dual capability:
  * 1. Pure helper functions matching ParentBoardReference for headless Node.js
  * 2. Interactive DOM ParentBoard class for tablet browser featuring 4-digit PIN authentication,
- *    5-dimension radar progress chart, self-correction highlights, cheer stamp sender,
+ *    per-world radar progress chart, self-correction highlights, cheer stamp sender,
  *    and 3-tier backup/device transfer controls.
  */
 
@@ -532,18 +532,15 @@ export class ParentBoard {
     `;
     dashboard.appendChild(highlightCard);
 
-    // 5-Dimension Radar Chart
+    // Radar Chart (one row per world)
     const radarCard = document.createElement('div');
     radarCard.className = 'radar-chart-container';
 
-    const worldLabels = [
-      { key: 'world1', label: 'W1: たし算・ひき算ラボ' },
-      { key: 'world2', label: 'W2: かけ算パワーラボ' },
-      { key: 'world3', label: 'W3: わり算とあまりラボ' },
-      { key: 'world4', label: 'W4: 2桁わり算・見積もり' },
-      { key: 'world5', label: 'W5: 計算のきまり・四則混合' },
-      { key: 'world6', label: 'W6: 小数ラボ' }
-    ];
+    // レーダーの行ラベルは WORLD_DEFINITIONS から生成する (ワールド追加に追随)
+    const worldLabels = (GamificationEngine.WORLD_DEFINITIONS || []).map((w) => ({
+      key: `world${w.worldId}`,
+      label: `W${w.worldId}: ${w.fullName}`
+    }));
 
     let radarRowsHtml = '';
     worldLabels.forEach(w => {
@@ -562,7 +559,7 @@ export class ParentBoard {
     radarCard.innerHTML = `
       <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
         <span>📊</span>
-        <span>6ワールド成長チャート（習熟進捗）</span>
+        <span>${worldLabels.length}ワールド成長チャート（習熟進捗）</span>
       </h3>
       ${radarRowsHtml}
     `;

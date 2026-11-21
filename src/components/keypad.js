@@ -321,7 +321,12 @@ export class Keypad {
 
   setHasRemainder(hasRemainder) {
     this.state.hasRemainder = Boolean(hasRemainder);
-    if (!this.state.hasRemainder) {
+    if (this.state.hasRemainder) {
+      // あまり入力と小数点入力は排他: あまりを有効化したら小数点を落とし、
+      // 状態と表示 (render 側の小数キー抑制) が食い違わないようにする
+      this.state.hasDecimal = false;
+      this.options.hasDecimal = false;
+    } else {
       this.state.activeField = 'quotient';
       this.state.remainderText = '';
     }
@@ -342,6 +347,11 @@ export class Keypad {
       if ('operator' in meta) this.options.operator = meta.operator;
       if ('prompt' in meta) this.options.prompt = meta.prompt;
       if ('answerLabel' in meta) this.options.answerLabel = meta.answerLabel;
+    }
+    // setHasRemainder と対称に、あまり入力が有効な間は小数点入力を落とす
+    if (this.state.hasRemainder) {
+      this.state.hasDecimal = false;
+      this.options.hasDecimal = false;
     }
     this.render();
     this.updateDisplay();
