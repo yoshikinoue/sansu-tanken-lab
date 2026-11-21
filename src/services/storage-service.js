@@ -133,6 +133,9 @@ export function createDefaultProgress() {
     treasureBox: {
       items: []
     },
+    reviewQueue: {
+      entries: []
+    },
     parentCheer: {
       parentPinHash: '1234',
       pinConfigured: false,
@@ -245,6 +248,13 @@ export function normalizeProgressData(data) {
       ...(cloned.treasureBox || {}),
       items: Array.isArray(cloned.treasureBox?.items)
         ? [...cloned.treasureBox.items]
+        : []
+    },
+    reviewQueue: {
+      entries: Array.isArray(cloned.reviewQueue?.entries)
+        ? cloned.reviewQueue.entries
+            .filter(e => e && typeof e === 'object' && typeof e.key === 'string')
+            .map(e => ({ ...e }))
         : []
     },
     parentCheer: {
