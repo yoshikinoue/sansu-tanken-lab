@@ -30,16 +30,22 @@ export function verifyPin(inputPin, storedPin = '1234') {
 }
 
 /**
- * ステージ進捗から5ワールドのレーダーチャートスコア (0..100) を算出
+ * ステージ進捗から全ワールドのレーダーチャートスコア (0..100) を算出
  * 各ワールドのクリアステージ数 / 3 * 100 (四捨五入)
+ * ワールド数は GamificationEngine.WORLD_DEFINITIONS の長さから導出する
  * @param {object} progress
- * @returns {{ world1: number, world2: number, world3: number, world4: number, world5: number }}
+ * @returns {Object<string, number>} { world1..worldN: number }
  */
+const RADAR_WORLD_COUNT = GamificationEngine.WORLD_DEFINITIONS.length;
+
 export function calculateRadarScores(progress) {
-  const scores = { world1: 0, world2: 0, world3: 0, world4: 0, world5: 0 };
+  const scores = {};
+  for (let w = 1; w <= RADAR_WORLD_COUNT; w++) {
+    scores[`world${w}`] = 0;
+  }
   const stageProg = (progress && progress.stageProgress) || {};
 
-  for (let w = 1; w <= 5; w++) {
+  for (let w = 1; w <= RADAR_WORLD_COUNT; w++) {
     let clearedInWorld = 0;
     for (let s = 1; s <= 3; s++) {
       const sKey = `stage-${(w - 1) * 3 + s}`;
@@ -535,7 +541,8 @@ export class ParentBoard {
       { key: 'world2', label: 'W2: かけ算パワーラボ' },
       { key: 'world3', label: 'W3: わり算とあまりラボ' },
       { key: 'world4', label: 'W4: 2桁わり算・見積もり' },
-      { key: 'world5', label: 'W5: 計算のきまり・四則混合' }
+      { key: 'world5', label: 'W5: 計算のきまり・四則混合' },
+      { key: 'world6', label: 'W6: 小数ラボ' }
     ];
 
     let radarRowsHtml = '';
@@ -555,7 +562,7 @@ export class ParentBoard {
     radarCard.innerHTML = `
       <h3 style="font-size:1.1rem; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
         <span>📊</span>
-        <span>5ワールド成長チャート（習熟進捗）</span>
+        <span>6ワールド成長チャート（習熟進捗）</span>
       </h3>
       ${radarRowsHtml}
     `;

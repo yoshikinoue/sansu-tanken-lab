@@ -179,8 +179,13 @@ export const WORLD_DEFINITIONS = [
   { worldId: 2, key: 'world-2', name: 'かけ算パワー', fullName: 'かけ算パワーラボ', stages: ['stage-4', 'stage-5', 'stage-6'] },
   { worldId: 3, key: 'world-3', name: 'わり算とあまり', fullName: 'わり算とあまりラボ', stages: ['stage-7', 'stage-8', 'stage-9'] },
   { worldId: 4, key: 'world-4', name: '2桁わり算・見積もり', fullName: '2桁わり算・見積もりラボ', stages: ['stage-10', 'stage-11', 'stage-12'] },
-  { worldId: 5, key: 'world-5', name: '計算のきまり・四則混合', fullName: '計算のきまり・四則混合ラボ', stages: ['stage-13', 'stage-14', 'stage-15'] }
+  { worldId: 5, key: 'world-5', name: '計算のきまり・四則混合', fullName: '計算のきまり・四則混合ラボ', stages: ['stage-13', 'stage-14', 'stage-15'] },
+  { worldId: 6, key: 'world-6', name: '小数', fullName: '小数ラボ', stages: ['stage-16', 'stage-17', 'stage-18'] }
 ];
+
+// ワールド数・総ステージ数は定義から導出する (ワールド追加に追随)
+const MAX_WORLD_ID = WORLD_DEFINITIONS.length;
+const TOTAL_STAGE_COUNT = WORLD_DEFINITIONS.reduce((n, w) => n + w.stages.length, 0);
 
 export const PARENT_STAMPS = [
   { id: 'STAMP_FOCUS', icon: '🌟', label: 'すごい集中力！' },
@@ -205,7 +210,7 @@ const NO_X_ENCOURAGEMENTS = [
 function createDefaultState() {
   const stageStars = {};
   const stageStats = {};
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= TOTAL_STAGE_COUNT; i++) {
     const stageKey = `stage-${i}`;
     stageStars[stageKey] = 0;
     stageStats[stageKey] = {
@@ -260,23 +265,24 @@ function createDefaultState() {
 let state = createDefaultState();
 
 /**
- * Resolve worldId (1..5) and canonical stageKey ('stage-1'..'stage-15') from flexible inputs.
+ * Resolve worldId and canonical stageKey ('stage-N') from flexible inputs.
+ * 範囲は WORLD_DEFINITIONS から導出する。
  */
 function resolveWorldAndStage(worldIdInput, stageIdInput) {
   let worldId = Number(worldIdInput) || 1;
-  worldId = Math.max(1, Math.min(5, Math.floor(worldId)));
+  worldId = Math.max(1, Math.min(MAX_WORLD_ID, Math.floor(worldId)));
 
   let globalStageNum = 1;
   if (typeof stageIdInput === 'string') {
     const match = stageIdInput.match(/(\d+)/);
     if (match) {
       const parsed = Number(match[1]);
-      if (stageIdInput.toLowerCase().startsWith('stage-') && parsed >= 1 && parsed <= 15) {
+      if (stageIdInput.toLowerCase().startsWith('stage-') && parsed >= 1 && parsed <= TOTAL_STAGE_COUNT) {
         globalStageNum = parsed;
         worldId = Math.ceil(globalStageNum / 3);
       } else if (parsed >= 1 && parsed <= 3) {
         globalStageNum = (worldId - 1) * 3 + parsed;
-      } else if (parsed >= 1 && parsed <= 15) {
+      } else if (parsed >= 1 && parsed <= TOTAL_STAGE_COUNT) {
         globalStageNum = parsed;
         worldId = Math.ceil(globalStageNum / 3);
       }
@@ -285,7 +291,7 @@ function resolveWorldAndStage(worldIdInput, stageIdInput) {
     const num = Math.floor(stageIdInput);
     if (num >= 1 && num <= 3 && worldIdInput !== undefined) {
       globalStageNum = (worldId - 1) * 3 + num;
-    } else if (num >= 1 && num <= 15) {
+    } else if (num >= 1 && num <= TOTAL_STAGE_COUNT) {
       globalStageNum = num;
       worldId = Math.ceil(globalStageNum / 3);
     }
@@ -446,7 +452,7 @@ export function evaluateBadges() {
  *   WorldScore = (clearedStages / 3) * 40 + (accuracyRate * 40) + (treasureMasteryRatio * 20)
  *   (Unmistaken worlds receive full 20pt treasure bonus when active/cleared, or proportional score).
  *
- * @returns {Array<object>} Array of 5 world stat objects (Worlds 1..5)
+ * @returns {Array<object>} Array of world stat objects (one per defined world)
  */
 export function calculateWorldRadarStats() {
   return WORLD_DEFINITIONS.map((worldDef) => {

@@ -416,9 +416,10 @@ export class MathLabApp {
   renderStageArena(container, stageParam = 'stage-1') {
     const stageStr = stageParam || 'stage-1';
     let stageNum = 1;
+    const totalStages = CurriculumEngine.WORLDS_METADATA.reduce((n, w) => n + w.stages.length, 0);
     const match = stageStr.match(/\d+/);
     if (match) {
-      stageNum = Math.max(1, Math.min(15, Number(match[0])));
+      stageNum = Math.max(1, Math.min(totalStages, Number(match[0])));
     }
     const worldId = Math.ceil(stageNum / 3);
     const stageId = `stage-${stageNum}`;
@@ -529,10 +530,15 @@ export class MathLabApp {
     const keypadContainer = container.querySelector('#arena-keypad-container');
     const currentProblem = problems[0];
     const hasRemainder = Boolean(currentProblem?.hasRemainder);
+    // 小数ステージ (メタデータ usesDecimal) では小数点キーを有効化する
+    const hasDecimal = Boolean(
+      CurriculumEngine.getStageMetadata(worldId, stageNum)?.usesDecimal
+    );
 
     if (keypadContainer) {
       this.arenaKeypad = new Keypad({
         hasRemainder,
+        hasDecimal,
         operator: currentProblem?.operator || null,
         prompt: currentProblem?.prompt || '',
         onSound: (snd) => SoundEffects.playSound(snd),
@@ -578,6 +584,9 @@ export class MathLabApp {
     // Reset keypad to match problem remainder mode and operator label
     if (this.arenaKeypad) {
       this.arenaKeypad.reset(Boolean(prob.hasRemainder), {
+        hasDecimal: Boolean(
+          CurriculumEngine.getStageMetadata(session.worldId, session.stageNum)?.usesDecimal
+        ),
         operator: prob.operator || null,
         prompt: prob.prompt || ''
       });
