@@ -1184,4 +1184,55 @@ describe('Issue #17: World 7 分数パーク (fractions)', () => {
       );
     }
   });
+
+  it('never generates fraction problems whose diagnostic predictions collide (Issue #17 Pi review)', () => {
+    // Colliding predictedErrorValues make one diagnosis unreachable and the
+    // other fire for the wrong cause (e.g. 1/6+3/6: denominator-added 4/12
+    // and subtracted-instead 2/6 are both 1/3). Generators must re-draw
+    // operands until every prediction is distinct and none equals the answer.
+    for (const stage of [1, 2, 3]) {
+      for (const diff of ['warmup', 'remedial', 'standard', 'hurdle', 'challenge']) {
+        for (let i = 0; i < 300; i++) {
+          const p = generateProblem(7, stage, { difficultyLevel: diff });
+          const predicted = (p.errorDiagnostics || []).map((d) => d.predictedErrorValue);
+          assert.equal(
+            new Set(predicted).size,
+            predicted.length,
+            `${p.patternType} (${p.prompt}) has colliding diagnostic predictions: ${predicted}`
+          );
+          for (const v of predicted) {
+            assert.notEqual(
+              v,
+              p.correctAnswer.value,
+              `${p.patternType} (${p.prompt}) must not predict the correct value`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  it('diagnoses fraction answers with a wrong denominator as fraction_denominator_mismatch (Issue #17 Pi review)', () => {
+    let sampled = 0;
+    for (let i = 0; i < 200 && sampled < 20; i++) {
+      const p = generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const fa = p.trapMetadata.fractionAnswer;
+      // Both fields wrong and the denominator differs (not the inverted pair),
+      // so no designed trap value may match: the denominator-first dynamic
+      // rule must classify it instead of blaming the numerator.
+      const wrong = { numerator: fa.numerator + 2, denominator: fa.denominator + 3 };
+      if (wrong.numerator === fa.denominator && wrong.denominator === fa.numerator) continue;
+      const wrongValue = wrong.numerator / wrong.denominator;
+      const trapValues = [
+        p.commonTrap?.mistakeValue,
+        ...(p.errorDiagnostics || []).map((d) => d.predictedErrorValue)
+      ];
+      if (trapValues.includes(wrongValue)) continue;
+      const res = evaluateAnswer(p, wrong);
+      assert.equal(res.isCorrect, false);
+      assert.equal(res.diagnosis.reasonCategory, 'fraction_denominator_mismatch');
+      sampled++;
+    }
+    assert.ok(sampled > 0, 'expected at least one sampled problem');
+  });
 });

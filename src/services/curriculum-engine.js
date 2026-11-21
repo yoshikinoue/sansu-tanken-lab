@@ -32,7 +32,7 @@ function pickRandom(arr, rng = Math.random) {
 }
 
 /**
- * 全6ワールド・18ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
+ * 全ワールド・全ステージのメタデータ（ミニ授業3ステップ＋2択クイズ定義含む）
  */
 export const WORLDS_METADATA = [
   {
@@ -4240,6 +4240,25 @@ function getFractionAnswer(problem) {
 }
 
 /**
+ * 分数の誤答診断の予測値が、正解や他の予測値と重ならないかを整数の
+ * クロス乗算で判定する。予測値どうしが重なる組では、先に一致した診断が
+ * 常に選ばれて片方に到達できなくなり、誤答の原因を誤って説明してしまう
+ * ため、生成側では重なる被演算子の組を再抽選する。
+ * @param {[number, number]} answerPair 正解の [分子, 分母]
+ * @param {Array<[number, number]>} predictedPairs 予測値の [分子, 分母] 一覧
+ * @returns {boolean} 重なりがあれば true
+ */
+function fractionDiagnosticsCollide(answerPair, predictedPairs) {
+  const pairs = [answerPair, ...predictedPairs];
+  for (let i = 0; i < pairs.length; i++) {
+    for (let j = i + 1; j < pairs.length; j++) {
+      if (pairs[i][0] * pairs[j][1] === pairs[j][0] * pairs[i][1]) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Stage 7-1 (pattern A): 「n/d は 1/d が何こ分？」(答えは整数)
  */
 function buildFractionUnitCount({ questionIndex, level, difficultyLevel, rng, variationTarget }) {
@@ -4248,6 +4267,8 @@ function buildFractionUnitCount({ questionIndex, level, difficultyLevel, rng, va
   for (let attempt = 0; attempt < 50; attempt++) {
     den = difficultyLevel === 'challenge' ? randInt(6, 12, rng) : randInt(3, 9, rng);
     num = randInt(2, den - 1, rng);
+    // 診断の予測値 (分母 den / 1こ分) が正解 (分子 num) と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, 1], [[den, 1], [1, 1]])) continue;
     if (!variationTarget) break;
     const t = variationTarget.trapMetadata || {};
     if (!(t.fracDen === den && t.fracNum === num)) break;
@@ -4332,6 +4353,8 @@ function buildFractionPartsToFraction({ questionIndex, level, difficultyLevel, r
   for (let attempt = 0; attempt < 50; attempt++) {
     den = difficultyLevel === 'challenge' ? randInt(4, 12, rng) : randInt(3, 9, rng);
     num = randInt(1, den - 1, rng);
+    // 診断の予測値 (上下反転 den/num / 同じ数 1) が正解 num/den と重なる組は避ける
+    if (fractionDiagnosticsCollide([num, den], [[den, num], [1, 1]])) continue;
     if (!variationTarget) break;
     const t = variationTarget.trapMetadata || {};
     if (!(t.fracDen === den && t.fracNum === num)) break;
@@ -4423,6 +4446,15 @@ function buildFractionMixedToImproper({ questionIndex, level, difficultyLevel, r
     whole = difficultyLevel === 'challenge' ? randInt(2, 3, rng) : randInt(1, 2, rng);
     den = randInt(3, 9, rng);
     num = randInt(1, den - 1, rng);
+    // 診断の予測値 (整数部分 whole / 上下反転) が正解の仮分数と重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [whole * den + num, den],
+        [[whole, 1], [den, whole * den + num]]
+      )
+    ) {
+      continue;
+    }
     if (!variationTarget) break;
     const t = variationTarget.trapMetadata || {};
     if (!(t.fracWhole === whole && t.fracDen === den && t.fracNum === num)) break;
@@ -4561,6 +4593,12 @@ function generateStage7_2({ questionIndex, level, difficultyLevel, rng, variatio
     a = randInt(1, den - 1, rng);
     b = randInt(1, den - 1, rng);
     if (isChallenge ? a + b <= den : a + b >= den) continue;
+    // 診断の予測値どうしが重なる組は再抽選する。重なると先に一致した診断が
+    // 常に選ばれ、もう一方の原因を説明できなくなる
+    // (例: 1/6+3/6 では「分母も足した」4/12 と「引いてしまった」2/6 が同じ 1/3)
+    const predictedPairs = [[a + b, 2 * den], [den, a + b]];
+    if (a !== b) predictedPairs.push([Math.abs(a - b), den]);
+    if (fractionDiagnosticsCollide([a + b, den], predictedPairs)) continue;
     if (!variationTarget) break;
     const t = variationTarget.operands || [];
     if (!(t[0] === a && t[2] === b)) break;
@@ -4681,6 +4719,15 @@ function buildFractionSubSameDen({ questionIndex, level, difficultyLevel, rng, v
   for (let attempt = 0; attempt < 200; attempt++) {
     a = randInt(2, den - 1, rng);
     b = randInt(1, a - 1, rng);
+    // 診断の予測値どうし (足してしまう / 上下反転 / 分母も計算) が重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [a - b, den],
+        [[a + b, den], [den, a - b], [a - b, 2 * den]]
+      )
+    ) {
+      continue;
+    }
     if (!variationTarget) break;
     const t = variationTarget.operands || [];
     if (!(t[0] === a && t[2] === b)) break;
@@ -4796,6 +4843,11 @@ function buildFractionSubMixedBorrow({ questionIndex, level, difficultyLevel, rn
     m = randInt(n + 1, den - 1, rng);
     // 借り忘れトラップ (m - n) が正解 (den + n - m) と一致する組は避ける
     if (den === 2 * (m - n)) continue;
+    // 診断の予測値どうしが重なる組も避ける (例: 1と2/4-3/4 では「借り忘れ」
+    // 1/4 と「整数部分の足し忘れ」1/4 が一致し、後者に到達できなくなる)
+    const borrowPredicted = [[m - n, den], [den, den + n - m]];
+    if (den - m > 0 && den - m !== den + n - m) borrowPredicted.push([den - m, den]);
+    if (fractionDiagnosticsCollide([den + n - m, den], borrowPredicted)) continue;
     if (!variationTarget) break;
     const t = variationTarget.trapMetadata || {};
     if (!(t.fracNum === n && t.fracSub === m)) break;
@@ -4912,6 +4964,16 @@ function buildFractionSubMixedMixed({ questionIndex, level, difficultyLevel, rng
     wholeA = randInt(2, 3, rng);
     n = randInt(1, den - 2, rng);
     m = randInt(n + 1, den - 1, rng);
+    // 診断の予測値どうし (別々に引く den+m-n / 上下反転) が正解 (分子 den+n-m)
+    // や相互に重なる組は避ける
+    if (
+      fractionDiagnosticsCollide(
+        [den + n - m, den],
+        [[den + m - n, den], [den, den + n - m]]
+      )
+    ) {
+      continue;
+    }
     if (!variationTarget) break;
     const t = variationTarget.trapMetadata || {};
     if (!(t.fracWhole === wholeA && t.fracNum === n && t.fracSub === m)) break;
@@ -5498,25 +5560,39 @@ export function diagnoseError(problem, userAnswer) {
         userAnswer: fracUserAnswer
       };
     }
-    if (norm.denominator === fracAnswer.denominator && norm.numerator !== fracAnswer.numerator) {
+    // 分母が正解と異なる誤答は、先に分母側の診断へ振り分ける。分子だけを
+    // 見る診断に落とすと「分母は合っているよ」と誤った助言になるため。
+    if (norm.denominator !== fracAnswer.denominator) {
+      if (norm.numerator === fracAnswer.numerator) {
+        return {
+          matched: true,
+          reasonCategory: 'fraction_denominator_changed',
+          diagnosis: '分子は合っているよ！分母は変わらないはずだよ！',
+          adviceMessage: `分母は ${fracAnswer.denominator} のままだよ。同分母の計算では、分母は変えないよ！`,
+          hintMessage: '分母は「何等分したか」。計算の途中でも変わらないよ！',
+          feedbackTitle: 'おしい！もう一歩！',
+          highlightDigitIndex: 0,
+          userAnswer: fracUserAnswer
+        };
+      }
+      return {
+        matched: true,
+        reasonCategory: 'fraction_denominator_mismatch',
+        diagnosis: '分母がちがっているみたい！',
+        adviceMessage: `この問題では、分母は ${fracAnswer.denominator} のままだよ。分母を ${fracAnswer.denominator} にそろえてから、分子を計算してみよう！`,
+        hintMessage: '同分母の計算では、分母は変わらないよ。まず分母を確かめよう！',
+        feedbackTitle: 'おしい！もう一歩！',
+        highlightDigitIndex: 0,
+        userAnswer: fracUserAnswer
+      };
+    }
+    if (norm.numerator !== fracAnswer.numerator) {
       return {
         matched: true,
         reasonCategory: 'fraction_numerator_slip',
         diagnosis: '分母は合っているよ！分子の計算を確かめよう！',
         adviceMessage: '分母はそのままで合っているよ。単位分数が何こ分になるか、分子だけを計算し直してみよう！',
         hintMessage: 'ステップガイドで、分子の計算を1つずつ確かめてみよう！',
-        feedbackTitle: 'おしい！もう一歩！',
-        highlightDigitIndex: 0,
-        userAnswer: fracUserAnswer
-      };
-    }
-    if (norm.numerator === fracAnswer.numerator && norm.denominator !== fracAnswer.denominator) {
-      return {
-        matched: true,
-        reasonCategory: 'fraction_denominator_changed',
-        diagnosis: '分子は合っているよ！分母は変わらないはずだよ！',
-        adviceMessage: `分母は ${fracAnswer.denominator} のままだよ。同分母の計算では、分母は変えないよ！`,
-        hintMessage: '分母は「何等分したか」。計算の途中でも変わらないよ！',
         feedbackTitle: 'おしい！もう一歩！',
         highlightDigitIndex: 0,
         userAnswer: fracUserAnswer

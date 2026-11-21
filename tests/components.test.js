@@ -29,7 +29,8 @@ import Keypad, {
   createKeypadState,
   handleInput,
   getValue,
-  resolveAnswerLabel
+  resolveAnswerLabel,
+  resolveToggleLabel
 } from '../src/components/keypad.js';
 
 import StepGuideModal, {
@@ -405,6 +406,35 @@ describe('Milestone 4: UI Components Unit Tests', () => {
         resolveAnswerLabel({ hasFraction: true, answerLabel: 'custom', prompt: '' }),
         'custom'
       );
+    });
+
+    it('names the destination field on the fraction toggle button (Issue #17 Pi review)', () => {
+      // Pure state: while entering the numerator the button offers the
+      // denominator field, and vice versa (a static 分母 label hid the way back)
+      let state = createKeypadState(false, false, true);
+      assert.equal(resolveToggleLabel(state), '分母へ');
+      state = handleInput(state, 'rem');
+      assert.equal(state.activeField, 'remainder');
+      assert.equal(resolveToggleLabel(state), '分子へ');
+      // Non-fraction modes keep the classic label
+      assert.equal(resolveToggleLabel(createKeypadState(true, false, false)), 'あまり');
+      assert.equal(resolveToggleLabel(createKeypadState(false, false, false)), 'あまり');
+
+      // The rendered button carries the same destination label and follows the toggle
+      const keypad = new Keypad({ hasFraction: true });
+      keypad.container = { innerHTML: '', querySelector: () => null };
+      keypad.render();
+      assert.ok(
+        keypad.container.innerHTML.includes('data-key="rem">分母へ</button>'),
+        'initial toggle button must point to the denominator field'
+      );
+      keypad.pressKey('rem');
+      keypad.render();
+      assert.ok(
+        keypad.container.innerHTML.includes('data-key="rem">分子へ</button>'),
+        'after toggling, the button must point back to the numerator field'
+      );
+      keypad.destroy();
     });
   });
 

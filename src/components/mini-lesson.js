@@ -220,9 +220,18 @@ function getCurriculumLessonMeta(stageId) {
   return null;
 }
 
+/**
+ * ステージの図解データ (LESSON_VISUALS) を返す。未登録なら null
+ * @param {string|number} stageId 例: 'stage-19', 19
+ * @returns {object|null}
+ */
+export function getLessonVisual(stageId) {
+  const key = String(stageId || '').toLowerCase();
+  return LESSON_VISUALS[key] || null;
+}
+
 function renderLessonVisual(stageId) {
-  const key = String(stageId || 'stage-1').toLowerCase();
-  const data = LESSON_VISUALS[key] || LESSON_VISUALS['stage-1'];
+  const data = getLessonVisual(stageId) || LESSON_VISUALS['stage-1'];
   return `
     <div class="lesson-visual-diagram">
       <div class="lesson-visual-header">✏️ ${data.badge}</div>

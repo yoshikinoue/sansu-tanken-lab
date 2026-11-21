@@ -74,6 +74,18 @@ export function getValue(state) {
   return state.quotientText === '' ? 0 : Number(state.quotientText);
 }
 
+/**
+ * 2欄入力の切替ボタンの文言を決める。分数モードでは「押すとどちらの欄へ
+ * 移るか」が分かるよう、現在の入力対象に応じて行き先を表示する
+ * (分子の入力中は「分母へ」、分母の入力中は「分子へ」)。
+ */
+export function resolveToggleLabel(state) {
+  if (state?.hasFraction) {
+    return state.activeField === 'quotient' ? '分母へ' : '分子へ';
+  }
+  return 'あまり';
+}
+
 export function resolveAnswerLabel({
   operator = null,
   hasRemainder = false,
@@ -159,7 +171,7 @@ export class Keypad {
     const hasRem = this.state.hasRemainder || hasFrac;
     const hasDec = Boolean(this.state.hasDecimal) && !hasRem;
     const secondFieldLabel = hasFrac ? '分母（ぶんぼ）' : 'あまり';
-    const toggleLabel = hasFrac ? '分母' : 'あまり';
+    const toggleLabel = resolveToggleLabel(this.state);
     const answerLabel = resolveAnswerLabel({
       operator: this.options.operator,
       hasRemainder: hasRem,
@@ -401,6 +413,12 @@ export class Keypad {
     }
     if (this.displayBoxEl) {
       this.displayBoxEl.classList.toggle('active-field-focus', this.state.activeField === 'remainder');
+    }
+
+    // 分数モードの切替ボタンは、現在の入力対象に合わせて行き先表示に更新する
+    const remBtn = this.container?.querySelector?.('button[data-key="rem"]');
+    if (remBtn && this.state.hasFraction) {
+      remBtn.textContent = resolveToggleLabel(this.state);
     }
   }
 

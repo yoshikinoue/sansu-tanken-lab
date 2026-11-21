@@ -14,7 +14,7 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { routes, parseRoute, MathLabApp } from '../src/main.js';
-import MiniLessonModal, { createLessonState, answerQuiz, nextCard } from '../src/components/mini-lesson.js';
+import MiniLessonModal, { createLessonState, answerQuiz, nextCard, getLessonVisual } from '../src/components/mini-lesson.js';
 import StageMap, { isStageUnlocked, getWorldForStage } from '../src/components/stage-map.js';
 import TreasureBox, { addItem as addTreasureItem, recordAttempt as recordTreasureAttempt } from '../src/components/treasure-box.js';
 import ParentBoard, { verifyPin, calculateRadarScores, createCheerStamp } from '../src/components/parent-board.js';
@@ -2180,6 +2180,158 @@ describe('Adversarial Lifecycle, Modal Teardown & Router Stress Testing', () => 
         assert.ok(qLabel, 'quotient label element must exist');
         assert.equal(getAllText(qLabel), 'こたえ', `Stage 16 (${prob.patternType}) must show こたえ`);
       }
+    });
+  });
+
+  // =========================================================================
+  // Challenge 9: Issue #17 Pi Review Follow-ups
+  // =========================================================================
+  describe('9. Issue #17: Pi Review Follow-ups (Fraction Arena Guard & Visuals)', () => {
+    function routeTo(hash) {
+      global.window.location.hash = hash;
+      app.handleRoute();
+    }
+
+    function domClick(el) {
+      assert.ok(el, 'Expected element for domClick');
+      let stopped = false;
+      let curr = el;
+      while (curr && !stopped) {
+        const evt = {
+          type: 'click',
+          target: el,
+          currentTarget: curr,
+          preventDefault() {},
+          stopPropagation() { stopped = true; }
+        };
+        if (typeof curr.onclick === 'function') {
+          curr.onclick(evt);
+        }
+        const handlers = curr.listeners?.get('click');
+        if (handlers) {
+          for (const h of Array.from(handlers)) {
+            h(evt);
+          }
+        }
+        curr = curr.parentNode;
+      }
+    }
+
+    it('wires hasFraction from the problem into the arena keypad on World 7 stages', () => {
+      routeTo('#stage/stage-20');
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      assert.equal(session.worldId, 7);
+      assert.ok(app.arenaKeypad, 'arena keypad must exist');
+      assert.equal(
+        app.arenaKeypad.state.hasFraction,
+        true,
+        'fraction keypad mode must be on for World 7 addition stage'
+      );
+      assert.equal(session.problems[0].hasFraction, true);
+    });
+
+    it('blocks arena submission while fraction fields are incomplete or the denominator is 0', () => {
+      routeTo('#stage/stage-20');
+      const session = app.currentSession;
+      assert.ok(session, 'arena session must exist');
+      const prob = session.problems[session.currentIndex];
+      const fa = prob.trapMetadata.fractionAnswer;
+      assert.ok(fa, 'fraction problem must carry its answer');
+      const treasureCountBefore = app.progress.treasureBox?.items?.length || 0;
+
+      // Both fields empty: submission is refused without counting an attempt,
+      // launching the step guide, or quarantining the problem
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.correctCount, 0);
+      assert.equal(session.currentIndex, 0);
+      assert.equal(app.arenaStepGuide, null);
+      assert.equal(app.progress.treasureBox?.items?.length || 0, treasureCountBefore);
+
+      // Numerator only: still refused
+      for (const ch of String(fa.numerator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.currentIndex, 0);
+      assert.equal(app.arenaStepGuide, null);
+
+      // Denominator 0: refused as well (0 can never be a denominator)
+      app.arenaKeypad.pressKey('rem');
+      app.arenaKeypad.pressKey('0');
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.attempts, 0);
+      assert.equal(session.correctCount, 0);
+      assert.equal(session.currentIndex, 0);
+
+      // Both fields filled with the correct fraction: accepted normally
+      app.arenaKeypad.pressKey('clear');
+      for (const ch of String(fa.numerator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('rem');
+      for (const ch of String(fa.denominator)) app.arenaKeypad.pressKey(ch);
+      app.arenaKeypad.pressKey('enter');
+      assert.equal(session.correctCount, 1);
+      if (app.arenaAdvanceTimer) {
+        clearTimeout(app.arenaAdvanceTimer);
+        app.arenaAdvanceTimer = null;
+      }
+    });
+
+    it('TreasureBox review modal requires both fraction fields before submitting', () => {
+      const prob = CurriculumEngine.generateProblem(7, 2, { difficultyLevel: 'standard' });
+      const item = addTreasureItem(app.progress.treasureBox, prob);
+
+      const tb = new TreasureBox({
+        progress: app.progress,
+        onUpdateHeader: () => {
+          app.syncGamificationProgress();
+          app.updateHeaderStats();
+        }
+      });
+      tb.render(env.viewContainer);
+      tb.launchReviewModal(item);
+
+      const variation = tb.currentVariation;
+      assert.ok(variation?.hasFraction, 'review variation must be a fraction problem');
+      const nInput = tb.reviewModalEl.querySelector('.review-numerator-input');
+      const dInput = tb.reviewModalEl.querySelector('.review-denominator-input');
+      const submitBtn = tb.reviewModalEl.querySelector('.review-submit-btn');
+      const feedbackBox = tb.reviewModalEl.querySelector('.review-feedback');
+      assert.ok(nInput && dInput && submitBtn && feedbackBox);
+
+      // Both fields empty: rejected with guidance, nothing recorded
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 0);
+      assert.equal(feedbackBox.style.display, 'block');
+      assert.ok(tb.reviewModalEl, 'modal must stay open');
+
+      // Numerator only: still rejected
+      const fa = variation.trapMetadata.fractionAnswer;
+      nInput.value = String(fa.numerator);
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 0);
+      assert.ok(tb.reviewModalEl, 'modal must stay open');
+
+      // Both fields filled correctly: accepted
+      dInput.value = String(fa.denominator);
+      domClick(submitBtn);
+      assert.equal(item.masteryLevel, 1);
+
+      tb.destroy();
+    });
+
+    it('exposes lesson visuals for World 7 stages 19-21', () => {
+      for (const stageId of ['stage-19', 'stage-20', 'stage-21']) {
+        const visual = getLessonVisual(stageId);
+        assert.ok(visual, `${stageId} must have a lesson visual`);
+        assert.ok(visual.badge, `${stageId} visual must carry a badge`);
+        assert.ok(visual.tip, `${stageId} visual must carry a tip`);
+        assert.ok(
+          Array.isArray(visual.diagramLines) && visual.diagramLines.length > 0,
+          `${stageId} visual must carry diagram lines`
+        );
+      }
+      assert.equal(getLessonVisual('stage-999'), null);
     });
   });
 });
