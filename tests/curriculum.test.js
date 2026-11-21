@@ -1901,6 +1901,37 @@ describe('Issue #19: World 9 文章題ラボ (word problems)', () => {
     }
   });
 
+  it('scales the ribbon template of word_remainder_down by difficulty', () => {
+    // buildWordRemainderDown のリボン (templateIndex 1) は難易度ごとに
+    // total と除数 d の範囲が変わる。除数の上限が難易度に追随することを検証する
+    const ranges = {
+      warmup: { totalMin: 60, totalMax: 150, dMin: 4, dMax: 9 },
+      remedial: { totalMin: 60, totalMax: 150, dMin: 4, dMax: 9 },
+      standard: { totalMin: 120, totalMax: 300, dMin: 9, dMax: 20 },
+      hurdle: { totalMin: 120, totalMax: 300, dMin: 9, dMax: 20 },
+      challenge: { totalMin: 300, totalMax: 999, dMin: 12, dMax: 40 }
+    };
+    for (const [diff, range] of Object.entries(ranges)) {
+      let seen = 0;
+      for (let i = 0; i < 400 && seen < 25; i++) {
+        const p = generateProblem(9, 2, { difficultyLevel: diff });
+        if (p.trapMetadata.remainderMode !== 'down') continue;
+        if (!p.prompt.includes('リボンから')) continue;
+        seen++;
+        const [total, d] = p.operands;
+        assert.ok(
+          total >= range.totalMin && total <= range.totalMax,
+          `${diff}: total ${total} out of range in ${p.prompt}`
+        );
+        assert.ok(
+          d >= range.dMin && d <= range.dMax,
+          `${diff}: divisor ${d} out of range in ${p.prompt}`
+        );
+      }
+      assert.ok(seen > 0, `${diff}: ribbon template was never generated`);
+    }
+  });
+
   it('converts units before calculating in unit word problems', () => {
     for (const diff of ['warmup', 'standard', 'hurdle', 'challenge', 'remedial']) {
       for (let i = 0; i < 60; i++) {

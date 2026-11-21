@@ -1,6 +1,6 @@
 /**
  * Gamification Engine: Lab Ranks, 8 Badges, Stage Stars, Self-Correction Empowerment,
- * 5-World Radar Analytics & Parent Cheer Stamps
+ * World Radar Analytics & Parent Cheer Stamps
  * 算数探検ラボ (Smart Math Discovery Lab)
  */
 
