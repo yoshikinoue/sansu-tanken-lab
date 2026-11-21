@@ -1017,6 +1017,32 @@ canvas.memo-canvas {
   font-size: 0.9rem;
 }
 
+/* Learning scope notice card (Issue #22) */
+.learning-scope-card {
+  padding: 24px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-card-border);
+}
+
+.learning-scope-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.learning-scope-card p {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+
+.learning-scope-card p.scope-note-muted {
+  color: var(--color-text-muted);
+  margin-bottom: 0;
+}
+
 .stamp-selector {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));

@@ -209,8 +209,8 @@ export class StepGuideModal {
         <div class="step-input-row">
           <input type="text"
             class="step-input"
-            inputmode="numeric"
-            pattern="[0-9]*"
+            inputmode="decimal"
+            pattern="[0-9.]*"
             data-step-index="${idx}"
             value="${answeredVal}"
             placeholder="?"

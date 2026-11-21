@@ -3,6 +3,8 @@
  * 算数探検ラボ (Smart Math Discovery Lab)
  */
 
+import { WORLDS_METADATA } from './curriculum-engine.js';
+
 export const MINI_LESSON_SCRIPTS = {
   'stage-1': {
     stageId: 'stage-1',
@@ -423,6 +425,258 @@ export const MINI_LESSON_SCRIPTS = {
       rule: '【25×4=100を見つけたら勝ち！】工夫して100や1000のまとまりを作ろう！',
       ttsText: '二十五掛ける四は百！キリのいい数を作ると、暗算で解けちゃうよ！'
     }
+  },
+  'stage-16': {
+    stageId: 'stage-16',
+    worldId: 6,
+    stageNumber: 1,
+    title: '小数の仕組み（0.1と0.01）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '1を10等分した1つ分が「0.1」。0.1が10こ集まると1！0.1を10等分すると「0.01」だよ。',
+      ttsText: '0.1が10こ集まると1になるよ。0.1を10等分すると0.01。小数は位に分けると正体がわかるよ！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.1 が 23 こ集まった数はいくつ？',
+      options: [
+        { id: 'A', label: '23' },
+        { id: 'B', label: '2.3' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！0.1が20こで2、0.1が3こで0.3。合わせて2.3だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！0.1が10こ集まると1になるんだったね。',
+      ttsText: '0.1が23こ集まった数はいくつかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【0.1が10こで1、0.01が10こで0.1！】位に分けると小数の大きさが見えてくる！',
+      ttsText: '今日の必殺技！0.1が10こで1！位に分けて考えると小数はこわくないよ！'
+    }
+  },
+  'stage-17': {
+    stageId: 'stage-17',
+    worldId: 6,
+    stageNumber: 2,
+    title: '小数のたし算（小数点をそろえる）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '小数のたし算は小数点の位置をそろえて、位ごとに計算！答えにも小数点を書こう。',
+      ttsText: '小数のたし算は小数点をそろえるのが鉄則！位ごとに計算して、答えにも小数点を書こう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.7 + 0.5 の 0.1の位は 7 + 5 = 12。答えの 0.1の位に書く数字はどっち？',
+      options: [
+        { id: 'A', label: '2' },
+        { id: 'B', label: '12' }
+      ],
+      correctOption: 'A',
+      correctFeedback: 'ピンポン！大正解！12の「2」を書いて、1は一の位へくり上がり。答えは1.2だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！1つの位に書ける数字は1つだけだよ。',
+      ttsText: '0.7たす0.5の計算、0.1の位に書く数字はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【小数点をそろえて位ごとに計算、答えにも小数点！】小数点を無視して整数みたいにしない！',
+      ttsText: '今日の必殺技！小数点をそろえて計算、答えにも小数点を忘れずに！'
+    }
+  },
+  'stage-18': {
+    stageId: 'stage-18',
+    worldId: 6,
+    stageNumber: 3,
+    title: '小数のひき算（くり下がり）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '引けない時は上の位から「10」を借りる！小数でも整数と同じルールだよ。',
+      ttsText: '小数のひき算も、引けない時は上の位から十を借りてくるよ。整数から引く時は位に分けて考えよう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '0.5 - 0.27 で、0.1の位の5から10を借りたよ。0.1の位の計算はどっち？',
+      options: [
+        { id: 'A', label: '5 - 2' },
+        { id: 'B', label: '4 - 2' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！貸した分を引いて4 - 2 = 2。答えは0.23だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！となりに貸したら、自分の位は1減るんだったね。',
+      ttsText: '0.5ひく0.27の計算、借りたあとの0.1の位はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【引けない時は10を借りる、貸した位は1減らす！】小数点をそろえるのも忘れずに！',
+      ttsText: '今日の必殺技！引けない時は十を借りる！貸した位が1減るのを忘れないでね！'
+    }
+  },
+  'stage-19': {
+    stageId: 'stage-19',
+    worldId: 7,
+    stageNumber: 1,
+    title: '分数の仕組み（分母と分子）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '1を7等分した1つ分が「1/7」。分母は1を何等分したか、分子はその何こ分か表すよ。',
+      ttsText: '分母は1を何等分したか、分子はその何こ分か表すよ。3/7は1/7が3こ分だね！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '5/9 は 1/9 が何こ分？',
+      options: [
+        { id: 'A', label: '9' },
+        { id: 'B', label: '5' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！分子の5が、1/9 が5こ分という意味だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！9は分母で「9等分した」という意味だったね。',
+      ttsText: '5/9は1/9が何こ分かな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【分母＝等分した数、分子＝何こ分！】単位分数が何こ分かで分数を読む！',
+      ttsText: '今日の必殺技！分母は等分した数、分子は何こ分！単位分数で分数を読もう！'
+    }
+  },
+  'stage-20': {
+    stageId: 'stage-20',
+    worldId: 7,
+    stageNumber: 2,
+    title: '同分母のたし算（分母はそのまま）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '2/7 + 3/7 は、1/7 が2こと3こで合わせて5こ分。分母は変わらないよ。',
+      ttsText: '同分母のたし算は、分母はそのままで分子だけを足すよ。分母同士は足さないでね！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '3/8 + 2/8 の答えの分母はどっち？',
+      options: [
+        { id: 'A', label: '16' },
+        { id: 'B', label: '8' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！分母は8のまま、分子は 3 + 2 = 5。答えは5/8だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！分母同士を足してしまっているよ。',
+      ttsText: '3/8たす2/8の答えの分母はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【分母はそのまま、分子だけ足す！】分母同士は絶対に足さない！',
+      ttsText: '今日の必殺技！分母はそのまま、分子だけ足す！ミッションスタート！'
+    }
+  },
+  'stage-21': {
+    stageId: 'stage-21',
+    worldId: 7,
+    stageNumber: 3,
+    title: '同分母のひき算（仮分数に直す）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '引けない時は帯分数を仮分数に直す！1と2/7 は 9/7 に変身できるよ。',
+      ttsText: '引けない時は帯分数を仮分数に直してから引くよ。整数の1は分母の数こ分に変身できるよ！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '1と1/5 を仮分数に直すと、分子はどっち？',
+      options: [
+        { id: 'A', label: '5' },
+        { id: 'B', label: '6' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！1は1/5が5こ分、それに1こ分を足して6。答えは6/5だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！もとの分子の1を足し忘れているよ。',
+      ttsText: '1と1/5を仮分数に直すと、分子はどっちかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【引けない時は仮分数に直して、分子だけ引く！】分母はひき算でもそのまま！',
+      ttsText: '今日の必殺技！引けない時は仮分数に直す！分母はそのままで分子だけ引こう！'
+    }
+  },
+  'stage-22': {
+    stageId: 'stage-22',
+    worldId: 8,
+    stageNumber: 1,
+    title: '大きな数の仕組み（万・億・兆）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '大きな数は右から4桁ずつ区切ると読みやすいよ。1億は1万が10000こ分！',
+      ttsText: '大きな数は右から4桁ずつ区切って、万・億・兆のまとまりで読もう。一億は一万が10000こ分だよ！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '1億は、1万が何こ分？',
+      options: [
+        { id: 'A', label: '1000' },
+        { id: 'B', label: '10000' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！1億は1万の10000倍。0が4こ分ちがうね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！1万から10倍が4回分で1億になるよ。',
+      ttsText: '1億は、1万が何こ分かな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【位は右から数える！】4桁ずつのまとまりで万・億・兆をつかむ！',
+      ttsText: '今日の必殺技！位は右から数える！4桁ずつのまとまりで大きな数を読もう！'
+    }
+  },
+  'stage-23': {
+    stageId: 'stage-23',
+    worldId: 8,
+    stageNumber: 2,
+    title: 'がい数と四捨五入（見る位がカギ）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '百の位までのがい数にする時は、十の位の数字を見よう。4以下は切り捨て、5以上は切り上げ！',
+      ttsText: '四捨五入は、残したい位の1つ下の数字を見るよ。4以下は切り捨て、5以上は切り上げだね！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '3,567 を百の位までのがい数にすると？',
+      options: [
+        { id: 'A', label: '3,500' },
+        { id: 'B', label: '3,600' }
+      ],
+      correctOption: 'B',
+      correctFeedback: 'ピンポン！大正解！十の位の6を見て切り上げて3,600だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！十の位は6で5以上だから切り上げるよ。',
+      ttsText: '3,567を百の位までのがい数にするとどうなるかな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【見るのは1つ下の位、5以上で切り上げ！】どの位までのがい数か先に確認！',
+      ttsText: '今日の必殺技！四捨五入は1つ下の位を見る！5以上で切り上げだよ！'
+    }
+  },
+  'stage-24': {
+    stageId: 'stage-24',
+    worldId: 8,
+    stageNumber: 3,
+    title: '概算（がい数で見積もる）',
+    card1: {
+      title: '【着眼点・ひらめきカード】',
+      text: '298円は約300円、512円は約500円。値段をがい数に直してから足すと、合計の見当がつくよ。',
+      ttsText: '買い物の見積もりは、値段をがい数に直してから計算するよ。見当をつけてから正確に計算しよう！'
+    },
+    card2: {
+      title: '【参加型 2択クイズカード】',
+      question: '198円のりんごを4こ買います。百の位までのがい数にして見積もると、約何円？',
+      options: [
+        { id: 'A', label: '約800円' },
+        { id: 'B', label: '792円' }
+      ],
+      correctOption: 'A',
+      correctFeedback: 'ピンポン！大正解！198円は約200円。200 × 4 = 800円だね！',
+      incorrectFeedback: 'おしい！もう一度考えてみよう！それは正確な計算の答えだね。まず198円を約200円に直そう。',
+      ttsText: '198円のりんごを4こ買う見積もりは、約何円かな？'
+    },
+    card3: {
+      title: '【攻略・解法まとめカード】',
+      rule: '【がい数に直してから計算！】見積もってから正確に計算するとまちがいに気づける！',
+      ttsText: '今日の必殺技！がい数に直してから計算！見積もり上手になろう！'
+    }
   }
 };
 
@@ -723,16 +977,18 @@ export function speakText(text, options = {}) {
  */
 export function getMiniLessonData(stageIdentifier) {
   let key = 'stage-1';
+  // 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+  const totalStages = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 
   if (typeof stageIdentifier === 'number') {
-    const clamped = Math.max(1, Math.min(15, Math.floor(stageIdentifier)));
+    const clamped = Math.max(1, Math.min(totalStages, Math.floor(stageIdentifier)));
     key = `stage-${clamped}`;
   } else if (typeof stageIdentifier === 'string') {
     const trimmed = stageIdentifier.trim().toLowerCase();
     if (MINI_LESSON_SCRIPTS[trimmed]) {
       key = trimmed;
     } else if (/^\d+$/.test(trimmed)) {
-      const num = Math.max(1, Math.min(15, Number(trimmed)));
+      const num = Math.max(1, Math.min(totalStages, Number(trimmed)));
       key = `stage-${num}`;
     } else {
       const worldStageMatch = trimmed.match(/w(?:orld)?[-_]?(\d+)[-_]s(?:tage)?[-_]?(\d+)/);
@@ -740,7 +996,7 @@ export function getMiniLessonData(stageIdentifier) {
         const w = Number(worldStageMatch[1]);
         const s = Number(worldStageMatch[2]);
         const globalStage = (w - 1) * 3 + s;
-        if (globalStage >= 1 && globalStage <= 15) {
+        if (globalStage >= 1 && globalStage <= totalStages) {
           key = `stage-${globalStage}`;
         }
       }
@@ -748,11 +1004,11 @@ export function getMiniLessonData(stageIdentifier) {
   } else if (stageIdentifier && typeof stageIdentifier === 'object') {
     const w = Number(stageIdentifier.worldId || 1);
     const s = Number(stageIdentifier.stageId || 1);
-    if (s >= 1 && s <= 15 && !stageIdentifier.worldId) {
+    if (s >= 1 && s <= totalStages && !stageIdentifier.worldId) {
       key = `stage-${s}`;
     } else {
       const globalStage = (w - 1) * 3 + s;
-      if (globalStage >= 1 && globalStage <= 15) {
+      if (globalStage >= 1 && globalStage <= totalStages) {
         key = `stage-${globalStage}`;
       }
     }

@@ -6,6 +6,8 @@
  *   - Tier 3: JSON Backup Export/Import & 8-Character Transfer Code (LAB-XXXX-XXXX) with 48h TTL
  */
 
+import { WORLDS_METADATA } from './curriculum-engine.js';
+
 export const STORAGE_KEY = 'math_lab_progress_v1';
 export const TRANSFER_STORE_KEY = 'math_lab_transfers_v1';
 export const SYNC_PENDING_KEY = 'math_lab_sync_pending_v1';
@@ -13,7 +15,8 @@ export const SCHEMA_VERSION = '1.0.0';
 export const TRANSFER_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTVWXYZ';
 export const TRANSFER_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 export const DEFAULT_DEBOUNCE_MS = 1000;
-export const TOTAL_STAGES = 15;
+// 総ステージ数はカリキュラムのメタデータから導出する (ワールド追加に追随)
+export const TOTAL_STAGES = WORLDS_METADATA.reduce((n, world) => n + world.stages.length, 0);
 export const DIAGNOSIS_LOG_LIMIT = 500;
 
 // In-memory storage fallback for Node.js or restricted browser environments
@@ -90,7 +93,7 @@ export function getStorageBackend(options = {}) {
 
 /**
  * Create a clean default progress object conforming to schemaVersion 1.0.0.
- * Includes all 15 stages (stage-1 unlocked, stage-2..stage-15 locked).
+ * Includes all stages (stage-1 unlocked, the rest locked).
  * @returns {object}
  */
 export function createDefaultProgress() {
