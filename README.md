@@ -52,15 +52,22 @@
   - 虫食い算・逆算（□の式）
 - あわせて、小学3年生で学ぶ計算の復習要素を含みます
 
-### 対象外の内容（今後の課題）
+### 対象外の内容
 
-以下は現時点では扱っていません。今後の課題としてイシューで管理しています。
+以下は現時点では扱っていません。
+
+#### 今後の課題としてイシューで管理している内容
 
 - 小数（[#16](https://github.com/yoshikinoue/sansu-tanken-lab/issues/16)）
 - 分数（[#17](https://github.com/yoshikinoue/sansu-tanken-lab/issues/17)）
 - 大きな数と概数（[#18](https://github.com/yoshikinoue/sansu-tanken-lab/issues/18)）
 - 文章題（[#19](https://github.com/yoshikinoue/sansu-tanken-lab/issues/19)）
-- 図形（角・平行と垂直・四角形・直方体）、面積、折れ線グラフなどのデータの活用（[#22](https://github.com/yoshikinoue/sansu-tanken-lab/issues/22)）
+
+#### 対象外と決定した内容
+
+- 図形（角・平行と垂直・四角形・直方体）、面積、折れ線グラフなどのデータの活用
+
+本アプリは計算専用と位置づけており、上記は [#22](https://github.com/yoshikinoue/sansu-tanken-lab/issues/22) で対象外と決定しました。実装予定はありません。
 
 ---
 
