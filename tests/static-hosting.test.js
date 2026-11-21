@@ -329,4 +329,28 @@ describe('Static Hosting, PWA Manifest & GitHub Pages Support', () => {
       assert.ok(html.includes('.world-progress-badge'), 'standalone bundle must include the world progress badge rule');
     });
   });
+
+  describe('Learning scope notice (Issue #22)', () => {
+    it('parent board source states the learning scope and out-of-scope topics', () => {
+      const src = fs.readFileSync(path.join(ROOT_DIR, 'src/components/parent-board.js'), 'utf8');
+      assert.ok(src.includes('このアプリの対象範囲'), 'parent-board.js must include the scope card title');
+      assert.ok(src.includes('対象外'), 'parent-board.js must mention out-of-scope topics');
+      assert.ok(src.includes('learning-scope-card'), 'parent-board.js must use the learning-scope-card class');
+    });
+
+    it('components.css defines the learning-scope-card rule instead of inline styles', () => {
+      const componentsCss = fs.readFileSync(path.join(ROOT_DIR, 'src/styles/components.css'), 'utf8');
+      const block = componentsCss.match(/\.learning-scope-card\s*\{([^}]*)\}/);
+      assert.ok(block, 'components.css must define .learning-scope-card');
+      assert.ok(block[1].includes('padding:'), '.learning-scope-card must carry the card padding');
+      assert.ok(block[1].includes('border:'), '.learning-scope-card must carry the card border');
+    });
+
+    it('standalone bundle carries the same scope notice wording and CSS rule', () => {
+      const html = fs.readFileSync(path.join(ROOT_DIR, 'sansu_tanken_lab.html'), 'utf8');
+      assert.ok(html.includes('このアプリの対象範囲'), 'standalone bundle must include the scope card title');
+      assert.ok(html.includes('対象外'), 'standalone bundle must mention out-of-scope topics');
+      assert.ok(html.includes('.learning-scope-card'), 'standalone bundle must include the learning-scope-card CSS rule');
+    });
+  });
 });
